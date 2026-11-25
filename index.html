@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>잿빛 성역 · Ashen Sanctum</title>
+<meta name="description" content="스무 명의 영웅이 스킬로 맞붙는 1인칭 다크 판타지 아레나. 3대3 라운드제 섬멸전, AI 대전과 방 코드 온라인 대전.">
+<meta name="theme-color" content="#16131a">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M32 4 L40 26 L32 60 L24 26Z' fill='%23c9a45c'/%3E%3Ccircle cx='32' cy='24' r='5' fill='%23ff3b3b'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hahmlet:wght@300;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js","three/addons/":"./vendor/addons/"}}</script>
+<script src="vendor/peerjs.min.js"></script>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="grain"></div>
+
+<!-- ============ LOADING ============ -->
+<section id="loading" class="screen is-on">
+  <div class="loading__sigil"></div>
+  <p class="loading__text">성역의 문을 여는 중</p>
+</section>
+
+<!-- ============ HERO SELECT / MENU ============ -->
+<section id="select" class="screen">
+  <header class="topbar">
+    <div class="logo"><span class="logo__mark"></span><span class="logo__ko">잿빛 성역</span><span class="logo__en">Ashen Sanctum</span></div>
+    <div class="topbar__right">
+      <span id="lobby-badge" class="lobby-badge" hidden></span>
+      <button class="icon-btn" id="btn-help" aria-label="조작법">?</button>
+      <button class="icon-btn" id="btn-settings" aria-label="설정">⚙</button>
+    </div>
+  </header>
+
+  <div class="nameplate-v">
+    <h1 id="sel-name" class="nameplate-v__name">발로크</h1>
+    <div class="nameplate-v__rule"></div>
+    <div class="nameplate-v__meta">
+      <span id="sel-title" class="nameplate-v__title">혈맹 기사</span>
+      <span id="sel-role" class="role-chip">수호자</span>
+    </div>
+  </div>
+
+  <aside class="dossier">
+    <blockquote id="sel-quote" class="dossier__quote"></blockquote>
+    <dl class="stats" id="sel-stats"></dl>
+    <ol class="skills" id="sel-skills"></ol>
+  </aside>
+
+  <div class="stage-hint">끌어서 돌려보기</div>
+
+  <footer class="roster-bar">
+    <nav class="roles" id="role-tabs"></nav>
+    <div class="roster" id="roster"></div>
+  </footer>
+
+  <div class="actions" id="menu-actions">
+    <button class="btn btn--ghost" id="btn-training"><span class="btn__k">훈련장</span><span class="btn__s">허수아비로 스킬 연습</span></button>
+    <div class="actions__ai">
+      <button class="btn btn--ember" id="btn-ai"><span class="btn__k">AI 대전</span><span class="btn__s">3대3 · 먼저 3라운드</span></button>
+      <div class="seg" id="diff-seg" role="radiogroup" aria-label="AI 난이도">
+        <button data-d="0">쉬움</button><button data-d="1" class="is-on">보통</button><button data-d="2">어려움</button>
+      </div>
+    </div>
+    <button class="btn btn--soul" id="btn-online"><span class="btn__k">온라인 팀전</span><span class="btn__s">방 코드로 친구와 대전</span></button>
+  </div>
+
+  <div class="lobby" id="lobby-panel" hidden>
+    <div class="lobby__code">
+      <span class="lobby__label">방 코드</span>
+      <button class="lobby__codeval" id="lobby-code" title="눌러서 복사">-----</button>
+    </div>
+    <div class="lobby__teams">
+      <div class="team team--a"><h3>청록의 맹약</h3><ul id="team-a"></ul></div>
+      <div class="team team--b"><h3>핏빛 서약</h3><ul id="team-b"></ul></div>
+    </div>
+    <div class="lobby__opts" id="lobby-opts">
+      <label class="check"><input type="checkbox" id="opt-fill" checked> 빈 자리를 AI로 채우기</label>
+      <div class="seg seg--sm" id="lobby-diff"><button data-d="0">쉬움</button><button data-d="1" class="is-on">보통</button><button data-d="2">어려움</button></div>
+    </div>
+    <div class="lobby__btns">
+      <button class="btn btn--ghost btn--sm" id="btn-switch-team">팀 바꾸기</button>
+      <button class="btn btn--ghost btn--sm" id="btn-leave-lobby">나가기</button>
+      <button class="btn btn--ember btn--sm" id="btn-start">전투 시작</button>
+    </div>
+    <p class="lobby__note" id="lobby-note"></p>
+  </div>
+</section>
+
+<!-- ============ ONLINE DIALOG ============ -->
+<section id="online" class="modal" hidden>
+  <div class="modal__card">
+    <h2 class="modal__title">온라인 팀전</h2>
+    <label class="field"><span>이름</span><input id="in-name" maxlength="10" autocomplete="off"></label>
+    <div class="online__row">
+      <button class="btn btn--ember" id="btn-host"><span class="btn__k">방 만들기</span><span class="btn__s">코드를 친구에게 공유</span></button>
+    </div>
+    <div class="online__join">
+      <label class="field"><span>방 코드</span><input id="in-code" maxlength="5" autocomplete="off" placeholder="ABCDE"></label>
+      <button class="btn btn--soul" id="btn-join"><span class="btn__k">참가</span></button>
+    </div>
+    <p class="modal__note" id="online-note">서버 없이 브라우저끼리 직접 연결돼요. 방을 만든 사람이 나가면 게임이 끝나요.</p>
+    <button class="modal__close" id="btn-online-close" aria-label="닫기">✕</button>
+  </div>
+</section>
+
+<!-- ============ SETTINGS ============ -->
+<section id="settings" class="modal" hidden>
+  <div class="modal__card">
+    <h2 class="modal__title">설정</h2>
+    <label class="field field--range"><span>마우스 감도</span><input type="range" id="set-sens" min="0.2" max="3" step="0.05"><output id="out-sens"></output></label>
+    <label class="field field--range"><span>시야각</span><input type="range" id="set-fov" min="70" max="110" step="1"><output id="out-fov"></output></label>
+    <label class="field field--range"><span>음량</span><input type="range" id="set-vol" min="0" max="1" step="0.05"><output id="out-vol"></output></label>
+    <div class="field"><span>그래픽</span><div class="seg seg--sm" id="set-q"><button data-q="low">낮음</button><button data-q="medium">보통</button><button data-q="high">높음</button></div></div>
+    <button class="modal__close" id="btn-settings-close" aria-label="닫기">✕</button>
+  </div>
+</section>
+
+<!-- ============ HELP ============ -->
+<section id="help" class="modal" hidden>
+  <div class="modal__card modal__card--wide">
+    <h2 class="modal__title">조작법</h2>
+    <div class="keys">
+      <div><kbd>W A S D</kbd><span>이동</span></div>
+      <div><kbd>Space</kbd><span>점프</span></div>
+      <div><kbd>마우스</kbd><span>시점</span></div>
+      <div><kbd>좌클릭</kbd><span>기본 공격 (누르고 있으면 연속, 궁수는 모아 쏘기)</span></div>
+      <div><kbd>Q</kbd><span>이동기 / 스킬</span></div>
+      <div><kbd>E</kbd><span>스킬</span></div>
+      <div><kbd>X</kbd><span>궁극기 (게이지 100%)</span></div>
+      <div><kbd>Tab</kbd><span>전적판</span></div>
+      <div><kbd>Esc</kbd><span>메뉴</span></div>
+    </div>
+    <p class="modal__note">한 라운드에 부활은 없어요. 상대 팀 셋을 모두 쓰러뜨리면 라운드 승리, 먼저 3라운드를 가져가는 팀이 이겨요. 궁극기 게이지는 시간이 지나거나 피해·치유를 주면 차요.</p>
+    <button class="modal__close" id="btn-help-close" aria-label="닫기">✕</button>
+  </div>
+</section>
+
+<!-- ============ HUD ============ -->
+<section id="hud" class="screen">
+  <div class="hud__score">
+    <div class="score score--a"><div class="score__pips" id="pips-a"></div><div class="score__heads" id="heads-a"></div></div>
+    <div class="score__mid"><div class="score__round" id="hud-round">1라운드</div><div class="score__timer" id="hud-timer">2:00</div></div>
+    <div class="score score--b"><div class="score__pips" id="pips-b"></div><div class="score__heads" id="heads-b"></div></div>
+  </div>
+  <div class="killfeed" id="killfeed"></div>
+  <div class="crosshair" id="crosshair"><i></i><i></i><i></i><i></i><b></b></div>
+  <div class="hitmark" id="hitmark"></div>
+  <div class="chargebar" id="chargebar"><i></i></div>
+  <div class="announce" id="announce"><div class="announce__main"></div><div class="announce__sub"></div></div>
+  <div class="plates" id="plates"></div>
+  <div class="dmgnums" id="dmgnums"></div>
+  <div class="vignette" id="vignette"></div>
+  <div class="spectate" id="spectate" hidden></div>
+
+  <div class="me">
+    <div class="me__portrait"><img id="me-portrait" alt=""></div>
+    <div class="me__info">
+      <div class="me__name"><span id="me-name">발로크</span><span id="me-status" class="me__status"></span></div>
+      <div class="hpbar"><div class="hpbar__fill" id="me-hp"></div><div class="hpbar__shield" id="me-shield"></div><div class="hpbar__ticks" id="me-ticks"></div></div>
+      <div class="me__hpnum"><b id="me-hpnum">380</b><span id="me-hpmax">/ 380</span></div>
+    </div>
+  </div>
+  <div class="abilities" id="abilities"></div>
+  <div class="train-tip" id="train-tip" hidden>훈련장 · 허수아비는 3초 동안 맞지 않으면 회복해요 · <kbd>Esc</kbd>에서 영웅 바꾸기</div>
+</section>
+
+<section id="scoreboard" class="board" hidden>
+  <table><thead><tr><th>영웅</th><th>이름</th><th>처치</th><th>죽음</th><th>피해</th><th>치유</th></tr></thead><tbody id="board-body"></tbody></table>
+</section>
+
+<section id="pause" class="modal" hidden>
+  <div class="modal__card">
+    <h2 class="modal__title">일시 정지</h2>
+    <div class="pause__btns">
+      <button class="btn btn--ember" id="btn-resume"><span class="btn__k">계속하기</span></button>
+      <button class="btn btn--ghost" id="btn-pause-hero" hidden><span class="btn__k">영웅 바꾸기</span></button>
+      <button class="btn btn--ghost" id="btn-pause-settings"><span class="btn__k">설정</span></button>
+      <button class="btn btn--ghost" id="btn-quit"><span class="btn__k">메뉴로 나가기</span></button>
+    </div>
+  </div>
+</section>
+
+<section id="results" class="results" hidden>
+  <div class="results__title" id="res-title">승리</div>
+  <div class="results__score" id="res-score">3 : 1</div>
+  <table class="results__table"><thead><tr><th>영웅</th><th>이름</th><th>처치</th><th>죽음</th><th>피해</th><th>치유</th></tr></thead><tbody id="res-body"></tbody></table>
+  <div class="results__btns">
+    <button class="btn btn--ember" id="btn-again"><span class="btn__k">다시 하기</span></button>
+    <button class="btn btn--ghost" id="btn-menu"><span class="btn__k">메뉴로</span></button>
+  </div>
+</section>
+
+<div class="click-to-play" id="click-to-play" hidden><span>클릭해서 전투로 돌아가기</span></div>
+<div class="toast" id="toast" hidden></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
