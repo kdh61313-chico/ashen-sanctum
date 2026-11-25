@@ -35,7 +35,7 @@ const BASE = [
     ai: { range: 2.0, style: 'melee' },
     abilities: {
       lmb: { name: '쌍단검', desc: '빠른 찌르기. 등 뒤에서 맞히면 1.8배.', kind: 'melee', cd: 0.42, range: 2.8, arc: 75, dmg: 34, backstab: 1.8, icon: 'daggers' },
-      q: { name: '그림자 걸음', desc: '바라보는 방향으로 순간이동한다.', kind: 'blink', cd: 6, dist: 10, icon: 'blink', ai: { use: 'gap', min: 5, max: 12 } },
+      q: { name: '그림자 걸음', desc: '조준한 적의 등 뒤로 순간이동한다. 대상이 없으면 앞으로 이동한다.', kind: 'shadowstep', cd: 8, range: 16, dist: 10, icon: 'blink', ai: { use: 'gap', min: 4, max: 16 } },
       e: { name: '그림자 표창', desc: '표창을 던져 맞힌 적을 2초간 둔화시킨다.', kind: 'proj', cd: 5, speed: 48, dmg: 42, r: 0.35, life: 1.2, onHit: { slow: [2, 0.35] }, look: 'shuriken', icon: 'shuriken', ai: { use: 'aim', max: 22 } },
       x: { name: '망령화', desc: '6초 동안 투명해지고 빨라지며 공격력이 2배가 된다.', kind: 'buff', target: 'self', st: { invis: [6], haste: [6, 0.4], dmgUp: [6, 1.0] }, icon: 'ghost', ai: { use: 'engage', max: 25 } },
     },
@@ -95,7 +95,7 @@ const BASE = [
     ai: { range: 16, style: 'ranged' },
     abilities: {
       lmb: { name: '번개 줄기', desc: '즉시 꽂히는 번개를 쏜다.', kind: 'beam', cd: 0.34, range: 28, dmg: 16, look: 'lightning', icon: 'bolt', ai: {} },
-      q: { name: '섬광 질주', desc: '번개처럼 빠르게 질주한다.', kind: 'dash', cd: 6, dist: 10, dur: 0.22, icon: 'dash', ai: { use: 'escape', min: 5 } },
+      q: { name: '뇌전 질주', desc: '번개처럼 질주하며 지나간 자리에 감전 지대를 남긴다.', kind: 'dash', cd: 7, dist: 11, dur: 0.22, trail: { r: 1.6, dur: 2.5, dps: 26, st: { slow: [0.4, 0.2] }, look: 'sparkpath' }, icon: 'bolt', ai: { use: 'gap', min: 4, max: 12 } },
       e: { name: '연쇄 번개', desc: '대상에게 튀어 주변 적 2명에게 연쇄된다.', kind: 'beam', cd: 8, range: 30, dmg: 50, chain: { n: 2, r: 9, dmg: 35 }, onHit: { stun: [0.3] }, look: 'chain', icon: 'chain', ai: { use: 'aim', max: 28 } },
       x: { name: '뇌우', desc: '조준 지점에 5초간 번개가 연달아 내리친다.', kind: 'zone', at: 'aim', range: 40, r: 8, dur: 5, strikes: { every: 0.35, dmg: 30, r: 2.6 }, look: 'storm', icon: 'storm', ai: { use: 'aim', max: 35 } },
     },
@@ -107,7 +107,7 @@ const BASE = [
     ai: { range: 2.4, style: 'melee' },
     abilities: {
       lmb: { name: '핏빛 발톱', desc: '할퀴어 입힌 피해의 35%를 흡수한다.', kind: 'melee', cd: 0.55, range: 2.9, arc: 90, dmg: 34, steal: 0.35, icon: 'claw' },
-      q: { name: '박쥐 변신', desc: '박쥐 떼로 흩어져 돌진한다. 이동 중 무적.', kind: 'dash', cd: 8, dist: 10, dur: 0.4, invuln: true, icon: 'bat', ai: { use: 'gap', min: 4, max: 11 } },
+      q: { name: '박쥐 떼', desc: '박쥐 떼로 흩어져 돌진한다. 이동 중 무적이고, 지나간 자리의 핏빛 안개가 적의 피를 빤다.', kind: 'dash', cd: 8, dist: 10, dur: 0.4, invuln: true, trail: { r: 1.8, dur: 3, dps: 16, stealAll: 1, look: 'bloodmist' }, icon: 'bat', ai: { use: 'gap', min: 4, max: 11 } },
       e: { name: '피의 창', desc: '관통하는 피의 창을 던져 체력을 흡수한다.', kind: 'proj', cd: 7, speed: 50, dmg: 55, r: 0.4, life: 0.8, pierce: true, steal: 0.5, look: 'bloodspear', icon: 'spear', ai: { use: 'aim', max: 30 } },
       x: { name: '피의 연회', desc: '4초간 주변 적의 생명을 빨아들인다.', kind: 'zone', at: 'self', follow: true, r: 7, dur: 4, dps: 42, stealAll: 1.0, look: 'bloodfeast', icon: 'feast', ai: { use: 'self', max: 6 } },
     },
@@ -119,7 +119,7 @@ const BASE = [
     ai: { range: 3.2, style: 'melee' },
     abilities: {
       lmb: { name: '성창 찌르기', desc: '길게 찌른다.', kind: 'melee', cd: 0.75, range: 4.2, arc: 40, dmg: 44, icon: 'spear' },
-      q: { name: '신성 돌격', desc: '짧게 돌격해 부딪힌 적을 밀쳐낸다.', kind: 'dash', cd: 7, dist: 8, dur: 0.35, dmg: 25, hitR: 1.4, knock: 9, icon: 'dash', ai: { use: 'gap', min: 4, max: 9 } },
+      q: { name: '빛의 도약', desc: '뛰어올라 내려앉으며 주변 적에게 피해를 주고 아군을 치유한다.', kind: 'leap', cd: 9, fwd: 11, up: 9, land: { r: 6, dmg: 25, heal: 55 }, icon: 'leap', ai: { use: 'gap', min: 4, max: 12 } },
       e: { name: '빛의 보호막', desc: '조준한 아군(없으면 자신)과 자신에게 보호막을 씌운다.', kind: 'buff', target: 'ally', r: 25, cd: 9, shield: 90, alsoSelf: true, icon: 'shield', ai: { use: 'heal', r: 25 } },
       x: { name: '성역', desc: '6초간 성역을 펼친다. 아군은 치유되고 받는 피해가 줄어든다.', kind: 'zone', at: 'self', r: 9, dur: 6, hps: 35, allySt: { dr: [0.4, 0.3] }, look: 'sanctum', icon: 'sanctum', ai: { use: 'save', r: 9 } },
     },
@@ -131,7 +131,7 @@ const BASE = [
     ai: { range: 13, style: 'ranged' },
     abilities: {
       lmb: { name: '역병 플라스크', desc: '포물선으로 던져 터뜨린다. 맞은 적은 중독된다.', kind: 'proj', cd: 0.85, speed: 24, dmg: 20, r: 0.35, grav: 0.8, life: 3, splash: { r: 3, dmg: 26 }, onHit: { poison: [3, 9] }, look: 'flask', icon: 'flask', ai: {} },
-      q: { name: '연막 후퇴', desc: '연기를 남기고 뒤로 물러난다.', kind: 'launch', cd: 7, back: 10, up: 5, selfSt: { invis: [1.2] }, icon: 'smoke', ai: { use: 'escape', min: 5 } },
+      q: { name: '연막 후퇴', desc: '뒤로 물러나며 제자리에 독 연막을 남긴다.', kind: 'launch', cd: 7, back: 10, up: 5, selfSt: { invis: [1.2] }, originZone: { r: 3.5, dur: 4, dps: 10, st: { slow: [0.5, 0.35] }, look: 'smoke' }, icon: 'smoke', ai: { use: 'escape', min: 5 } },
       e: { name: '독안개', desc: '조준 지점에 독안개를 퍼뜨린다.', kind: 'zone', cd: 10, at: 'aim', range: 28, r: 5, dur: 6, dps: 22, st: { slow: [0.5, 0.25] }, look: 'miasma', icon: 'miasma', ai: { use: 'aim', max: 26 } },
       x: { name: '역병 창궐', desc: '반경 24m 안의 모든 적을 6초간 강하게 중독시킨다.', kind: 'aoe', at: 'self', look: 'skull', r: 24, noLos: true, dmg: 10, st: { poison: [6, 20] }, icon: 'skull', ai: { use: 'self', max: 22 } },
     },
@@ -143,7 +143,7 @@ const BASE = [
     ai: { range: 15, style: 'ranged' },
     abilities: {
       lmb: { name: '공허 구체', desc: '느리지만 적을 관통하는 구체.', kind: 'proj', cd: 0.75, speed: 20, dmg: 36, r: 0.55, life: 2.4, pierce: true, look: 'void', icon: 'void', ai: {} },
-      q: { name: '위상 이동', desc: '짧게 순간이동한다.', kind: 'blink', cd: 5, dist: 8, icon: 'blink', ai: { use: 'escape', min: 5 } },
+      q: { name: '위상 교체', desc: '조준한 적과 위치를 맞바꾸고 잠시 기절시킨다.', kind: 'swap', cd: 10, range: 28, icon: 'rift', ai: { use: 'aim', max: 25 } },
       e: { name: '공허의 균열', desc: '균열을 열어 적을 중심으로 빨아들인다.', kind: 'zone', cd: 10, at: 'aim', range: 28, r: 6, dur: 2.5, dps: 16, pull: 9, look: 'rift', icon: 'rift', ai: { use: 'aim', max: 26 } },
       x: { name: '공허 붕괴', desc: '1.5초 뒤 조준 지점이 붕괴해 막대한 피해를 준다.', kind: 'zone', at: 'aim', range: 40, r: 8, delay: 1.5, dur: 0, pullDuringDelay: 6, burst: { dmg: 140 }, look: 'collapse', icon: 'collapse', ai: { use: 'aim', max: 35 } },
     },
@@ -167,7 +167,7 @@ const BASE = [
     ai: { range: 2.4, style: 'melee' },
     abilities: {
       lmb: { name: '쌍도끼', desc: '양손 도끼로 내려친다.', kind: 'melee', cd: 0.7, range: 3.0, arc: 100, dmg: 40, icon: 'axe' },
-      q: { name: '광폭 질주', desc: '돌진하며 부딪힌 적을 튕겨낸다.', kind: 'dash', cd: 7, dist: 11, dur: 0.4, dmg: 30, hitR: 1.5, knock: 12, icon: 'dash', ai: { use: 'gap', min: 4, max: 11 } },
+      q: { name: '도끼 투척', desc: '도끼를 던진다. 적을 꿰뚫고 다시 손으로 돌아온다.', kind: 'proj', cd: 7, speed: 26, dmg: 38, r: 0.55, life: 1.0, boomerang: true, pierce: true, look: 'axe', icon: 'axe', ai: { use: 'aim', max: 16 } },
       e: { name: '회전베기', desc: '3초간 회전하며 주변을 벤다.', kind: 'zone', at: 'self', follow: true, cd: 10, r: 3.8, dur: 3, dps: 48, look: 'whirl', selfSt: { slow: [3, 0.15] }, icon: 'whirl', ai: { use: 'self', max: 3.5 } },
       x: { name: '불사의 분노', desc: '6초간 죽지 않고, 공격력이 30% 오른다.', kind: 'buff', target: 'self', st: { undying: [6], dmgUp: [6, 0.3], haste: [6, 0.2] }, icon: 'rage', ai: { use: 'lowhp', hp: 0.35 } },
     },
@@ -179,7 +179,7 @@ const BASE = [
     ai: { range: 15, style: 'support' },
     abilities: {
       lmb: { name: '별똥 구슬', desc: '적에게는 피해, 아군에게 맞으면 치유.', kind: 'proj', cd: 0.55, speed: 36, dmg: 26, r: 0.35, life: 1.8, healAlly: 30, look: 'star', icon: 'star', ai: {} },
-      q: { name: '별의 도약', desc: '앞으로 높이 도약한다.', kind: 'leap', cd: 7, fwd: 10, up: 10, icon: 'leap', ai: { use: 'escape', min: 5 } },
+      q: { name: '별의 인도', desc: '조준한 아군 곁으로 순간이동하고 그 아군을 치유한다.', kind: 'allywarp', cd: 9, range: 35, heal: 40, icon: 'star', ai: { use: 'escape', min: 5 } },
       e: { name: '별자리 결계', desc: '조준 지점에 아군을 치유하는 결계를 편다.', kind: 'zone', cd: 11, at: 'aim', range: 25, r: 6, dur: 5, hps: 32, look: 'constellation', icon: 'heal', ai: { use: 'heal', r: 20 } },
       x: { name: '유성우', desc: '유성이 쏟아져 적은 다치고 아군은 치유된다.', kind: 'zone', at: 'aim', range: 40, r: 9, dur: 4.5, strikes: { every: 0.3, dmg: 28, r: 2.8, heal: 22 }, look: 'starfall', icon: 'starfall', ai: { use: 'aim', max: 35 } },
     },
@@ -203,7 +203,7 @@ const BASE = [
     ai: { range: 12, style: 'ranged' },
     abilities: {
       lmb: { name: '환영 단검', desc: '빠른 단검을 던진다.', kind: 'proj', cd: 0.45, speed: 60, dmg: 26, r: 0.25, life: 0.9, look: 'mirrorblade', icon: 'daggers', ai: {} },
-      q: { name: '거울 걸음', desc: '순간이동하고 1.5초간 투명해진다.', kind: 'blink', cd: 8, dist: 9, selfSt: { invis: [1.5] }, icon: 'blink', ai: { use: 'escape', min: 5 } },
+      q: { name: '거울 분신', desc: '순간이동하며 제자리에 거울 분신을 남긴다. 분신은 1.4초 뒤 폭발한다.', kind: 'blink', cd: 8, dist: 9, selfSt: { invis: [1.5] }, decoy: { r: 3.2, delay: 1.4, dmg: 55, look: 'decoy' }, icon: 'blink', ai: { use: 'escape', min: 5 } },
       e: { name: '현혹', desc: '조준한 적을 1초간 기절시킨다.', kind: 'beam', cd: 9, range: 20, dmg: 20, onHit: { stun: [1.0] }, look: 'mesmer', icon: 'eye', ai: { use: 'aim', max: 18 } },
       x: { name: '천 개의 칼날', desc: '부채꼴로 환영 단검 9개를 동시에 던진다.', kind: 'proj', count: 9, spread: 40, speed: 55, dmg: 34, r: 0.3, life: 1, look: 'mirrorblade', icon: 'fan', ai: { use: 'aim', max: 12 } },
     },
@@ -215,7 +215,7 @@ const BASE = [
     ai: { range: 20, style: 'ranged' },
     abilities: {
       lmb: { name: '깃털 화살', desc: '빠르게 연사하는 화살.', kind: 'proj', cd: 0.46, speed: 75, dmg: 21, r: 0.22, grav: 0.1, life: 1.6, look: 'feather', icon: 'arrow', ai: {} },
-      q: { name: '깃털 활강', desc: '떠올라 활강한다.', kind: 'glide', cd: 8, up: 9, dur: 3, icon: 'wing', ai: { use: 'escape', min: 5 } },
+      q: { name: '까마귀 변신', desc: '까마귀 떼로 변해 2초 동안 보이지 않고 빨라진다.', kind: 'buff', target: 'self', cd: 9, st: { invis: [2], haste: [2, 0.5] }, icon: 'crow', ai: { use: 'escape', min: 5 } },
       e: { name: '까마귀 떼', desc: '조준 지점에 까마귀 떼를 풀어 공격하고 둔화시킨다.', kind: 'zone', cd: 9, at: 'aim', range: 30, r: 4.5, dur: 3, dps: 28, st: { slow: [0.5, 0.3] }, look: 'crows', icon: 'crow', ai: { use: 'aim', max: 28 } },
       x: { name: '사신의 화살', desc: '모든 것을 꿰뚫는 거대한 화살을 쏜다.', kind: 'proj', speed: 70, dmg: 150, r: 0.8, life: 1.5, pierce: true, wallPierce: true, look: 'reaper', icon: 'reaper', ai: { use: 'aim', max: 50 } },
     },
@@ -227,7 +227,7 @@ const BASE = [
     ai: { range: 2.6, style: 'melee' },
     abilities: {
       lmb: { name: '룬 망치', desc: '망치로 내려친다.', kind: 'melee', cd: 0.85, range: 3.2, arc: 90, dmg: 52, icon: 'hammer' },
-      q: { name: '룬 도약', desc: '앞으로 도약해 착지 지점을 내려친다.', kind: 'leap', cd: 8, fwd: 11, up: 8, land: { r: 3.5, dmg: 35, st: { slow: [1.5, 0.35] } }, icon: 'leap', ai: { use: 'gap', min: 5, max: 12 } },
+      q: { name: '룬 방패 돌격', desc: '돌진해 부딪힌 적을 밀쳐내고 4초 동안 보호막 70을 얻는다.', kind: 'dash', cd: 8, dist: 9, dur: 0.35, dmg: 30, hitR: 1.5, knock: 7, shield: 70, icon: 'shield', ai: { use: 'gap', min: 4, max: 10 } },
       e: { name: '룬 방벽', desc: '앞에 적의 투사체를 막는 벽을 세운다.', kind: 'zone', at: 'front', dist: 3, wall: { w: 7, d: 0.6 }, dur: 5, blockProj: true, h: 3.2, cd: 12, look: 'runewall', icon: 'wall', ai: { use: 'defend' } },
       x: { name: '대지의 룬', desc: '6초간 룬을 새긴다. 아군은 단단해지고 적은 느려진다.', kind: 'zone', at: 'self', r: 9, dur: 6, dps: 15, st: { slow: [0.5, 0.4] }, allySt: { dr: [0.4, 0.4] }, look: 'runecircle', icon: 'rune', ai: { use: 'self', max: 8 } },
     },

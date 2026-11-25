@@ -86,6 +86,7 @@ export class Sim {
     }
   }
   spawn(p, idx) {
+    p.hist = []; p.tpLock = 0;
     const s = SPAWNS[p.team][idx % 6];
     p.pos = [...s]; p.vel = [0, 0, 0]; p.yaw = SPAWN_YAW[p.team]; p.pitch = 0;
     p.hp = p.maxHp; p.alive = true; p.st = {}; p.shield = 0; p.dashT = 0; p.glideUntil = 0;
@@ -119,6 +120,7 @@ export class Sim {
     const p = this.players.get(id); if (!p || p.isBot) return;
     if (!p.alive) return;
     const ox = p.pos[0], oz = p.pos[2];
+    if (p.tpLock > this.now && Math.hypot(s.pos[0] - ox, s.pos[2] - oz) > 1.5) return;
     p.pos = s.pos; p.yaw = s.yaw; p.pitch = s.pitch; p.onGround = s.onGround;
     p.vel = s.vel || [0, 0, 0];
     p._moved = Math.hypot(ox - p.pos[0], oz - p.pos[2]);
@@ -147,7 +149,12 @@ export class Sim {
     }
     if (slot === 'lmb') { p.combo = this.now - p.lastAtk < Math.max(1.1, def.cd * 2.5) ? (p.combo + 1) % 3 : 0; p.lastAtk = this.now; }
     if (aim) { p.yaw = aim.yaw; p.pitch = aim.pitch; }
-    this.ev({ t: 'cast', id, slot, hero: p.hero, combo: p.combo });
+    const origin = aim?.pre ? [...aim.pre] : [...p.pos];
+    this.ev({ t: 'cast', id, slot, hero: p.hero, combo: p.combo, from: origin });
+    if (def.hpCost) p.hp = Math.max(1, p.hp - def.hpCost);
+    if (def.shield && def.kind !== 'buff') { p.shield = Math.max(p.shield, def.shield); p.shieldT = 4; }
+    if (def.originZone) this.spawnZone(p, def.originZone, origin, p.yaw);
+    if (def.decoy) this.spawnZone(p, { ...def.decoy, dur: 0, burst: { dmg: def.decoy.dmg } }, origin, p.yaw);
     if (def.refill) { p.ammo = p.def.abilities.lmb.ammo || 0; p.reloadT = 0; }
     if (this.mode === 'training' && slot === 'x') p.ult = ULT_COST;
 
@@ -155,12 +162,12 @@ export class Sim {
       if (!ownerMoved && (p.isBot || p.isDummy)) applyMoveAbility(p, def, p.yaw, p.pitch, this.now);
       if (def.kind === 'glide' && (p.isBot || p.isDummy)) p.glideUntil = this.now + def.dur;
       if (def.kind === 'glide') p.glideUntilSrv = this.now + def.dur;
-      if (def.kind === 'dash') p.dashHit = { t: def.dur + 0.12, def, hit: new Set() };
+      if (def.kind === 'dash') p.dashHit = { t: def.dur + 0.12, def, hit: new Set(), acc: 0 };
       if (def.kind === 'dash' && def.invuln) this.addSt(p, 'invuln', def.dur + 0.1);
       if (def.kind === 'leap' && def.land) p.leap = { def, t0: this.now };
-      if (def.kind === 'launch' && def.aoe) this.aoeAt(p, p.pos, def.aoe.r, def.aoe.dmg, { knock: def.aoe.knock, look: 'burst' });
-      if (def.kind === 'launch') this.ev({ t: 'fx', fx: 'burst', pos: [...p.pos], color: p.def.color });
-      if (def.kind === 'blink') this.ev({ t: 'fx', fx: 'blink', pos: [...p.pos], color: p.def.color });
+      if (def.kind === 'launch' && def.aoe) this.aoeAt(p, origin, def.aoe.r, def.aoe.dmg, { knock: def.aoe.knock, look: 'burst' });
+      if (def.kind === 'launch') this.ev({ t: 'fx', fx: 'burst', pos: origin, color: p.def.color });
+      if (def.kind === 'blink') this.ev({ t: 'fx', fx: 'blink', pos: origin, to: [...p.pos], color: p.def.color });
     } else {
       this['k_' + def.kind]?.(p, def, aim || { yaw: p.yaw, pitch: p.pitch });
     }
@@ -225,7 +232,7 @@ export class Sim {
       const start = [eye[0] + d[0] * 0.5 - fz * 0.15, eye[1] - 0.18 + d[1] * 0.5, eye[2] + d[2] * 0.5 + fx * 0.15];
       this.projs.push({
         id: nextEnt++, owner: p.id, team: p.team, def, look: def.look, pos: start,
-        vel: [d[0] * speed, d[1] * speed, d[2] * speed], life: def.life, dmg, hit: new Set(),
+        vel: [d[0] * speed, d[1] * speed, d[2] * speed], life: def.boomerang ? def.life * 3 : def.life, dmg, hit: new Set(), t: 0, ret: false, bounces: def.bounce || 0, speed,
       });
     }
   }
@@ -262,7 +269,8 @@ export class Sim {
     const end = [eye[0] + d[0] * t, eye[1] + d[1] * t, eye[2] + d[2] * t];
     this.ev({ t: 'fx', fx: 'beam', look: def.look, id: p.id, from: [eye[0], eye[1] - 0.2, eye[2]], to: end, color: p.def.color });
     if (target) {
-      this.damage(p, target, dmg, { from: eye, onHit: def.onHit });
+      this.damage(p, target, dmg, { from: eye, onHit: def.onHit, steal: def.steal });
+      if (def.pullBeam) { const dx = p.pos[0] - target.pos[0], dz = p.pos[2] - target.pos[2], l = Math.hypot(dx, dz) || 1; const k = Math.min(def.pullBeam, Math.max(0, l - 2)) * 2.2; this.impulse(target, [dx / l * k, 4, dz / l * k], true); }
       if (def.chain) {
         let last = target; const hitSet = new Set([target.id]);
         for (let i = 0; i < def.chain.n; i++) {
@@ -322,6 +330,68 @@ export class Sim {
       this.damage(p, o, def.dmg, { from: eye });
     }
     this.ev({ t: 'fx', fx: 'deadeye', pos: [...p.pos], color: p.def.color });
+  }
+
+  spawnZone(p, zd, pos, yaw = 0) {
+    const z = { id: nextEnt++, owner: p.id, team: p.team, def: zd, look: zd.look, pos: [...pos], yaw, r: zd.r || 0, t: 0, delay: zd.delay || 0, dur: zd.dur ?? 2, acc: 0, sacc: 0, fired: false };
+    z.pos[1] = groundUnder(z.pos[0], z.pos[2], z.pos[1] + 0.5);
+    this.zones.push(z);
+    return z;
+  }
+  teleport(p, pos, yaw = p.yaw) {
+    p.pos = [...pos]; p.vel = [0, 0, 0]; p.dashT = 0; p.yaw = yaw;
+    if (!p.isBot && !p.isDummy) { p.tpLock = this.now + 0.6; this.ev({ t: 'tp', id: p.id, pos: [...pos], yaw, keep: true }); }
+  }
+  aimTarget(p, aim, range, cone = 0.35, list = null) {
+    const eye = this.eye(p), d = dirFromAngles(aim.yaw, aim.pitch);
+    let best = null, bs = Math.cos(cone);
+    for (const o of (list || this.enemiesOf(p))) {
+      if (o === p || (o.st.invis && list === null)) continue;
+      const c = this.chest(o); const v = [c[0] - eye[0], c[1] - eye[1], c[2] - eye[2]]; const l = Math.hypot(...v);
+      if (l > range) continue;
+      const dot = (v[0] * d[0] + v[1] * d[1] + v[2] * d[2]) / l;
+      if (dot > bs && losClear(eye, c)) { bs = dot; best = o; }
+    }
+    return best;
+  }
+  k_shadowstep(p, def, aim) {
+    const o = this.aimTarget(p, aim, def.range, 0.3);
+    const from = [...p.pos];
+    if (o) {
+      const [fx, fz] = fwdFromYaw(o.yaw);
+      let pos = [o.pos[0] - fx * 1.3, o.pos[1], o.pos[2] - fz * 1.3];
+      if (!losClear([o.pos[0], o.pos[1] + 1, o.pos[2]], [pos[0], pos[1] + 1, pos[2]])) pos = [o.pos[0] + fx * 1.3, o.pos[1], o.pos[2] + fz * 1.3];
+      this.teleport(p, pos, o.yaw);
+    } else { applyMoveAbility(p, { kind: 'blink', dist: def.dist }, aim.yaw, aim.pitch, this.now); this.teleport(p, p.pos, aim.yaw); }
+    this.ev({ t: 'fx', fx: 'blink', pos: from, to: [...p.pos], color: p.def.color });
+  }
+  k_swap(p, def, aim) {
+    const o = this.aimTarget(p, aim, def.range, 0.12);
+    if (!o) { this.ev({ t: 'fx', fx: 'blink', pos: [...p.pos], color: p.def.color }); return; }
+    const a = [...p.pos], b = [...o.pos];
+    this.teleport(p, b, p.yaw); this.teleport(o, a, o.yaw);
+    this.applySt(o, { stun: [0.6] });
+    this.ev({ t: 'fx', fx: 'swap', from: [a[0], a[1] + 1, a[2]], to: [b[0], b[1] + 1, b[2]], color: p.def.color });
+  }
+  k_allywarp(p, def, aim) {
+    const allies = this.alliesOf(p).filter(o => o !== p);
+    let o = this.aimTarget(p, aim, def.range, 0.6, allies);
+    if (!o && allies.length) o = allies.reduce((m, x) => (Math.hypot(x.pos[0] - p.pos[0], x.pos[2] - p.pos[2]) < Math.hypot(m.pos[0] - p.pos[0], m.pos[2] - p.pos[2]) ? x : m));
+    if (!o) return;
+    const from = [...p.pos];
+    const [fx, fz] = fwdFromYaw(o.yaw);
+    this.teleport(p, [o.pos[0] - fx * 1.4, o.pos[1], o.pos[2] - fz * 1.4], o.yaw);
+    if (def.heal) this.heal(p, o, def.heal);
+    this.ev({ t: 'fx', fx: 'blink', pos: from, to: [...p.pos], color: p.def.color });
+  }
+  k_recall(p, def) {
+    const want = this.now - def.back;
+    const h = (p.hist || []).find(e => e[0] >= want) || p.hist?.[0];
+    if (!h) return;
+    const from = [...p.pos];
+    this.teleport(p, [h[1], h[2], h[3]], p.yaw);
+    if (def.heal) this.heal(p, p, def.heal);
+    this.ev({ t: 'fx', fx: 'recall', from, to: [...p.pos], color: p.def.color });
   }
 
   k_trap(p, def) {
@@ -508,6 +578,8 @@ export class Sim {
       }
       if (this.phase === 'live') p.ult = Math.min(ULT_COST, p.ult + dt * 0.9);
       if (this.phase === 'train') p.ult = Math.min(ULT_COST, p.ult + dt * 8);
+      p._ht = (p._ht || 0) + dt;
+      if (p._ht >= 0.1) { p._ht = 0; (p.hist = p.hist || []).push([this.now, p.pos[0], p.pos[1], p.pos[2]]); while (p.hist.length > 34) p.hist.shift(); }
       if (p.reloadT > 0) { p.reloadT -= dt; if (p.reloadT <= 0) { p.reloadT = 0; p.ammo = p.def.abilities.lmb.ammo || 0; } }
       // hazards
       if (p.pos[1] < 0.35 && (this.phase === 'live' || this.phase === 'train')) {
@@ -553,6 +625,7 @@ export class Sim {
             }
           }
         }
+        if (d.trail) { const lp = p.dashHit.lp; if (!lp || Math.hypot(p.pos[0] - lp[0], p.pos[2] - lp[2]) > d.trail.r * 1.5) { p.dashHit.lp = [...p.pos]; this.spawnZone(p, d.trail, p.pos, p.yaw); } }
         if (p.dashHit.t <= 0) p.dashHit = null;
       }
       // leap landing
@@ -560,6 +633,8 @@ export class Sim {
         const L = p.leap.def.land;
         this.aoeAt(p, p.pos, L.r, L.dmg, { knockup: L.knockup, st: L.st });
         this.ev({ t: 'fx', fx: 'slam', pos: [...p.pos], r: L.r, color: p.def.color });
+        if (L.zone) this.spawnZone(p, L.zone, p.pos, p.yaw);
+        if (L.heal) for (const a of this.alliesOf(p)) if (Math.hypot(a.pos[0] - p.pos[0], a.pos[2] - p.pos[2]) <= L.r) this.heal(p, a, L.heal);
         p.leap = null;
       } else if (p.leap && this.now - p.leap.t0 > 4) p.leap = null;
       // fell out of world safety
@@ -576,6 +651,13 @@ export class Sim {
     for (const pr of this.projs) {
       const def = pr.def;
       const prev = [...pr.pos];
+      pr.t += dt;
+      if (def.boomerang) {
+        const own = this.players.get(pr.owner);
+        if (!pr.ret && pr.t >= def.life * 0.5) { pr.ret = true; pr.hit.clear(); }
+        if (pr.ret && own) { const c = this.chest(own); const v = [c[0] - pr.pos[0], c[1] - pr.pos[1], c[2] - pr.pos[2]]; const l = Math.hypot(...v); if (l < 1.2) { continue; } pr.vel = v.map(x => x / l * pr.speed * 1.15); }
+        if (pr.ret && !own) continue;
+      }
       pr.vel[1] -= GRAVITY * (def.grav || 0) * dt;
       pr.pos[0] += pr.vel[0] * dt; pr.pos[1] += pr.vel[1] * dt; pr.pos[2] += pr.vel[2] * dt;
       pr.life -= dt;
@@ -615,7 +697,7 @@ export class Sim {
                 if (best) { this.heal(src, best, def.healNearest.amt); this.ev({ t: 'fx', fx: 'wisp', from: [...pt], to: this.chest(best), color: src.def.color }); }
               }
               if (def.splash) this.explode(pr, pt, o);
-              if (!def.pierce) { dead = true; break outer; }
+              if (!def.pierce) { dead = true; pr.endAt = [...pt]; break outer; }
             } else if (def.healAlly) {
               pr.hit.add(o.id);
               this.heal(src, o, def.healAlly);
@@ -625,17 +707,27 @@ export class Sim {
         }
       }
       // world
-      if (!dead && !def.wallPierce && len > 0) {
+      if (!dead && !def.wallPierce && !(def.boomerang && pr.ret) && len > 0) {
         const d = [seg[0] / len, seg[1] / len, seg[2] / len];
         const t = raycast(prev, d, len);
         if (t < len) {
           const hp = [prev[0] + d[0] * t, prev[1] + d[1] * t, prev[2] + d[2] * t];
-          if (def.splash) this.explode(pr, hp, null);
-          else this.ev({ t: 'fx', fx: 'impact', pos: hp, look: def.look });
-          dead = true;
+          if (pr.bounces > 0) {
+            pr.bounces--;
+            pr.pos = [hp[0] - d[0] * 0.08, Math.max(0.1, hp[1] - d[1] * 0.08), hp[2] - d[2] * 0.08];
+            if (hp[1] < 0.15 || d[1] < -0.6) { pr.vel[1] = Math.abs(pr.vel[1]) * 0.65; pr.vel[0] *= 0.85; pr.vel[2] *= 0.85; }
+            else { pr.vel[0] *= -0.6; pr.vel[2] *= -0.6; }
+            this.ev({ t: 'fx', fx: 'impact', pos: hp, look: def.look });
+          } else if (def.boomerang) { if (!pr.ret) { pr.ret = true; pr.hit.clear(); } }
+          else {
+            if (def.splash) this.explode(pr, hp, null);
+            else this.ev({ t: 'fx', fx: 'impact', pos: hp, look: def.look });
+            dead = true; pr.endAt = hp;
+          }
         }
       }
-      if (!dead && pr.life <= 0) { if (def.splash && def.grav) this.explode(pr, pr.pos, null); dead = true; }
+      if (!dead && pr.life <= 0) { if (def.splash && (def.grav || def.bounce)) this.explode(pr, pr.pos, null); dead = true; }
+      if (dead && def.warp) { const own = this.players.get(pr.owner); if (own && own.alive) { const e = pr.endAt || pr.pos; const v = pr.vel, l = Math.hypot(v[0], v[2]) || 1; const to = [e[0] - v[0] / l * 0.9, 0, e[2] - v[2] / l * 0.9]; to[1] = groundUnder(to[0], to[2], e[1] + 0.5); const from = [...own.pos]; this.teleport(own, to, own.yaw); this.ev({ t: 'fx', fx: 'warp', from: [from[0], from[1] + 1, from[2]], to: [to[0], to[1] + 1, to[2]], color: own.def.color }); } }
       if (!dead && Math.abs(pr.pos[0]) > 60) dead = true;
       if (!dead) keep.push(pr);
     }

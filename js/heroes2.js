@@ -61,7 +61,7 @@ export const NEW_HEROES = [
     ai: { range: 18, style: 'ranged' },
     abilities: {
       lmb: { name: '리볼버', desc: '묵직한 한 발. 6발.', kind: 'beam', cd: 0.5, range: 55, dmg: 32, spread: 0.006, ammo: 6, reload: 1.6, look: 'bullet', icon: 'pistol', ai: {} },
-      q: { name: '슬라이딩', desc: '앞으로 미끄러진다.', kind: 'dash', cd: 6, dist: 8, dur: 0.3, icon: 'dash', ai: { use: 'escape', min: 5 } },
+      q: { name: '슬라이딩 사격 자세', desc: '미끄러지며 2.5초 동안 총알 피해가 50% 오른다.', kind: 'dash', cd: 7, dist: 8, dur: 0.3, selfSt: { dmgUp: [2.5, 0.5] }, icon: 'dash', ai: { use: 'escape', min: 5 } },
       e: { name: '올가미', desc: '올가미를 던져 맞힌 적을 묶는다.', kind: 'proj', cd: 9, speed: 40, dmg: 20, r: 0.5, life: 0.6, onHit: { root: [1.5] }, look: 'hook', icon: 'vine', ai: { use: 'aim', max: 22 } },
       x: { name: '정오의 결투', desc: '앞쪽에 보이는 모든 적에게 치명적인 탄을 쏜다.', kind: 'deadeye', range: 45, cone: 120, dmg: 130, icon: 'eye', ai: { use: 'engage', max: 35 } },
     },
@@ -72,7 +72,7 @@ export const NEW_HEROES = [
     ai: { range: 4.5, style: 'melee' },
     abilities: {
       lmb: { name: '정화의 화염', desc: '앞쪽에 화염을 뿜는다. 연료 80.', kind: 'melee', cd: 0.12, range: 6.5, arc: 44, dmg: 9, onHit: { burn: [2, 6] }, look: 'flame', ammo: 80, reload: 2.2, icon: 'fire' },
-      q: { name: '성화 돌진', desc: '돌진하며 부딪힌 적을 밀쳐낸다.', kind: 'dash', cd: 8, dist: 9, dur: 0.35, dmg: 25, hitR: 1.4, knock: 7, icon: 'dash', ai: { use: 'gap', min: 4, max: 10 } },
+      q: { name: '화염 분출', desc: '발밑에 불을 뿜어 앞으로 솟구치고, 떠난 자리에 불길을 남긴다.', kind: 'launch', cd: 8, back: -7, up: 10, originZone: { r: 3.2, dur: 3, dps: 35, st: { burn: [1.5, 6] }, look: 'fireground' }, icon: 'burst', ai: { use: 'gap', min: 5, max: 12 } },
       e: { name: '화형대', desc: '앞에 불기둥 벽을 세운다.', kind: 'zone', cd: 11, at: 'front', dist: 4, wall: { w: 6, d: 1.2 }, dur: 4, dps: 40, h: 2.4, look: 'firewall', icon: 'wall', ai: { use: 'aim', max: 7 } },
       x: { name: '심판의 업화', desc: '주변을 거대한 불길로 뒤덮는다.', kind: 'aoe', at: 'self', r: 8, dmg: 90, st: { burn: [5, 18] }, look: 'dragonburst', icon: 'rage', ai: { use: 'self', max: 7 } },
     },
@@ -83,7 +83,7 @@ export const NEW_HEROES = [
     ai: { range: 20, style: 'ranged' },
     abilities: {
       lmb: { name: '룬 머스킷', desc: '룬이 새겨진 강력한 탄. 3발.', kind: 'beam', cd: 0.8, range: 65, dmg: 44, ammo: 3, reload: 1.8, look: 'runebullet', icon: 'rifle', ai: {} },
-      q: { name: '룬 도약', desc: '짧게 순간이동한다.', kind: 'blink', cd: 6, dist: 9, icon: 'blink', ai: { use: 'escape', min: 5 } },
+      q: { name: '룬 회귀', desc: '2.5초 전 있던 자리로 되돌아가며 체력을 회복한다.', kind: 'recall', cd: 10, back: 2.5, heal: 50, icon: 'rune', ai: { use: 'escape', min: 6 } },
       e: { name: '결박의 룬탄', desc: '맞힌 적을 잠시 기절시킨다.', kind: 'beam', cd: 9, range: 40, dmg: 30, onHit: { stun: [0.9] }, look: 'mesmer', icon: 'rune', ai: { use: 'aim', max: 35 } },
       x: { name: '룬 폭풍', desc: '조준 지점에 룬 번개를 퍼붓는다.', kind: 'zone', at: 'aim', range: 45, r: 8, dur: 4.5, strikes: { every: 0.3, dmg: 30, r: 2.6 }, look: 'storm', icon: 'storm', ai: { use: 'aim', max: 40 } },
     },
@@ -116,7 +116,7 @@ export const NEW_HEROES = [
     ai: { range: 2.2, style: 'melee' },
     abilities: {
       lmb: { name: '화검', desc: '빠른 3연격. 세 번째 베기는 더 강하다.', kind: 'melee', cd: 0.38, range: 3.0, arc: 95, dmg: 30, combo: 1.6, icon: 'slash' },
-      q: { name: '꽃잎 질주', desc: '꽃잎처럼 질주하며 지나가는 적을 벤다.', kind: 'dash', cd: 6, dist: 9, dur: 0.25, dmg: 25, hitR: 1.4, icon: 'dash', ai: { use: 'gap', min: 4, max: 10 } },
+      q: { name: '꽃잎 질주', desc: '질주하며 지나가는 적을 베고, 꽃잎 칼날이 흩날리는 길을 남긴다.', kind: 'dash', cd: 6, dist: 9, dur: 0.25, dmg: 25, hitR: 1.4, trail: { r: 1.6, dur: 2.5, dps: 30, look: 'petals' }, icon: 'dash', ai: { use: 'gap', min: 4, max: 10 } },
       e: { name: '흘려베기', desc: '1.2초 동안 정면 공격을 모두 막아낸다.', kind: 'buff', target: 'self', cd: 8, st: { block: [1.2, 1.0] }, icon: 'shield', ai: { use: 'defend' } },
       x: { name: '천화난무', desc: '3초 동안 꽃잎 칼날의 폭풍이 된다.', kind: 'zone', at: 'self', follow: true, r: 4.5, dur: 3, dps: 70, look: 'petals', selfSt: { haste: [3, 0.3] }, icon: 'whirl', ai: { use: 'self', max: 5 } },
     },
@@ -160,7 +160,7 @@ export const NEW_HEROES = [
     ai: { range: 3.2, style: 'melee' },
     abilities: {
       lmb: { name: '뇌창', desc: '길게 찌른다.', kind: 'melee', cd: 0.65, range: 4.1, arc: 45, dmg: 40, icon: 'spear' },
-      q: { name: '뇌전 돌격', desc: '번개처럼 돌격해 처음 부딪힌 적을 기절시킨다.', kind: 'dash', cd: 8, dist: 11, dur: 0.3, dmg: 30, hitR: 1.5, stun: 0.4, icon: 'dash', ai: { use: 'gap', min: 4, max: 11 } },
+      q: { name: '뇌창 투척', desc: '창을 던지고 창이 꽂힌 곳으로 번개처럼 이동한다. 맞은 적은 기절한다.', kind: 'proj', cd: 8, speed: 55, dmg: 40, r: 0.4, life: 0.5, warp: true, onHit: { stun: [0.6] }, look: 'lance', icon: 'spear', ai: { use: 'gap', min: 5, max: 22 } },
       e: { name: '연쇄 낙뢰', desc: '번개가 주변 적에게 튄다.', kind: 'beam', cd: 9, range: 25, dmg: 40, chain: { n: 2, r: 8, dmg: 30 }, look: 'chain', icon: 'chain', ai: { use: 'aim', max: 22 } },
       x: { name: '천벌의 도약', desc: '하늘 높이 뛰어올라 낙뢰와 함께 내려꽂힌다.', kind: 'leap', fwd: 14, up: 12, land: { r: 6, dmg: 110, knockup: 6, st: { stun: [0.8] } }, icon: 'bolt', ai: { use: 'gap', min: 3, max: 15 } },
     },
@@ -171,7 +171,7 @@ export const NEW_HEROES = [
     ai: { range: 14, style: 'ranged' },
     abilities: {
       lmb: { name: '저주 바늘', desc: '바늘 세 개를 부채꼴로 던진다.', kind: 'proj', cd: 0.5, count: 3, spread: 8, speed: 55, dmg: 12, r: 0.18, life: 0.9, look: 'needle', icon: 'fan', ai: {} },
-      q: { name: '실 끊기', desc: '짧게 순간이동한다.', kind: 'blink', cd: 6, dist: 8, icon: 'blink', ai: { use: 'escape', min: 5 } },
+      q: { name: '실 끌어오기', desc: '조준한 적을 실로 낚아 끌어오고 크게 둔화시킨다.', kind: 'beam', cd: 8, range: 22, dmg: 20, pullBeam: 12, onHit: { slow: [2, 0.5] }, look: 'string', icon: 'web', ai: { use: 'aim', min: 5, max: 20 } },
       e: { name: '실의 그물', desc: '0.5초 뒤 조준 지점의 적을 묶는다.', kind: 'zone', cd: 10, at: 'aim', range: 26, r: 4, delay: 0.5, dur: 0, burst: { dmg: 25, st: { root: [1.4] } }, look: 'web', icon: 'web', ai: { use: 'aim', max: 24 } },
       x: { name: '꼭두각시', desc: '주변 적 모두를 줄에 매달아 기절시킨다.', kind: 'aoe', at: 'self', r: 14, dmg: 40, st: { stun: [1.3] }, look: 'puppet', icon: 'puppet', ai: { use: 'self', max: 12 } },
     },
@@ -182,7 +182,7 @@ export const NEW_HEROES = [
     ai: { range: 2.8, style: 'melee' },
     abilities: {
       lmb: { name: '지옥검', desc: '불타는 대검으로 벤다.', kind: 'melee', cd: 0.85, range: 3.6, arc: 100, dmg: 52, onHit: { burn: [2, 8] }, icon: 'slash' },
-      q: { name: '업화 돌진', desc: '돌진해 처음 부딪힌 적을 기절시킨다.', kind: 'dash', cd: 8, dist: 10, dur: 0.4, dmg: 30, hitR: 1.5, stun: 0.5, icon: 'dash', ai: { use: 'gap', min: 4, max: 10 } },
+      q: { name: '지옥 낙하', desc: '높이 뛰어올라 내려꽂히며 착지 지점을 불바다로 만든다.', kind: 'leap', cd: 9, fwd: 11, up: 12, land: { r: 4, dmg: 45, knockup: 4, zone: { r: 4, dur: 3, dps: 30, look: 'fireground' } }, icon: 'gate', ai: { use: 'gap', min: 4, max: 12 } },
       e: { name: '지옥불 방벽', desc: '3초 동안 정면 피해를 75% 막는다.', kind: 'buff', target: 'self', cd: 10, st: { block: [3, 0.75] }, icon: 'shield', ai: { use: 'defend' } },
       x: { name: '지옥문', desc: '5초 동안 지옥문을 연다. 적은 불타고 아군은 단단해진다.', kind: 'zone', at: 'self', r: 8, dur: 5, dps: 45, st: { slow: [0.5, 0.3] }, allySt: { dr: [0.4, 0.25] }, look: 'hellgate', icon: 'gate', ai: { use: 'self', max: 7 } },
     },
@@ -193,7 +193,7 @@ export const NEW_HEROES = [
     ai: { range: 16, style: 'ranged' },
     abilities: {
       lmb: { name: '얼음 파편', desc: '파편 세 개를 쏜다. 맞은 적은 느려진다.', kind: 'proj', cd: 0.55, count: 3, spread: 6, speed: 45, dmg: 14, r: 0.25, life: 1.2, onHit: { slow: [1, 0.15] }, look: 'icicle', icon: 'snow', ai: {} },
-      q: { name: '서리 점멸', desc: '순간이동한다.', kind: 'blink', cd: 6, dist: 9, icon: 'blink', ai: { use: 'escape', min: 5 } },
+      q: { name: '빙판 질주', desc: '얼음길을 만들며 질주한다. 얼음길 위의 적은 크게 느려진다.', kind: 'dash', cd: 7, dist: 10, dur: 0.35, trail: { r: 1.8, dur: 4, dps: 8, st: { slow: [0.5, 0.5] }, look: 'icepath' }, icon: 'snow', ai: { use: 'escape', min: 5 } },
       e: { name: '얼음 감옥', desc: '0.7초 뒤 조준 지점의 적을 얼려 묶는다.', kind: 'zone', cd: 10, at: 'aim', range: 28, r: 4, delay: 0.7, dur: 0, burst: { dmg: 40, st: { root: [1.6] } }, look: 'icecage', icon: 'trap', ai: { use: 'aim', max: 26 } },
       x: { name: '절대영도', desc: '주변을 얼려 모든 적을 기절시킨다.', kind: 'aoe', at: 'self', r: 15, dmg: 60, st: { stun: [1.6] }, look: 'frostnova', icon: 'snow', ai: { use: 'self', max: 13 } },
     },
@@ -205,7 +205,7 @@ export const NEW_HEROES = [
     abilities: {
       lmb: { name: '성혈탄', desc: '적에게는 흡혈, 아군에게 맞으면 치유.', kind: 'proj', cd: 0.55, speed: 36, dmg: 26, r: 0.35, life: 1.8, healAlly: 30, steal: 0.3, look: 'bloodorb', icon: 'feast', ai: {} },
       q: { name: '붉은 날개', desc: '앞으로 높이 날아오른다.', kind: 'leap', cd: 7, fwd: 11, up: 9, icon: 'wing', ai: { use: 'escape', min: 5 } },
-      e: { name: '수혈', desc: '조준한 아군(없으면 자신)을 크게 치유한다.', kind: 'buff', target: 'ally', cd: 9, r: 25, heal: 90, icon: 'heal', ai: { use: 'heal', r: 25 } },
+      e: { name: '피의 사슬', desc: '적의 피를 사슬로 빨아들여 준 피해만큼 회복한다.', kind: 'beam', cd: 8, range: 22, dmg: 45, steal: 1.0, onHit: { slow: [1, 0.3] }, look: 'bloodchain', icon: 'chain', ai: { use: 'aim', max: 20 } },
       x: { name: '피의 부활', desc: '주변 아군을 치유하고 3초 동안 죽지 않게 한다.', kind: 'buff', target: 'allies', r: 18, heal: 80, st: { undying: [3], dmgUp: [5, 0.2] }, icon: 'ankh', ai: { use: 'save', r: 18 } },
     },
   },
@@ -215,7 +215,7 @@ export const NEW_HEROES = [
     ai: { range: 13, style: 'ranged' },
     abilities: {
       lmb: { name: '폭탄 투척', desc: '튕기듯 날아가 터지는 폭탄. 3개.', kind: 'proj', cd: 0.9, speed: 24, grav: 0.7, dmg: 18, r: 0.35, life: 2.5, splash: { r: 3.4, dmg: 52 }, ammo: 3, reload: 1.6, look: 'bomb', icon: 'bomb', ai: {} },
-      q: { name: '폭발 점프', desc: '발밑을 터뜨려 뒤로 높이 날아간다.', kind: 'launch', cd: 7, back: 8, up: 12, aoe: { r: 3, dmg: 25, knock: 8 }, icon: 'burst', ai: { use: 'escape', min: 4 } },
+      q: { name: '고무 폭탄', desc: '통통 튀는 폭탄을 던진다. 세 번 튕긴 뒤 터진다.', kind: 'proj', cd: 6, speed: 22, grav: 0.8, dmg: 20, r: 0.35, life: 4, bounce: 3, splash: { r: 3.5, dmg: 55 }, look: 'bomb', icon: 'bomb', ai: { use: 'aim', max: 20 } },
       e: { name: '끈끈이 지뢰', desc: '밟으면 터지는 지뢰. 최대 3개.', kind: 'trap', cd: 8, r: 2.4, life: 30, dmg: 80, st: { slow: [1.5, 0.4] }, max: 3, look: 'mine', icon: 'mine', ai: { use: 'escape', min: 7 } },
       x: { name: '대폭발', desc: '초대형 폭탄을 던진다.', kind: 'proj', speed: 22, grav: 0.6, dmg: 60, r: 0.7, life: 3, splash: { r: 8, dmg: 150 }, look: 'bigbomb', icon: 'bomb', ai: { use: 'aim', max: 25 } },
     },

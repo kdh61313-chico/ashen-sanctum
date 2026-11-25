@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { HEROES, HERO_MAP, ROLES, SLOTS, SLOT_KEYS } from './heroes.js';
@@ -56,7 +57,13 @@ class App {
     this.composer = new EffectComposer(r);
     this.renderPass = new RenderPass(this.stage.scene, this.stage.camera);
     this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.55, 0.55, 0.82);
-    this.composer.addPass(this.renderPass); this.composer.addPass(this.bloom); this.composer.addPass(new OutputPass());
+    // first-person view model: own scene + camera, drawn over the world with a cleared depth buffer
+    this.vmScene = new THREE.Scene();
+    this.vmCam = new THREE.PerspectiveCamera(58, 1, 0.01, 8);
+    this.vmPass = new RenderPass(this.vmScene, this.vmCam);
+    { const pm = new THREE.PMREMGenerator(r); this.vmScene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; this.vmScene.environmentIntensity = 0.32; pm.dispose(); }
+    this.vmPass.clear = false; this.vmPass.clearDepth = true; this.vmPass.enabled = false;
+    this.composer.addPass(this.renderPass); this.composer.addPass(this.vmPass); this.composer.addPass(this.bloom); this.composer.addPass(new OutputPass());
 
     await tick();
     this.portraits = renderPortraits(HEROES);
@@ -101,6 +108,7 @@ class App {
     this.renderer.setSize(w, h, false);
     this.composer.setSize(w, h);
     this.camera.aspect = w / h; this.camera.fov = this.settings.fov; this.camera.updateProjectionMatrix();
+    this.vmCam.aspect = w / h; this.vmCam.fov = w / h < 1.4 ? 72 : 64; this.vmCam.updateProjectionMatrix();
     this.stage.resize(w, h, this.pr || 1);
     this.fx?.setScale(h * (this.pr || 1), this.settings.fov);
     $('rotate').hidden = !(IS_TOUCH && h > w && this.state === 'game');
@@ -200,6 +208,7 @@ class App {
     $('btn-back').hidden = name === 'home';
     $('logo').hidden = name !== 'home';
     if (name !== 'game') { this.renderPass.scene = this.stage.scene; this.renderPass.camera = this.stage.camera; }
+    this.vmPass.enabled = name === 'game';
     this.refreshTop();
     this.resize();
   }

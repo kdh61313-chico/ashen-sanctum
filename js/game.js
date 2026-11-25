@@ -44,7 +44,7 @@ export class Game {
       buffFx: (e) => { const v = this.view.get(e.id); if (v) this.fx.P.emit([v.pos[0], v.pos[1] + 1, v.pos[2]], { n: 26, c: e.color, c2: '#ffffff', sp: 1.2, up: 2.2, s: 0.18, life: 0.9, spread: [0.4, 0.8, 0.4] }); },
       blockFx: (e) => { const v = this.view.get(e.id); if (v) { const [fx, fz] = fwdFromYaw(v.yaw); this.fx.P.emit([v.pos[0] + fx * 0.8, v.pos[1] + 1.2, v.pos[2] + fz * 0.8], { n: 12, c: '#ff3b3b', c2: '#ffffff', sp: 3, s: 0.15, life: 0.3 }); } },
     };
-    this.vm = new ViewModel(this.camera);
+    this.vm = new ViewModel(app.vmScene, app.vmCam, this.camera);
     this.ammo = 0; this.reloadT = 0; this.combo = 0; this.lastAtk = -9; this.lastShot = -9;
     this._v3 = new THREE.Vector3(); this._v3b = new THREE.Vector3();
     this.plates = $('plates');
@@ -309,7 +309,7 @@ export class Game {
     const me = this.localId;
     switch (e.t) {
       case 'tp':
-        if (e.id === me) { this.body.pos = [...e.pos]; this.body.vel = [0, 0, 0]; this.body.dashT = 0; this.body.glideUntil = 0; this.yaw = e.yaw; this.pitch = 0; this.charging = false; }
+        if (e.id === me) { this.body.pos = [...e.pos]; this.body.vel = [0, 0, 0]; this.body.dashT = 0; this.body.glideUntil = 0; this.yaw = e.yaw; if (!e.keep) this.pitch = 0; this.charging = false; this.vm?.blinkFx?.(); }
         { const en = this.ents.get(e.id); if (en) en.snap = true; }
         break;
       case 'imp':
@@ -323,6 +323,16 @@ export class Game {
         break;
       case 'cast': {
         const v = this.view.get(e.id);
+        if (e.slot !== 'lmb') {
+          const hd = HERO_MAP[e.hero], ab = hd?.abilities[e.slot];
+          const at = e.from || v?.pos;
+          if (at && hd) {
+            if (e.id !== me) this.fx.castCircle(at, hd.color, e.slot === 'x');
+            else if (e.slot === 'x') this.fx.runeDecal(at, 3.2, hd.color, 1.1, 1.2);
+            if (ab && (ab.kind === 'dash' || ab.kind === 'leap' || ab.kind === 'launch' || ab.kind === 'grapple')) this.fx.dust(at, 1.3, 22);
+          }
+          if (e.slot === 'x' && hd) this.ultBanner(e, hd);
+        }
         if (e.id !== me) {
           const en = this.ents.get(e.id);
           if (en) {
@@ -371,6 +381,13 @@ export class Game {
         if (e.id === me) { this.hurtV = Math.min(0.8, (this.hurtV || 0) + e.a / 120); this.audio.play('hurt'); }
         { const en = this.ents.get(e.id); if (en) en.hurt = 0.15; }
         this.fx.P.emit(e.pos, { n: 6, c: '#8a0a14', c2: '#ff5a5a', sp: 2.5, s: 0.12, life: 0.4, g: 8 });
+        { const att = this.view.get(e.by), ar = this.roster.get(e.by);
+          const col = HERO_MAP[ar?.hero]?.color || '#ffcf6a';
+          let dir = [0, 0.4, 0];
+          if (att) { const d = [e.pos[0] - att.pos[0], e.pos[1] - att.pos[1] - 1.2, e.pos[2] - att.pos[2]]; const l = Math.hypot(...d) || 1; dir = d.map(x => x / l); }
+          this.fx.hitSpark(e.pos, dir, col, e.a >= 45);
+          if (e.by === me && e.id !== me && this.hero.abilities.lmb.kind === 'melee' && e.a >= 10) { this.vm.hitstop(e.a >= 45 ? 0.08 : 0.05); this.kick = Math.min(0.05, (this.kick || 0) + 0.02); }
+        }
         break;
       case 'heal':
         if (e.id === me && e.a >= 5) this.floatNum(e.pos, '+' + e.a, 'is-heal');
@@ -441,6 +458,7 @@ export class Game {
       this.cds[slot] = cd;
       this.lastCast = this.lastCast || {}; this.lastCast[slot] = this.clock;
     }
+    const pre = this.body.pos.map(v => +v.toFixed(2));
     if (MOVE_KINDS.has(def.kind)) applyMoveAbility(this.body, def, this.yaw, this.pitch, this.clock);
     this.vm.attack(slot, this.combo);
     this.castSound(this.hero.id, slot, null);
@@ -452,13 +470,25 @@ export class Game {
       this.fx.slash([c.x + fx * 1.0, c.y - 0.35, c.z + fz * 1.0], this.yaw, this.hero.color, Math.min(2.2, def.range * 0.6), 0.16, this.vm.side);
     }
     if (slot === 'lmb' && def.ammo && this.ammo <= 0 && !me.st?.infAmmo) setTimeout(() => this.tryReload(true), 120);
-    const aim = { yaw: +this.yaw.toFixed(4), pitch: +this.pitch.toFixed(4), charge };
+    const aim = { yaw: +this.yaw.toFixed(4), pitch: +this.pitch.toFixed(4), charge, pre };
     if (this.sim) {
       this.pushLocalState();
       this.sim.cast(this.localId, slot, aim, true);
     } else this.net.send('host', { t: 'cast', slot, aim, pos: this.body.pos.map(v => +v.toFixed(2)) });
     if (slot === 'x' && this.sim) { /* ult resets on host */ }
     return true;
+  }
+
+  ultBanner(e, hd) {
+    const el = $('ult-banner'); if (!el) return;
+    const r = this.roster.get(e.id);
+    const mine = e.id === this.localId, ally = r && r.team === this.myTeam();
+    el.style.setProperty('--c', hd.color);
+    el.className = 'ult-banner ' + (mine ? 'is-me' : ally ? 'is-ally' : 'is-enemy');
+    el.innerHTML = `<img src="${this.app.portraits[hd.id] || ''}"><div><small>${ally ? (mine ? '궁극기' : '아군 궁극기') : '적 궁극기'} · ${esc(r?.name || hd.name)}</small><b>${esc(hd.abilities.x.name)}</b></div>`;
+    void el.offsetWidth; el.classList.add('is-on');
+    clearTimeout(this._ubT); this._ubT = setTimeout(() => el.classList.remove('is-on'), 2200);
+    if (mine) { const f = $('ult-flash'); if (f) { f.style.setProperty('--c', hd.color); f.classList.remove('is-on'); void f.offsetWidth; f.classList.add('is-on'); } this.shakeAmt = Math.max(this.shakeAmt, 0.35); }
   }
 
   deny(slot) {
@@ -567,7 +597,20 @@ export class Game {
     this.fx.syncProjectiles(this.projs, dt);
     this.fx.syncZones(this.zones, dt, this.myTeam());
     // viewmodel
-    this.vm.update(dt, { speed: Math.hypot(this.body.vel[0], this.body.vel[2]), onGround: this.body.onGround, vy: this.body.vel[1], dYaw: this.dYaw, dPitch: this.dPitch, charge: this.charging ? this.charge : 0, alive, reloading: this.reloadT > 0 });
+    { const [fx, fz] = fwdFromYaw(this.yaw); this._side = this.body.vel[0] * -fz + this.body.vel[2] * fx; }
+    this.fx._camQ = this.camera.quaternion;
+    { const bv = this.body.vel, hs = Math.hypot(bv[0], bv[2], bv[1] * 0.5);
+      if (alive && hs > 12) {
+        const c = this.camera.position, col = this.hero.color, n = Math.min(4, (hs - 10) / 5 + 1) | 0;
+        const L = 1 / hs;
+        for (let i = 0; i < n; i++) {
+          const a = Math.random() * Math.PI * 2, rr = 1.2 + Math.random() * 1.6;
+          const [fx, fz] = [bv[0] * L, bv[2] * L];
+          const px = c.x + fx * (3 + Math.random() * 4) + Math.cos(a) * rr * fz, py = c.y + Math.sin(a) * rr * 0.8, pz = c.z + fz * (3 + Math.random() * 4) - Math.cos(a) * rr * fx;
+          this.fx.S.seg([px, py, pz], [px - bv[0] * 0.06, py - bv[1] * 0.06, pz - bv[2] * 0.06], { c: Math.random() < 0.5 ? '#ffffff' : col, w: 0.012, life: 0.12 });
+        }
+      } }
+    this.vm.update(dt, { side: this._side / 6, speed: Math.hypot(this.body.vel[0], this.body.vel[2]), onGround: this.body.onGround, vy: this.body.vel[1], dYaw: this.dYaw, dPitch: this.dPitch, charge: this.charging ? this.charge : 0, alive, reloading: this.reloadT > 0 });
     this.updateHud(dt);
   }
 
@@ -579,7 +622,8 @@ export class Game {
       const giant = me?.st?.giant ? 1.35 : 1;
       cam.position.set(this.body.pos[0], this.body.pos[1] + EYE * giant, this.body.pos[2]);
       cam.rotation.order = 'YXZ';
-      cam.rotation.set(this.pitch + (Math.random() - 0.5) * sh * 0.5, this.yaw + (Math.random() - 0.5) * sh * 0.5, 0);
+      this.kick = Math.max(0, (this.kick || 0) - dt * 0.4);
+      cam.rotation.set(this.pitch + (this.kick || 0) * 0.6 + (Math.random() - 0.5) * sh * 0.5, this.yaw + (Math.random() - 0.5) * sh * 0.5, 0);
       this.vm.root.visible = true;
     } else {
       this.vm.root.visible = false;
@@ -638,6 +682,11 @@ export class Game {
       const sp = Math.hypot(en.vel[0], en.vel[2]);
       en.speed += (sp - en.speed) * Math.min(1, dt * 10);
       const P = en.P;
+      // afterimages while dashing / blinking / leaping
+      if (!isMe && v.alive && !v.st?.invis && sp > 12) {
+        en.ghostT = (en.ghostT || 0) - dt;
+        if (en.ghostT <= 0) { en.ghostT = 0.035; this.fx.ghost([...en.rpos], (v.yaw || 0) + Math.PI, HERO_MAP[r.hero]?.color || '#fff', 0.3, 0.55); }
+      }
       P.root.position.set(en.rpos[0], en.rpos[1], en.rpos[2]);
       const yaw = isMe ? this.yaw : v.yaw;
       P.root.rotation.y = yaw + Math.PI;
@@ -731,8 +780,7 @@ export class Game {
     for (const en of this.ents.values()) { this.scene.remove(en.P.root); en.plate.remove(); en.trail?.dispose(); }
     this.ents.clear();
     this.fx.clear();
-    this.camera.remove(this.vm.root);
-    this.vm.trail?.dispose();
+    this.vm.dispose();
     $('killfeed').innerHTML = ''; this.dmgLayer.innerHTML = ''; this.plates.innerHTML = '';
   }
 }
