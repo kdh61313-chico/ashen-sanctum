@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { NEW_WEAPONS, NEW_BUILDERS, NEW_POSES } from './models2.js';
 
 // ---------------------------------------------------------------
 // Procedural low-poly hero models. Flat-shaded, faceted, emissive accents.
@@ -201,49 +202,64 @@ export const WEAPONS = {
 };
 
 // ---------------- rig ----------------
-function rig(spec) {
+export function rig(spec) {
   const c = spec.c;
   const root = new THREE.Group();
   const body = grp(root);
   body.scale.setScalar(spec.h || 1);
   const bw = spec.bw || 1, lw = spec.lw || 1;
   const parts = { root, body, c, spec, update: [], capes: [], extras: {} };
+  const legMat = M(c.leg || c.cloth), bootMat = M(c.boot || '#1c1714', { r: 0.55, m: 0.1 });
+  const trimMat = M(c.metal || '#6a6a6a', { m: 0.8, r: 0.35 });
 
   const hips = grp(body, [0, 0.95, 0]);
   parts.hips = hips;
-  const legMat = M(c.leg || c.cloth), bootMat = M(c.boot || '#1c1714', { r: 0.6 });
   for (const side of [-1, 1]) {
     const leg = grp(hips, [side * 0.11 * bw, 0, 0]);
     const knee = grp(leg, [0, -0.45, 0]);
     if (!spec.noLegs) {
-      add(leg, G.cyl(0.08 * lw, 0.065 * lw, 0.46, 5), legMat, [0, -0.22, 0]);
-      add(knee, G.cyl(0.065 * lw, 0.05 * lw, 0.44, 5), legMat, [0, -0.21, 0]);
-      add(knee, G.box(0.13 * lw, 0.12, 0.25), bootMat, [0, -0.43, -0.05]);
-      if (spec.kneeGuard) add(knee, G.cone(0.07, 0.16, 4), M(c.armor || c.metal, { m: 0.7, r: 0.35 }), [0, 0.02, -0.06], [-1.4, 0, 0]);
+      add(leg, G.cyl(0.085 * lw, 0.066 * lw, 0.46, 7), legMat, [0, -0.22, 0]);
+      add(leg, G.ico(0.07 * lw, 1), legMat, [0, -0.45, 0]);
+      add(knee, G.cyl(0.066 * lw, 0.05 * lw, 0.42, 7), legMat, [0, -0.2, 0]);
+      add(knee, G.cyl(0.07 * lw, 0.062 * lw, 0.18, 7), bootMat, [0, -0.34, 0]);
+      add(knee, G.box(0.12 * lw, 0.09, 0.2), bootMat, [0, -0.44, 0.035]);
+      add(knee, G.box(0.1 * lw, 0.07, 0.08), bootMat, [0, -0.445, 0.15], [0.25, 0, 0]);
+      add(knee, G.cyl(0.074 * lw, 0.074 * lw, 0.03, 7), trimMat, [0, -0.25, 0]);
+      if (spec.kneeGuard) add(knee, G.cone(0.075, 0.17, 5), M(c.armor || c.metal, { m: 0.7, r: 0.35 }), [0, 0.02, 0.06], [-1.75, 0, 0]);
     }
     parts[side < 0 ? 'legL' : 'legR'] = leg;
     parts[side < 0 ? 'kneeL' : 'kneeR'] = knee;
   }
-  add(hips, G.box(0.34 * bw, 0.17, 0.21 * bw), M(c.pelvis || c.leather || c.cloth), [0, -0.02, 0]);
-  add(hips, G.box(0.36 * bw, 0.05, 0.23 * bw), M(c.belt || '#2a1d15'), [0, 0.05, 0]);
+  add(hips, G.cyl(0.18 * bw, 0.15 * bw, 0.2, 8), M(c.pelvis || c.leather || c.cloth), [0, -0.03, 0], [0, 0, 0], [1, 1, 0.68]);
+  add(hips, G.cyl(0.19 * bw, 0.19 * bw, 0.055, 8), M(c.belt || '#2a1d15', { r: 0.6 }), [0, 0.06, 0], [0, 0, 0], [1, 1, 0.7]);
+  add(hips, G.box(0.06, 0.05, 0.02), M('#c9a45c', { m: 0.9, r: 0.3 }), [0, 0.06, 0.13 * bw]);
+  add(hips, G.box(0.07, 0.08, 0.05), M(c.belt || '#3a2a1c'), [0.15 * bw, 0.01, 0.06], [0, 0.4, 0]);
 
   const spine = grp(hips, [0, 0.06, 0]);
   parts.spine = spine;
-  const chest = add(spine, G.cyl(0.2 * bw, 0.15 * bw, 0.52, 6), M(c.torso || c.cloth), [0, 0.27, 0], [0, Math.PI / 6, 0], [1, 1, 0.66]);
+  add(spine, G.cyl(0.15 * bw, 0.16 * bw, 0.18, 8), M(c.torso || c.cloth), [0, 0.1, 0], [0, 0, 0], [1, 1, 0.66]);
+  const chest = add(spine, G.cyl(0.205 * bw, 0.155 * bw, 0.36, 8), M(c.torso || c.cloth), [0, 0.35, 0], [0, Math.PI / 8, 0], [1, 1, 0.66]);
   parts.chest = chest;
+  add(spine, G.cyl(0.1, 0.17 * bw, 0.08, 8), M(c.torso || c.cloth), [0, 0.56, 0], [0, 0, 0], [1, 1, 0.7]);
   const neck = grp(spine, [0, 0.56, 0]);
-  add(neck, G.cyl(0.05, 0.06, 0.1, 5), M(c.skin || '#3a2f2a'), [0, 0.03, 0]);
+  add(neck, G.cyl(0.05, 0.062, 0.12, 7), M(c.skin || '#3a2f2a'), [0, 0.04, 0]);
   const head = grp(neck, [0, 0.1, 0]);
   parts.head = head;
 
   for (const side of [-1, 1]) {
     const sh = grp(spine, [side * 0.25 * bw, 0.47, 0]);
     const armMat = M(c.arm || c.cloth);
-    add(sh, G.cyl(0.062 * lw, 0.052 * lw, 0.3, 5), armMat, [0, -0.15, 0]);
+    add(sh, G.ico(0.07 * lw, 1), armMat, [0, 0, 0]);
+    add(sh, G.cyl(0.064 * lw, 0.052 * lw, 0.3, 7), armMat, [0, -0.15, 0]);
     const el = grp(sh, [0, -0.3, 0]);
-    add(el, G.cyl(0.052 * lw, 0.045 * lw, 0.27, 5), M(c.fore || c.arm || c.cloth), [0, -0.135, 0]);
+    add(el, G.ico(0.055 * lw, 1), M(c.fore || c.arm || c.cloth), [0, 0, 0]);
+    add(el, G.cyl(0.054 * lw, 0.044 * lw, 0.27, 7), M(c.fore || c.arm || c.cloth), [0, -0.135, 0]);
+    add(el, G.cyl(0.058 * lw, 0.058 * lw, 0.07, 7), M(c.glove || c.hand || '#2a2420', { r: 0.6 }), [0, -0.24, 0]);
     const hand = grp(el, [0, -0.29, 0]);
-    add(hand, G.box(0.075 * lw, 0.095, 0.065), M(c.hand || c.skin || '#2a2420'), [0, -0.02, 0]);
+    const hm = M(c.hand || c.skin || '#2a2420');
+    add(hand, G.box(0.075 * lw, 0.08, 0.06), hm, [0, -0.015, 0]);
+    add(hand, G.box(0.07 * lw, 0.05, 0.05), hm, [0, -0.07, 0.008], [0.5, 0, 0]);
+    add(hand, G.box(0.025, 0.06, 0.03), hm, [side * -0.042 * lw, -0.03, 0.025], [0.3, 0, side * 0.4]);
     parts[side < 0 ? 'shL' : 'shR'] = sh;
     parts[side < 0 ? 'elL' : 'elR'] = el;
     parts[side < 0 ? 'handL' : 'handR'] = hand;
@@ -252,18 +268,18 @@ function rig(spec) {
 }
 
 // ---- reusable details ----
-function pauldron(P, side, mat, size = 1, spikes = 0, spikeMat) {
+export function pauldron(P, side, mat, size = 1, spikes = 0, spikeMat) {
   const sh = side < 0 ? P.shL : P.shR;
   const pd = add(sh, G.ico(0.13 * size, 0), mat, [side * 0.03, 0.02, 0], [0, 0, side * 0.3], [1.25, 0.8, 1.1]);
   for (let i = 0; i < spikes; i++) add(sh, G.cone(0.035 * size, 0.2 * size, 4), spikeMat || mat, [side * (0.04 + i * 0.05), 0.12 * size, (i - (spikes - 1) / 2) * 0.08], [0, 0, side * -0.4]);
   return pd;
 }
-function eyes(head, color, y = 0.02, z = 0.11, gap = 0.045, w = 0.035, h = 0.015) {
+export function eyes(head, color, y = 0.02, z = 0.11, gap = 0.045, w = 0.035, h = 0.015) {
   const m = GLOW(color, 3.2);
   add(head, G.box(w, h, 0.02), m, [-gap, y, z]);
   add(head, G.box(w, h, 0.02), m, [gap, y, z]);
 }
-function cape(P, color, len = 1.05, width = 0.5, tattered = true, attach = 0.5) {
+export function cape(P, color, len = 1.05, width = 0.5, tattered = true, attach = 0.5) {
   const root = grp(P.spine, [0, attach, -0.13]);
   const mat = M(color, { ds: true, r: 0.95 });
   let parent = root;
@@ -281,14 +297,14 @@ function cape(P, color, len = 1.05, width = 0.5, tattered = true, attach = 0.5) 
   P.capes.push(segs);
   return root;
 }
-function robe(P, color, trim, flare = 0.36, len = 0.95) {
+export function robe(P, color, trim, flare = 0.36, len = 0.95) {
   const g = grp(P.hips, [0, 0.08, 0]);
   add(g, G.lathe([[0.17, 0], [0.22, -0.3], [flare * 0.9, -len + 0.15], [flare, -len]], 8), M(color, { ds: true, r: 0.9 }), [0, 0, 0], [0, Math.PI / 8, 0], [1, 1, 0.85]);
   if (trim) add(g, G.tor(flare * 0.98, 0.02, 3, 8), GLOW(trim, 1.8), [0, -len + 0.02, 0], [Math.PI / 2, 0, Math.PI / 8], [1, 0.85, 1]);
   P.robe = g;
   return g;
 }
-function hair(head, color, style = 'short') {
+export function hair(head, color, style = 'short') {
   const m = M(color, { r: 0.7 });
   add(head, G.ico(0.135, 0), m, [0, 0.06, -0.02], [0.2, 0, 0], [1.05, 0.85, 1.05]);
   if (style === 'long') {
@@ -300,7 +316,7 @@ function hair(head, color, style = 'short') {
   }
   for (let i = 0; i < 5; i++) add(head, G.cone(0.05, 0.14, 3), m, [(i - 2) * 0.05, 0.1, 0.09], [1.9, 0, (i - 2) * 0.15]);
 }
-function face(head, skin, eyeColor, o = {}) {
+export function face(head, skin, eyeColor, o = {}) {
   add(head, G.ico(0.12, 1), M(skin, { r: 0.6 }), [0, 0, 0], [0, 0, 0], [0.92, 1.08, 0.95]);
   add(head, G.box(0.03, 0.05, 0.04), M(skin), [0, -0.02, 0.115]); // nose
   eyes(head, eyeColor, 0.02, 0.105, 0.042, 0.032, 0.014);
@@ -848,16 +864,53 @@ const POSES = {
   claws: [-0.6, -0.3, -1.4, -0.6, 0.3, -1.4],
   cast: [-0.5, -0.2, -1.2, -0.5, 0.2, -1.2],
 };
+Object.assign(WEAPONS, NEW_WEAPONS);
+Object.assign(BUILDERS, NEW_BUILDERS);
+Object.assign(POSES, NEW_POSES);
+const GUN_POSES = new Set(['pistol', 'dualgun', 'rifle', 'heavy', 'armcannon']);
+const MELEE_POSES = new Set(['twohand', 'onehand', 'dual', 'claws']);
 
-export function buildHero(heroDef, { teamColor = null } = {}) {
-  const P = BUILDERS[heroDef.model]();
+// Fresnel rim light: gives every hero a crisp silhouette against the dark arenas.
+const RIM = new THREE.Color('#8a80a8');
+function addRim(m) {
+  if (!m || !m.isMeshStandardMaterial || m.userData.rim) return;
+  m.userData.rim = true;
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.rimColor = { value: RIM };
+    sh.fragmentShader = 'uniform vec3 rimColor;\n' + sh.fragmentShader.replace('#include <emissivemap_fragment>',
+      `#include <emissivemap_fragment>
+       float rimF = 1.0 - max(dot(normalize(-vViewPosition), normal), 0.0);
+       totalEmissiveRadiance += rimColor * pow(rimF, 3.6) * 0.18;`);
+  };
+  m.customProgramCacheKey = () => 'rim1';
+}
+
+function weaponTip(w) {
+  if (!w) return;
+  w.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(w.matrixWorld).invert();
+  const box = new THREE.Box3(), tmp = new THREE.Box3(), m4 = new THREE.Matrix4();
+  w.traverse(o => { if (o.isMesh) { if (!o.geometry.boundingBox) o.geometry.computeBoundingBox(); tmp.copy(o.geometry.boundingBox).applyMatrix4(m4.multiplyMatrices(inv, o.matrixWorld)); box.union(tmp); } });
+  const tip = new THREE.Object3D(); tip.position.set(0, box.max.y * 0.97, 0);
+  const base = new THREE.Object3D(); base.position.set(0, Math.max(0.12, box.max.y * 0.4), 0);
+  tip.name = 'tip'; base.name = 'tipbase';
+  w.add(tip); w.add(base);
+  w.tip = tip; w.tipBase = base;
+}
+
+export function buildHero(heroDef) {
+  const P = (BUILDERS[heroDef.model] || BUILDERS.knight)();
   P.def = heroDef;
+  P.poseName = P.spec.pose;
   P.pose = POSES[P.spec.pose] || POSES.onehand;
+  P.isGun = GUN_POSES.has(P.poseName);
+  P.isMelee = MELEE_POSES.has(P.poseName);
   P.root.userData.hero = heroDef.id;
-  P.anim = { phase: 0, atk: 9, atkSlot: 'lmb', cast: 9, dead: 0, hurt: 0 };
+  P.anim = { phase: 0, atk: 9, cast: 9, castSlot: 'q', dead: 0, hurt: 0, land: 0, wasAir: false, hipYaw: 0, combo: 0, swingSide: 1, airL: [0, 0], airK: [0, 0] };
   P.baseSpine = P.spine.rotation.x;
-  P.root.traverse(o => { if (o.isMesh) o.userData.baseMat = o.material; });
-  applyPose(P, 0);
+  P.root.traverse(o => { if (o.isMesh) { addRim(o.material); o.userData.baseMat = o.material; } });
+  if (P.isMelee) { weaponTip(P.weaponR); if (P.poseName === 'dual' || P.poseName === 'claws') weaponTip(P.weaponL); }
+  applyPose(P);
   return P;
 }
 
@@ -866,6 +919,7 @@ export function ownMaterials(P) {
   P.root.traverse(o => {
     if (o.isMesh) {
       o.material = o.material.clone();
+      addRim(o.material);
       o.userData.baseOpacity = o.material.opacity;
       o.userData.baseTransparent = o.material.transparent;
     }
@@ -885,92 +939,163 @@ export function setOpacity(P, a) {
   });
 }
 
-function applyPose(P, k) {
+function applyPose(P) {
   const [a, b, c2, d, e, f] = P.pose;
   P.shR.rotation.set(a, 0, b); P.elR.rotation.set(c2, 0, 0);
   P.shL.rotation.set(d, 0, e); P.elL.rotation.set(f, 0, 0);
 }
+const clamp01 = (x) => Math.max(0, Math.min(1, x));
+const ease = (x) => { x = clamp01(x); return 1 - Math.pow(1 - x, 3); };
+const easeIn = (x) => { x = clamp01(x); return x * x; };
+const mix = (a, b, k) => a + (b - a) * k;
+export const ATK_DUR = { twohand: 0.44, onehand: 0.36, dual: 0.26, claws: 0.24, gun: 0.16, other: 0.34 };
+export function attackDur(P) { return P.isGun ? ATK_DUR.gun : (ATK_DUR[P.poseName] || ATK_DUR.other); }
 
-// s: {speed, onGround, vy, alive, glide, giant, t}
+// s: {speed, fwd, side, onGround, vy, alive, t, pitch, giant, glide}
 export function animateHero(P, s, dt) {
   const A = P.anim;
   const t = s.t;
   A.atk += dt; A.cast += dt;
+  A.land = Math.max(0, A.land - dt);
   if (!s.alive) A.dead = Math.min(1, A.dead + dt * 2.2); else A.dead = Math.max(0, A.dead - dt * 4);
-  const mv = Math.min(1, s.speed / 6);
-  A.phase += dt * (3 + s.speed * 1.35);
-  const sw = Math.sin(A.phase);
   const air = !s.onGround;
+  if (A.wasAir && !air && (A.airT || 0) > 0.18) A.land = 0.24;
+  A.airT = air ? (A.airT || 0) + dt : 0;
+  A.wasAir = air;
+  const sp = s.speed || 0;
+  const mv = Math.min(1, sp / 6.5);
+  const fwd = s.fwd ?? sp, side = s.side ?? 0;
+  const dirAng = sp > 0.4 ? Math.atan2(side, fwd) : 0;
+  const back = Math.abs(dirAng) > Math.PI * 0.62;
+  A.phase += dt * (2.4 + sp * 1.45) * (back ? -1 : 1);
+  const sw = Math.sin(A.phase), cw = Math.cos(A.phase);
+  // hips turn toward strafe direction; torso counter-rotates so the hero keeps facing the aim
+  let hipYaw = 0;
+  if (sp > 0.4 && !air) { let a = dirAng; if (back) a = a > 0 ? a - Math.PI : a + Math.PI; hipYaw = Math.max(-0.9, Math.min(0.9, a)) * 0.65; }
+  A.hipYaw += (hipYaw - A.hipYaw) * Math.min(1, dt * 9);
+  P.hips.rotation.y = A.hipYaw;
   // legs
-  const legAmp = air ? 0 : 0.75 * mv;
-  P.legL.rotation.x = air ? -0.5 : sw * legAmp;
-  P.legR.rotation.x = air ? 0.2 : -sw * legAmp;
-  P.kneeL.rotation.x = air ? 0.9 : Math.max(0, -Math.cos(A.phase) * 0.9 * mv) + 0.05;
-  P.kneeR.rotation.x = air ? 0.4 : Math.max(0, Math.cos(A.phase) * 0.9 * mv) + 0.05;
+  const k = Math.min(1, dt * 14);
+  if (!air) {
+    const amp = 0.9 * mv;
+    P.legL.rotation.x = sw * amp; P.legR.rotation.x = -sw * amp;
+    P.kneeL.rotation.x = Math.max(0, -cw) * 1.15 * mv + 0.06; P.kneeR.rotation.x = Math.max(0, cw) * 1.15 * mv + 0.06;
+  } else {
+    const up = (s.vy || 0) > 1.5;
+    P.legL.rotation.x = mix(P.legL.rotation.x, up ? -1.0 : -0.35, k); P.legR.rotation.x = mix(P.legR.rotation.x, up ? -0.25 : 0.15, k);
+    P.kneeL.rotation.x = mix(P.kneeL.rotation.x, up ? 1.4 : 0.55, k); P.kneeR.rotation.x = mix(P.kneeR.rotation.x, up ? 0.7 : 0.25, k);
+  }
+  P.legL.rotation.z = 0.04; P.legR.rotation.z = -0.04;
+  const landK = A.land > 0 ? Math.sin((A.land / 0.24) * Math.PI) : 0;
+  if (landK) { P.legL.rotation.x -= 0.55 * landK; P.legR.rotation.x -= 0.55 * landK; P.kneeL.rotation.x += 1.1 * landK; P.kneeR.rotation.x += 1.1 * landK; }
   const breathe = Math.sin(t * 2.1) * 0.02;
-  P.hips.position.y = 0.95 + (P.hover || 0) + (P.hover ? Math.sin(t * 2) * 0.05 : 0) + (air ? 0 : Math.abs(Math.cos(A.phase)) * 0.04 * mv) + breathe * 0.5;
-  P.spine.rotation.x = P.baseSpine + 0.12 * mv + breathe;
-  P.spine.rotation.y = Math.sin(A.phase) * 0.08 * mv;
-  P.head.rotation.x = -(s.pitch || 0) * 0.5;
-  if (P.robe) { P.robe.rotation.x = -0.15 * mv; P.robe.scale.x = 1 + Math.sin(A.phase * 2) * 0.03 * mv; }
+  const hover = (P.hover || 0) + (P.hover ? Math.sin(t * 2) * 0.05 : 0);
+  P.hips.position.y = 0.95 + hover + (air ? 0 : Math.abs(cw) * 0.05 * mv) + breathe * 0.5 - landK * 0.15 - (air && (s.vy || 0) > 1.5 ? 0.05 : 0);
+  // torso lean
+  const leanF = Math.max(-0.15, Math.min(0.28, (fwd / 7) * 0.24)) + (air ? ((s.vy || 0) > 0 ? -0.08 : 0.12) : 0) + landK * 0.28;
+  P.spine.rotation.x = P.baseSpine + leanF + breathe;
+  P.spine.rotation.y = -A.hipYaw * 0.8 + (P.isGun ? 0 : Math.sin(A.phase) * 0.07 * mv);
+  P.spine.rotation.z = -(side / 7) * 0.14;
+  P.head.rotation.x = -(s.pitch || 0) * 0.55 - leanF * 0.6;
+  if (P.robe) { P.robe.rotation.x = -0.2 * mv * Math.sign(fwd || 1); P.robe.rotation.z = (side / 7) * 0.15; P.robe.scale.x = 1 + Math.sin(A.phase * 2) * 0.03 * mv; }
 
   // arms
-  applyPose(P, 0);
-  const armSwing = sw * 0.35 * mv;
-  P.shR.rotation.x += -armSwing * 0.4;
-  P.shL.rotation.x += armSwing * 0.4;
-  P.shR.rotation.x += breathe; P.shL.rotation.x -= breathe;
-  const pose = P.spec.pose;
-  // attack animation
-  const atkDur = 0.34;
-  if (A.atk < atkDur) {
-    const k = A.atk / atkDur;
-    const e = Math.sin(k * Math.PI);
-    if (pose === 'twohand' || pose === 'onehand') {
-      const wind = k < 0.35 ? k / 0.35 : 1 - (k - 0.35) / 0.65;
-      P.shR.rotation.x = -2.6 * (k < 0.35 ? wind : 1) + (k >= 0.35 ? (k - 0.35) / 0.65 * 3.0 : 0);
-      P.shR.rotation.z = -0.3;
-      P.spine.rotation.y += (k < 0.35 ? -0.5 * wind : -0.5 + (k - 0.35) / 0.65 * 1.0);
-      if (pose === 'twohand') { P.shL.rotation.x = P.shR.rotation.x * 0.9; P.shL.rotation.z = 0.6; }
+  applyPose(P);
+  const pose = P.poseName;
+  if (P.isGun) {
+    const aim = -(s.pitch || 0) * 0.85;
+    P.shR.rotation.x += aim + breathe; P.shL.rotation.x += (pose === 'pistol' ? 0 : aim) - breathe;
+    P.shR.rotation.x += Math.abs(sw) * 0.04 * mv;
+  } else {
+    const pump = sw * 0.55 * mv;
+    P.shR.rotation.x += -pump * (P.isMelee ? 0.45 : 0.8) + breathe;
+    P.shL.rotation.x += pump * (P.isMelee ? 0.45 : 0.8) - breathe;
+    P.elR.rotation.x -= 0.25 * mv; P.elL.rotation.x -= 0.25 * mv;
+    if (air) { P.shR.rotation.z -= 0.35; P.shL.rotation.z += 0.35; P.shL.rotation.x -= 0.3; }
+  }
+
+  // attack
+  const D = attackDur(P);
+  if (A.atk < D) {
+    const kk = A.atk / D;
+    if (P.isGun) {
+      const r = Math.pow(1 - kk, 2);
+      const leftShot = pose === 'dualgun' && A.swingSide < 0;
+      (leftShot ? P.shL : P.shR).rotation.x -= 0.38 * r;
+      (leftShot ? P.elL : P.elR).rotation.x -= 0.25 * r;
+      if (pose === 'rifle' || pose === 'heavy') P.shL.rotation.x -= 0.25 * r;
+      P.spine.rotation.x -= 0.07 * r;
+    } else if (pose === 'twohand' || pose === 'onehand') {
+      const wu = ease(kk / 0.3), st = ease((kk - 0.3) / 0.28), rc = easeIn((kk - 0.58) / 0.42);
+      const c = A.combo % 3;
+      if (c === 2) {
+        P.shR.rotation.x = mix(mix(mix(P.shR.rotation.x, -3.0, wu), -0.15, st), P.shR.rotation.x, rc);
+        P.shR.rotation.z = mix(-0.15, -0.05, st);
+        P.elR.rotation.x = mix(mix(-0.3, -0.9, wu), -0.15, st);
+        P.spine.rotation.x += mix(mix(-0.25 * wu, 0.45, st), 0, rc);
+        P.hips.position.y -= 0.1 * st * (1 - rc);
+        P.legL.rotation.x -= 0.5 * st * (1 - rc); P.kneeR.rotation.x += 0.6 * st * (1 - rc);
+      } else {
+        const dir = c === 0 ? 1 : -1;
+        P.shR.rotation.x = mix(P.shR.rotation.x, -1.55, Math.max(wu * (1 - rc), 0));
+        P.shR.rotation.z = mix(mix(mix(-0.15, dir > 0 ? -1.5 : 0.9, wu), dir > 0 ? 0.95 : -1.5, st), -0.15, rc);
+        P.elR.rotation.x = mix(P.elR.rotation.x, -0.25, wu * (1 - rc));
+        P.spine.rotation.y += mix(mix(0, -0.65 * dir, wu), 0.75 * dir, st) * (1 - rc);
+        P.legR.rotation.x -= 0.35 * st * (1 - rc);
+      }
+      if (pose === 'twohand') { P.shL.rotation.x = P.shR.rotation.x * 0.95; P.shL.rotation.z = 0.55 + (P.shR.rotation.z + 0.15) * 0.6; P.elL.rotation.x = -0.6; }
     } else if (pose === 'dual' || pose === 'claws') {
-      const side = (A.swingSide = A.swingSide ?? 1);
-      const sh = side > 0 ? P.shR : P.shL;
-      sh.rotation.x = -1.6 - e * 0.6;
-      sh.rotation.z += (side > 0 ? 0.6 : -0.6) * (k * 2 - 1);
-      P.spine.rotation.y += side * 0.4 * (k - 0.5);
+      const side = A.swingSide;
+      const sh = side > 0 ? P.shR : P.shL, el = side > 0 ? P.elR : P.elL;
+      const e = Math.sin(kk * Math.PI);
+      const st = ease(kk / 0.45);
+      sh.rotation.x = -1.2 - e * 0.55;
+      sh.rotation.z = (side > 0 ? -0.6 : 0.6) * (1 - st) + (side > 0 ? 0.7 : -0.7) * st * (1 - kk);
+      el.rotation.x = mix(-1.4, -0.15, e);
+      P.spine.rotation.y += side * 0.45 * (st - 0.5) * (1 - kk);
+      P.spine.rotation.x += 0.12 * e;
     } else if (pose === 'bow') {
-      P.shR.rotation.x = -1.5; P.shR.rotation.z = -0.1;
-      P.elR.rotation.x = -1.9 + e * 0.8;
-      P.shL.rotation.x = -1.55;
+      const e = Math.sin(kk * Math.PI);
+      P.shR.rotation.x = -1.5; P.shR.rotation.z = -0.1; P.elR.rotation.x = -1.9 + e * 0.8; P.shL.rotation.x = -1.55;
     } else {
-      P.shR.rotation.x = -1.5 - e * 0.4;
-      if (pose === 'cast') P.shL.rotation.x = -1.5 - e * 0.4;
-      P.elR.rotation.x = -0.4;
+      const e = Math.sin(kk * Math.PI);
+      P.shR.rotation.x = -1.55 - e * 0.35; P.elR.rotation.x = -0.3;
+      if (pose === 'cast') { P.shL.rotation.x = -1.55 - e * 0.35; P.elL.rotation.x = -0.3; }
+      P.spine.rotation.x += 0.1 * e;
     }
   } else if (pose === 'bow' && s.aiming) {
     P.shR.rotation.x = -1.5; P.elR.rotation.x = -1.9; P.shL.rotation.x = -1.55;
   }
-  if (A.cast < 0.45) {
-    const e = Math.sin((A.cast / 0.45) * Math.PI);
-    P.shL.rotation.x = Math.min(P.shL.rotation.x, -1.2 * e - 0.3);
-    P.shL.rotation.z += 0.3 * e;
-    P.spine.rotation.x -= 0.15 * e;
+  // skill casts: off-hand flourish, ultimate: both arms skyward
+  const cd = A.castSlot === 'x' ? 0.7 : 0.45;
+  if (A.cast < cd) {
+    const e = Math.sin((A.cast / cd) * Math.PI);
+    if (A.castSlot === 'x') {
+      P.shL.rotation.x = mix(P.shL.rotation.x, -2.8, e); P.shL.rotation.z += 0.4 * e;
+      if (!P.isGun) { P.shR.rotation.x = mix(P.shR.rotation.x, -2.6, e); P.shR.rotation.z -= 0.3 * e; }
+      P.spine.rotation.x -= 0.28 * e; P.head.rotation.x -= 0.3 * e;
+    } else {
+      P.shL.rotation.x = Math.min(P.shL.rotation.x, -1.25 * e - 0.3);
+      P.shL.rotation.z += 0.3 * e; P.elL.rotation.x = mix(P.elL.rotation.x, -0.2, e);
+      P.spine.rotation.x -= 0.12 * e;
+    }
   }
-  if (air && A.atk > atkDur) { P.shR.rotation.z -= 0.25; P.shL.rotation.z += 0.25; }
 
-  // capes
+  // capes follow motion
   for (const segs of P.capes) {
     segs.forEach((seg, i) => {
-      seg.rotation.x = (i === 0 ? 0.12 + 0.55 * mv + (air ? (s.vy > 0 ? -0.2 : 0.6) : 0) : 0.12 * mv) + Math.sin(t * 3 + i * 0.9) * (0.05 + 0.08 * mv);
+      seg.rotation.x = (i === 0 ? 0.12 + 0.6 * mv * (back ? 0.3 : 1) + (air ? ((s.vy || 0) > 0 ? -0.25 : 0.75) : 0) + landK * 0.3 : 0.14 * mv) + Math.sin(t * 3 + i * 0.9) * (0.05 + 0.09 * mv);
+      seg.rotation.z = (side / 7) * 0.2 * (i === 0 ? 1 : 0.5);
     });
   }
-  // flicker & extras
   for (const fn of P.update) fn(t, s);
-  if (!P._flick) { P._flick = []; P.root.traverse(o => { if (o.userData.flicker) P._flick.push(o); if (o.userData.spin) P._flick.push(o); }); }
+  if (!P._flick) { P._flick = []; P.root.traverse(o => { if (o.userData.flicker || o.userData.spin !== undefined) P._flick.push(o); }); }
   for (const o of P._flick) {
     if (o.userData.flicker) o.scale.setScalar(1 + Math.sin(t * 13 + o.id) * 0.08 + Math.sin(t * 7.3) * 0.05);
     if (o.userData.spin) o.rotation.y = t * o.userData.spin;
   }
+  const bar = P.weaponR?.barrel;
+  if (bar) { bar.userData.bspin = Math.max(0, (bar.userData.bspin || 0) - dt * 14); bar.rotation.y += bar.userData.bspin * dt; }
   // death: topple
   P.body.rotation.x = -A.dead * 1.45;
   P.body.position.y = -A.dead * 0.25;
@@ -979,9 +1104,11 @@ export function animateHero(P, s, dt) {
   P.root.scale.setScalar(cur + (gs - cur) * Math.min(1, dt * 6));
 }
 
-export function triggerAttack(P, slot) {
-  if (slot === 'lmb') { P.anim.atk = 0; P.anim.swingSide = -(P.anim.swingSide || 1); }
-  else P.anim.cast = 0;
+export function triggerAttack(P, slot, combo = 0) {
+  if (slot === 'lmb') {
+    P.anim.atk = 0; P.anim.combo = combo; P.anim.swingSide = -(P.anim.swingSide || 1);
+    const bar = P.weaponR?.barrel; if (bar) bar.userData.bspin = 30;
+  } else { P.anim.cast = 0; P.anim.castSlot = slot; }
 }
 
 export { G, add, grp, GLOW };

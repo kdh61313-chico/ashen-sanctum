@@ -39,7 +39,64 @@ export const LOOK = {
   cauldron: { c: '#7bc96f', c2: '#d8ff9a' },
   whirl: { c: '#d9c7a1', c2: '#ffffff' },
   trap: { c: '#9fe8ff', c2: '#ffffff' },
+  mine: { c: '#ffaa3a', c2: '#ffffff' },
+  bullet: { c: '#ffcf6a', c2: '#fff6d8', s: 0.07, stretch: 0.9 },
+  silver: { c: '#dfe8ff', c2: '#ffffff', s: 0.08, stretch: 1.2 },
+  runebullet: { c: '#5fd4ff', c2: '#e0f8ff', s: 0.1, stretch: 1.0 },
+  execution: { c: '#ff2a3a', c2: '#ffffff' },
+  pellet: { c: '#ffb04a', c2: '#fff0c8', s: 0.06, stretch: 0.5 },
+  grenade: { c: '#8bd450', c2: '#e8ffc8', s: 0.2, spin: true, trail: 'poison' },
+  plasma: { c: '#ff9a3a', c2: '#fff0c8', s: 0.42, trail: 'fire' },
+  shadowbullet: { c: '#a07cff', c2: '#f0e8ff', s: 0.08, stretch: 0.8 },
+  needle: { c: '#ff7ac0', c2: '#ffffff', s: 0.06, stretch: 0.6 },
+  icicle: { c: '#a8e8ff', c2: '#ffffff', s: 0.14, stretch: 0.6, trail: 'frost' },
+  bloodorb: { c: '#ff2a4a', c2: '#ffd0d8', s: 0.26, trail: 'blood' },
+  moon: { c: '#cfe0ff', c2: '#ffffff', s: 0.26, trail: 'star' },
+  tentacle: { c: '#4affe8', c2: '#e0fff8', s: 0.3, trail: 'soul' },
+  bomb: { c: '#ffcc3a', c2: '#fff6c8', s: 0.25, spin: true, trail: 'fire' },
+  bigbomb: { c: '#ff8a1a', c2: '#fff0c8', s: 0.6, spin: true, trail: 'fire' },
+  smoke: { c: '#9aa4b4', c2: '#ffffff' },
+  acid: { c: '#8bd450', c2: '#e8ffc8' },
+  barrage: { c: '#ff8a3a', c2: '#ffffff' },
+  petals: { c: '#ff8ac8', c2: '#ffffff' },
+  moonzone: { c: '#cfe0ff', c2: '#ffffff' },
+  hellgate: { c: '#ff3a1a', c2: '#ffcf8a' },
+  web: { c: '#ff7ac0', c2: '#ffffff' },
+  icecage: { c: '#a8e8ff', c2: '#ffffff' },
 };
+
+// Ribbon trail that follows a weapon's blade (base → tip) for a short time.
+export class Trail {
+  constructor(scene, color, n = 14) {
+    this.n = n; this.pts = []; this.scene = scene;
+    const g = new THREE.BufferGeometry();
+    this.pos = new Float32Array(n * 2 * 3); this.col = new Float32Array(n * 2 * 4);
+    g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage));
+    g.setAttribute('color', new THREE.BufferAttribute(this.col, 4).setUsage(THREE.DynamicDrawUsage));
+    const idx = []; for (let i = 0; i < n - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+    g.setIndex(idx);
+    this.c = new THREE.Color(color);
+    this.mesh = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+    this.mesh.frustumCulled = false; this.mesh.renderOrder = 6;
+    scene.add(this.mesh);
+    this.geo = g; this.fade = 0;
+  }
+  push(base, tip, active) {
+    if (active) { this.pts.unshift([base.x, base.y, base.z, tip.x, tip.y, tip.z]); this.fade = 1; }
+    else { this.fade = Math.max(0, this.fade - 0.12); if (this.pts.length) this.pts.pop(); }
+    if (this.pts.length > this.n) this.pts.length = this.n;
+    const L = this.pts.length;
+    for (let i = 0; i < this.n; i++) {
+      const p = this.pts[Math.min(i, L - 1)] || [0, -99, 0, 0, -99, 0];
+      this.pos.set(p, i * 6);
+      const a = L ? Math.max(0, 1 - i / Math.max(1, L - 1)) * this.fade : 0;
+      for (const k of [0, 1]) { const o = (i * 2 + k) * 4; this.col[o] = this.c.r; this.col[o + 1] = this.c.g; this.col[o + 2] = this.c.b; this.col[o + 3] = a * (k ? 0.95 : 0.15); }
+    }
+    this.geo.attributes.position.needsUpdate = true; this.geo.attributes.color.needsUpdate = true;
+    this.mesh.visible = L > 1 && this.fade > 0;
+  }
+  dispose() { this.scene.remove(this.mesh); this.geo.dispose(); }
+}
 
 const _c = new THREE.Color(), _c2 = new THREE.Color();
 
@@ -212,6 +269,7 @@ export class FX {
       case 'frost': this.P.emit(p, { n: 1, c: '#5fc8ff', c2: '#ffffff', sp: 0.2, s: 0.12, life: 0.35 }); break;
       case 'soul': this.P.emit(p, { n: 2, c: '#1aff8a', c2: '#e0fff0', sp: 0.4, s: 0.2, life: 0.5 }); break;
       case 'blood': this.P.emit(p, { n: 2, c: '#a0001a', c2: '#ff5a7a', sp: 0.4, s: 0.16, life: 0.4, g: 4 }); break;
+      case 'soul2': break;
       case 'poison': this.P.emit(p, { n: 1, c: '#4a8a10', c2: '#c8ff7a', sp: 0.3, s: 0.18, life: 0.6 }); break;
       case 'void': this.P.emit(p, { n: 2, c: '#3a0a8a', c2: '#c8a0ff', sp: 0.5, s: 0.4, life: 0.5 }); break;
       case 'star': this.P.emit(p, { n: 1, c: '#7a9aff', c2: '#ffffff', sp: 0.5, s: 0.14, life: 0.6 }); break;
@@ -331,6 +389,8 @@ export class FX {
     switch (e.fx) {
       case 'beam': {
         const L = LOOK[e.look] || LOOK.lightning;
+        if (e.look === 'bullet' || e.look === 'silver' || e.look === 'runebullet') { this.ray(e.from, e.to, L.c, e.look === 'bullet' ? 0.012 : 0.025, 0.09); P.emit(e.to, { n: 6, c: '#ffcf6a', c2: '#ffffff', sp: 4, s: 0.08, life: 0.2 }); break; }
+        if (e.look === 'execution') { this.ray(e.from, e.to, L.c, 0.12, 0.35); this.flash(e.to, L.c, 40, 0.3, 10); break; }
         if (e.look === 'holy') this.ray(e.from, e.to, L.c, 0.06, 0.2);
         else if (e.look === 'mesmer') this.ray(e.from, e.to, L.c, 0.04, 0.3);
         else this.bolt(e.from, e.to, L.c, e.look === 'chain' ? 0.05 : 0.035, 0.16, e.look === 'chain' ? 0.9 : 0.5);
@@ -353,6 +413,13 @@ export class FX {
         break;
       }
       case 'swing': break; // handled by renderer for attacker
+      case 'deadeye': this.ring(e.pos, 3, e.color || '#ffcf6a', 0.5); this.flash(e.pos, '#ffcf6a', 30, 0.3); break;
+      case 'puppet': this.ring(e.pos, e.r, '#ff7ac0', 0.7); for (let i = 0; i < 40; i++) { const a = i / 40 * Math.PI * 2; P.emit([e.pos[0] + Math.cos(a) * e.r * 0.7, e.pos[1] + 4, e.pos[2] + Math.sin(a) * e.r * 0.7], { c: '#ff7ac0', c2: '#ffffff', sp: 0.2, v: [0, -6, 0], s: 0.1, life: 0.6, drag: 0 }); } break;
+      case 'frostnova': this.ring(e.pos, e.r, '#a8e8ff', 0.7); this.ring(e.pos, e.r * 0.6, '#ffffff', 0.5); P.emit([e.pos[0], e.pos[1] + 0.5, e.pos[2]], { n: 120, c: '#5fc8ff', c2: '#ffffff', sp: e.r * 2.6, s: 0.25, life: 0.8, drag: 2 }); this.flash(e.pos, '#a8e8ff', 50, 0.4, 18); ctx?.shake?.(e.pos, 0.5); break;
+      case 'wave': {
+        for (let i = 0; i < 80; i++) { const a = e.yaw + (Math.random() - 0.5) * (e.angle * Math.PI / 180); const sp = 10 + Math.random() * 8; P.emit([e.pos[0], e.pos[1] + 0.6 + Math.random(), e.pos[2]], { c: '#1a8aaa', c2: '#e0fff8', sp: 0.5, v: [-Math.sin(a) * sp, 2, -Math.cos(a) * sp], s: 0.6, s1: 1.1, life: 0.6, drag: 1.2, g: 6 }); }
+        ctx?.shake?.(e.pos, 0.6); break;
+      }
       case 'crit': P.emit(e.pos, { n: 22, c: '#ff2a6a', c2: '#ffffff', sp: 5, s: 0.18, life: 0.4 }); this.sphereFlash(e.pos, 0.8, '#ff3a8a', 0.2); break;
       case 'burst': this.ring(e.pos, 3.2, e.color || '#ff7a1a', 0.4); P.emit([e.pos[0], e.pos[1] + 0.3, e.pos[2]], { n: 30, c: e.color || '#ff5a1a', c2: '#ffe0a0', sp: 6, s: 0.35, life: 0.45, drag: 4 }); this.flash(e.pos, e.color || '#ff7a1a', 25, 0.25); break;
       case 'blink': P.emit([e.pos[0], e.pos[1] + 1, e.pos[2]], { n: 30, c: e.color || '#b06cff', c2: '#ffffff', sp: 2.5, s: 0.25, life: 0.5, spread: [0.3, 0.8, 0.3] }); break;
@@ -414,7 +481,9 @@ export class FX {
           this.ring(e.pos, e.r, '#ffffff', 0.4);
           P.emit(e.pos, { n: 50, c: '#ffb300', c2: '#ffffff', sp: 6, up: 3, s: 0.25, life: 0.6 });
           this.flash(e.pos, '#ffd54f', 70, 0.4, 16); ctx?.shake?.(e.pos, 0.4);
-        } else if (e.look === 'roots') {
+        } else if (e.look === 'roots' || e.look === 'web' || e.look === 'icecage') {
+          if (e.look === 'icecage') { for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; const sp = new THREE.Mesh(new THREE.ConeGeometry(0.2, 2.2, 4), new THREE.MeshStandardMaterial({ color: '#bfefff', emissive: '#5ac8ff', emissiveIntensity: 0.8, transparent: true, opacity: 0.85, flatShading: true })); sp.position.set(e.pos[0] + Math.cos(a) * e.r * 0.8, e.pos[1] + 0.9, e.pos[2] + Math.sin(a) * e.r * 0.8); sp.rotation.set(Math.sin(a) * 0.3, 0, -Math.cos(a) * 0.3); this.temp(sp, 1.6, (k) => { sp.scale.set(1, k < 0.1 ? k / 0.1 : (k > 0.8 ? (1 - k) / 0.2 : 1), 1); }); } this.ring(e.pos, e.r, '#a8e8ff', 0.5); this.flash(e.pos, '#a8e8ff', 30, 0.3); break; }
+          if (e.look === 'web') { for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; this.bolt([e.pos[0], e.pos[1] + 0.1, e.pos[2]], [e.pos[0] + Math.cos(a) * e.r, e.pos[1] + 0.1, e.pos[2] + Math.sin(a) * e.r], '#ff7ac0', 0.02, 1.2, 0.1); } this.ring(e.pos, e.r, '#ff7ac0', 0.6); break; }
           for (let i = 0; i < 9; i++) {
             const a = (i / 9) * Math.PI * 2; const d = Math.random() * e.r;
             const sp = new THREE.Mesh(new THREE.ConeGeometry(0.15, 1.6, 4), new THREE.MeshStandardMaterial({ color: '#3a5a20', emissive: '#4a8a20', emissiveIntensity: 0.6, flatShading: true }));
@@ -431,13 +500,26 @@ export class FX {
     }
   }
 
+  muzzle(pos, dir, color = '#ffcf6a', big = false) {
+    this.P.emit(pos, { n: big ? 14 : 7, c: '#ff8a2a', c2: '#fff6d8', sp: big ? 3 : 1.6, v: [dir[0] * 4, dir[1] * 4, dir[2] * 4], s: big ? 0.3 : 0.16, s1: 0.02, life: 0.12, drag: 6 });
+    this.flash(pos, color, big ? 22 : 10, 0.06, 6);
+  }
+  flameCone(pos, dir) {
+    for (let i = 0; i < 6; i++) {
+      const sp = 9 + Math.random() * 5, j = () => (Math.random() - 0.5) * 2.2;
+      this.P.emit(pos, { c: '#ff3a0a', c2: '#ffe08a', sp: 0.3, v: [dir[0] * sp + j(), dir[1] * sp + j() * 0.5 + 0.6, dir[2] * sp + j()], s: 0.35, s1: 0.9, life: 0.45, drag: 2.2 });
+    }
+  }
+
   deathFx(pos, color) {
     this.P.emit([pos[0], pos[1] + 1, pos[2]], { n: 60, c: '#1a1020', c2: color || '#ff3b3b', sp: 2.5, up: 1.5, s: 0.4, s1: 0.05, life: 1.4, drag: 1.2, spread: [0.3, 0.7, 0.3] });
     this.flash(pos, color || '#ff3b3b', 20, 0.4);
   }
 
-  ambient(dt, camPos) {
-    // floating embers & ash
+  ambient(dt, kind = 'ash') {
+    if (kind === 'snow') { for (let i = 0; i < 3; i++) if (Math.random() < dt * 60) this.P.emit([(Math.random() - 0.5) * HALF_X * 2, 6 + Math.random() * 5, (Math.random() - 0.5) * HALF_Z * 2], { c: '#dfe8f4', c2: '#ffffff', sp: 0.2, v: [0.6, -1.2, 0.3], s: 0.09, life: 7, drag: 0, a: 0.8 }); return; }
+    if (kind === 'embers') { for (let i = 0; i < 2; i++) if (Math.random() < dt * 50) this.P.emit([(Math.random() - 0.5) * HALF_X * 2, Math.random() * 2, (Math.random() - 0.5) * HALF_Z * 2], { c: '#ff4a0a', c2: '#ffd27a', sp: 0.3, v: [0.2, 1.2, 0.1], s: 0.08, life: 4, drag: 0, a: 1 }); return; }
+    if (kind === 'spores') { if (Math.random() < dt * 40) this.P.emit([(Math.random() - 0.5) * HALF_X * 2, Math.random() * 4, (Math.random() - 0.5) * HALF_Z * 2], { c: '#6aff4a', c2: '#e8ffc8', sp: 0.2, v: [0.1, 0.25, 0.1], s: 0.07, life: 6, drag: 0, a: 0.8 }); return; }
     if (Math.random() < dt * 30) {
       const x = (Math.random() - 0.5) * HALF_X * 2, z = (Math.random() - 0.5) * HALF_Z * 2;
       const ember = Math.random() < 0.35;

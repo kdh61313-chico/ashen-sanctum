@@ -1,5 +1,5 @@
 import { HERO_MAP, ULT_COST } from './heroes.js';
-import { SPAWNS, SPAWN_YAW, DUMMY_SPOTS } from './map.js';
+import { SPAWNS, SPAWN_YAW, MAP, setMap, hazardAt } from './map.js';
 import {
   moveCharacter, applyMoveAbility, MOVE_KINDS, raycast, losClear, rayPlayer, groundUnder,
   dirFromAngles, fwdFromYaw, EYE, P_HEIGHT, GRAVITY, clamp,
@@ -20,7 +20,8 @@ export function statusMods(st, glide, frozen) {
 let nextEnt = 1;
 
 export class Sim {
-  constructor({ mode = 'match', difficulty = 1 } = {}) {
+  constructor({ mode = 'match', difficulty = 1, mapId = 'sanctum' } = {}) {
+    this.mapId = mapId; setMap(mapId);
     this.mode = mode; // 'match' | 'training'
     this.difficulty = difficulty;
     this.players = new Map();
@@ -44,7 +45,7 @@ export class Sim {
       pos: [0, 0, 0], vel: [0, 0, 0], yaw: SPAWN_YAW[team], pitch: 0, onGround: true,
       dashT: 0, dashV: [0, 0, 0], glideUntil: 0,
       hp: def.hp, maxHp: def.hp, alive: true, shield: 0, shieldT: 0,
-      cds: { lmb: 0, q: 0, e: 0 }, ult: 0, st: {},
+      cds: { lmb: 0, q: 0, e: 0 }, ult: 0, st: {}, ammo: def.abilities.lmb.ammo || 0, reloadT: 0, combo: 0, lastAtk: -9,
       stats: { k: 0, d: 0, dmg: 0, heal: 0 },
       lastHurtBy: null, lastHurtAt: -99, dashHit: null, leap: null, traps: [], deadAt: 0,
       slot: 0,
@@ -58,7 +59,7 @@ export class Sim {
   setHero(id, heroId) {
     const p = this.players.get(id); if (!p) return;
     const def = HERO_MAP[heroId]; if (!def) return;
-    p.hero = def.id; p.def = def; p.maxHp = def.hp; p.hp = def.hp; p.cds = { lmb: 0, q: 0, e: 0 };
+    p.hero = def.id; p.def = def; p.maxHp = def.hp; p.hp = def.hp; p.cds = { lmb: 0, q: 0, e: 0 }; p.ammo = def.abilities.lmb.ammo || 0; p.reloadT = 0;
     if (this.mode === 'training') p.ult = ULT_COST;
     this.ev({ t: 'roster' });
   }
@@ -79,7 +80,7 @@ export class Sim {
     this.phase = 'train';
     let i = 0;
     for (const p of this.players.values()) {
-      if (p.isDummy) { const s = DUMMY_SPOTS[i++ % DUMMY_SPOTS.length]; p.pos = [...s]; p.home = [...s]; p.yaw = -Math.PI / 2; p.yaw = Math.PI / 2; }
+      if (p.isDummy) { const ds = MAP.cur.dummies; const s = ds[i++ % ds.length]; p.pos = [...s]; p.home = [...s]; p.yaw = -Math.PI / 2; p.yaw = Math.PI / 2; }
       else this.spawn(p, 0);
       p.ult = ULT_COST;
     }
@@ -88,7 +89,7 @@ export class Sim {
     const s = SPAWNS[p.team][idx % 6];
     p.pos = [...s]; p.vel = [0, 0, 0]; p.yaw = SPAWN_YAW[p.team]; p.pitch = 0;
     p.hp = p.maxHp; p.alive = true; p.st = {}; p.shield = 0; p.dashT = 0; p.glideUntil = 0;
-    p.dashHit = null; p.leap = null;
+    p.dashHit = null; p.leap = null; p.ammo = p.def.abilities.lmb.ammo || 0; p.reloadT = 0;
     this.ev({ t: 'tp', id: p.id, pos: [...p.pos], yaw: p.yaw });
   }
   startRound() {
@@ -134,13 +135,20 @@ export class Sim {
     const tol = p.isBot ? 0.001 : 0.2;
     if (slot === 'x') { if (p.ult < ULT_COST - 0.5) return false; p.ult = 0; }
     else {
+      if (slot === 'lmb' && def.ammo) {
+        if (p.reloadT > 0) return false;
+        if (p.ammo <= 0) { this.reload(id); return false; }
+      }
       if (p.cds[slot] > tol) return false;
       let cd = def.cd;
       if (slot === 'lmb' && p.st.atkSpd) cd /= (1 + p.st.atkSpd.v);
       p.cds[slot] = cd;
+      if (slot === 'lmb' && def.ammo && !p.st.infAmmo) { p.ammo--; if (p.ammo <= 0) this.reload(id); }
     }
+    if (slot === 'lmb') { p.combo = this.now - p.lastAtk < Math.max(1.1, def.cd * 2.5) ? (p.combo + 1) % 3 : 0; p.lastAtk = this.now; }
     if (aim) { p.yaw = aim.yaw; p.pitch = aim.pitch; }
-    this.ev({ t: 'cast', id, slot, hero: p.hero });
+    this.ev({ t: 'cast', id, slot, hero: p.hero, combo: p.combo });
+    if (def.refill) { p.ammo = p.def.abilities.lmb.ammo || 0; p.reloadT = 0; }
     if (this.mode === 'training' && slot === 'x') p.ult = ULT_COST;
 
     if (MOVE_KINDS.has(def.kind)) {
@@ -158,6 +166,13 @@ export class Sim {
     }
     if (def.selfSt) this.applySt(p, def.selfSt);
     return true;
+  }
+
+  reload(id) {
+    const p = this.players.get(id); if (!p || !p.alive) return;
+    const d = p.def.abilities.lmb;
+    if (!d.ammo || p.reloadT > 0 || p.ammo >= d.ammo) return;
+    p.reloadT = d.reload; this.ev({ t: 'reload', id });
   }
 
   eye(p) { return [p.pos[0], p.pos[1] + EYE * (p.st.giant ? 1.3 : 1), p.pos[2]]; }
@@ -181,6 +196,7 @@ export class Sim {
       if (hd > 1.0 && ang > half) continue;
       if (!losClear(eye, c)) continue;
       let dmg = def.dmg;
+      if (def.combo && p.combo === 2) dmg *= def.combo;
       if (def.backstab) {
         const [tx, tz] = fwdFromYaw(o.yaw);
         if ((tx * dx + tz * dz) / (hd || 1) > 0.35) { dmg *= def.backstab; this.ev({ t: 'fx', fx: 'crit', pos: c }); }
@@ -188,7 +204,8 @@ export class Sim {
       this.damage(p, o, dmg, { from: eye, steal: def.steal, onHit: def.onHit });
       hitAny = true;
     }
-    this.ev({ t: 'fx', fx: 'swing', id: p.id, hit: hitAny });
+    if (def.look === 'flame') this.ev({ t: 'fx', fx: 'flame', id: p.id });
+    else this.ev({ t: 'fx', fx: 'swing', id: p.id, hit: hitAny, combo: p.combo });
   }
 
   k_proj(p, def, aim) {
@@ -202,7 +219,8 @@ export class Sim {
     }
     for (let i = 0; i < n; i++) {
       const off = n > 1 ? ((i / (n - 1)) - 0.5) * (def.spread * Math.PI / 180) : 0;
-      const d = dirFromAngles(aim.yaw + off, aim.pitch);
+      const jy = def.jitter ? (Math.random() - 0.5) * 2 * def.jitter : 0, jp = def.jitter ? (Math.random() - 0.5) * 2 * def.jitter : 0;
+      const d = dirFromAngles(aim.yaw + off + jy, aim.pitch + jp);
       const [fx, fz] = fwdFromYaw(aim.yaw);
       const start = [eye[0] + d[0] * 0.5 - fz * 0.15, eye[1] - 0.18 + d[1] * 0.5, eye[2] + d[2] * 0.5 + fx * 0.15];
       this.projs.push({
@@ -225,12 +243,26 @@ export class Sim {
 
   k_beam(p, def, aim) {
     const eye = this.eye(p);
-    const d = dirFromAngles(aim.yaw, aim.pitch);
+    let yaw = aim.yaw, pitch = aim.pitch;
+    if (def.spread) { yaw += (Math.random() - 0.5) * 2 * def.spread; pitch += (Math.random() - 0.5) * 2 * def.spread; }
+    const d = dirFromAngles(yaw, pitch);
+    let dmg = def.dmg;
+    if (def.charge) dmg = def.charge.dmgMin + (def.charge.dmgMax - def.charge.dmgMin) * clamp(aim.charge || 0, 0, 1);
+    if (def.pierce) {
+      const wall = raycast(eye, d, def.range);
+      const end = [eye[0] + d[0] * wall, eye[1] + d[1] * wall, eye[2] + d[2] * wall];
+      this.ev({ t: 'fx', fx: 'beam', look: def.look, id: p.id, from: [eye[0], eye[1] - 0.2, eye[2]], to: end, color: p.def.color });
+      for (const o of this.enemiesOf(p)) {
+        const tt = rayPlayer(eye, d, o.pos, wall, 0.6, P_HEIGHT * (o.st.giant ? 1.4 : 1));
+        if (tt >= 0) this.damage(p, o, dmg, { from: eye, onHit: def.onHit });
+      }
+      return;
+    }
     const { t, target } = this.beamHit(eye, d, def.range, p.team);
     const end = [eye[0] + d[0] * t, eye[1] + d[1] * t, eye[2] + d[2] * t];
     this.ev({ t: 'fx', fx: 'beam', look: def.look, id: p.id, from: [eye[0], eye[1] - 0.2, eye[2]], to: end, color: p.def.color });
     if (target) {
-      this.damage(p, target, def.dmg, { from: eye, onHit: def.onHit });
+      this.damage(p, target, dmg, { from: eye, onHit: def.onHit });
       if (def.chain) {
         let last = target; const hitSet = new Set([target.id]);
         for (let i = 0; i < def.chain.n; i++) {
@@ -274,8 +306,26 @@ export class Sim {
     this.zones.push(z);
   }
 
+  k_deadeye(p, def, aim) {
+    const eye = this.eye(p);
+    const [fx, fz] = fwdFromYaw(aim.yaw);
+    const half = (def.cone * Math.PI / 180) / 2;
+    for (const o of this.enemiesOf(p)) {
+      if (o.st.invis) continue;
+      const c = this.chest(o);
+      const dx = c[0] - eye[0], dz = c[2] - eye[2];
+      const hd = Math.hypot(dx, dz);
+      if (hd > def.range) continue;
+      if (Math.acos(clamp((dx * fx + dz * fz) / (hd || 1), -1, 1)) > half) continue;
+      if (!losClear(eye, c)) continue;
+      this.ev({ t: 'fx', fx: 'beam', look: 'silver', id: p.id, from: [eye[0], eye[1] - 0.2, eye[2]], to: c, color: p.def.color });
+      this.damage(p, o, def.dmg, { from: eye });
+    }
+    this.ev({ t: 'fx', fx: 'deadeye', pos: [...p.pos], color: p.def.color });
+  }
+
   k_trap(p, def) {
-    const z = { id: nextEnt++, owner: p.id, team: p.team, def, look: 'trap', pos: [...p.pos], yaw: 0, r: def.r, t: 0, delay: 0.4, dur: def.life, trap: true };
+    const z = { id: nextEnt++, owner: p.id, team: p.team, def, look: def.look || 'trap', pos: [...p.pos], yaw: 0, r: def.r, t: 0, delay: 0.4, dur: def.life, trap: true };
     p.traps.push(z.id);
     while (p.traps.length > def.max) { const old = p.traps.shift(); this.zones = this.zones.filter(zz => zz.id !== old); }
     this.zones.push(z);
@@ -458,6 +508,13 @@ export class Sim {
       }
       if (this.phase === 'live') p.ult = Math.min(ULT_COST, p.ult + dt * 0.9);
       if (this.phase === 'train') p.ult = Math.min(ULT_COST, p.ult + dt * 8);
+      if (p.reloadT > 0) { p.reloadT -= dt; if (p.reloadT <= 0) { p.reloadT = 0; p.ammo = p.def.abilities.lmb.ammo || 0; } }
+      // hazards
+      if (p.pos[1] < 0.35 && (this.phase === 'live' || this.phase === 'train')) {
+        const hz = hazardAt(p.pos[0], p.pos[2]);
+        if (hz === 'lava') { p._lava = (p._lava || 0) + dt; if (p._lava >= 0.25) { p._lava -= 0.25; this.damage(null, p, 12, {}); this.addSt(p, 'burn', 1.5, 6); } }
+        else if (hz === 'water') this.addSt(p, 'slow', 0.3, 0.35);
+      }
       // DoTs
       if (p.st.poison || p.st.burn) {
         p._dot = (p._dot || 0) + dt;
@@ -631,7 +688,7 @@ export class Sim {
               fired = true;
             }
           }
-          if (fired) { this.ev({ t: 'fx', fx: 'trapSnap', pos: [...z.pos] }); if (src) src.traps = src.traps.filter(i => i !== z.id); continue; }
+          if (fired) { this.ev({ t: 'fx', fx: z.look === 'mine' ? 'explode' : 'trapSnap', pos: [...z.pos], r: z.r + 1, look: z.look === 'mine' ? 'grenade' : 'trap' }); if (src) src.traps = src.traps.filter(i => i !== z.id); continue; }
         }
         if (z.t < z.dur) keep.push(z);
         continue;
@@ -711,7 +768,7 @@ export class Sim {
       for (const k in p.st) st[k] = [r2(p.st[k].t), r2(p.st[k].v || 0)];
       ps.push([p.id, r2(p.pos[0]), r2(p.pos[1]), r2(p.pos[2]), r2(p.yaw), r2(p.pitch), Math.ceil(p.hp), p.alive ? 1 : 0,
         Math.floor(p.ult), Math.ceil(p.shield), st, r2(p.cds.lmb), r2(p.cds.q), r2(p.cds.e), r2(p.vel[0]), r2(p.vel[2]), p.onGround ? 1 : 0,
-        p.stats.k, p.stats.d, Math.round(p.stats.dmg), Math.round(p.stats.heal), p.maxHp]);
+        p.stats.k, p.stats.d, Math.round(p.stats.dmg), Math.round(p.stats.heal), p.maxHp, p.ammo, r2(p.reloadT)]);
     }
     return {
       t: 's', tm: r2(this.now), ph: this.phase, pt: r2(this.phaseT), rd: this.round, sc: this.score,

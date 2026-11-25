@@ -24,9 +24,9 @@ export class Stage {
     this.fill = new THREE.PointLight('#ff8a3a', 8, 9, 1.8); this.fill.position.set(2.6, 1.6, 1.8); s.add(this.fill);
 
     // floor & dais
-    const floor = new THREE.Mesh(new THREE.CircleGeometry(30, 32), new THREE.MeshStandardMaterial({ map: T.floor, color: '#6a625a', roughness: 0.95 }));
+    const ft = T.floor.clone(); ft.needsUpdate = true; ft.repeat.set(6, 6);
+    const floor = new THREE.Mesh(new THREE.CircleGeometry(30, 32), new THREE.MeshStandardMaterial({ map: ft, color: '#6a625a', roughness: 0.95 }));
     floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; s.add(floor);
-    T.floor.repeat.set(6, 6);
     const stone = M('#3a3438', { r: 0.95 });
     add(s, G.cyl(2.1, 2.3, 0.3, 8), stone, [0, 0.15, 0]);
     add(s, G.cyl(1.7, 1.9, 0.18, 8), M('#2a2528'), [0, 0.39, 0]);

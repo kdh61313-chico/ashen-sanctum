@@ -1,8 +1,8 @@
-import { COLLIDERS, HALF_X, HALF_Z } from './map.js';
+import { COLLIDERS, HALF_X, HALF_Z, MAP, hazardAt } from './map.js';
 import { losClear, raycast, groundUnder, yawTo, angDiff, clamp, GRAVITY, EYE, P_RADIUS, rayPlayer } from './physics.js';
 
 // ---------- navigation graph ----------
-let NAV = null;
+let NAV = null, NAV_ID = null;
 function blockedAt(x, z, y) {
   for (const b of COLLIDERS) {
     if (b.max[1] <= y + 0.6) continue; // walkable top or below
@@ -18,6 +18,7 @@ function buildNav() {
     for (let z = -HALF_Z + 1.5; z <= HALF_Z - 1.5; z += S) {
       const y = groundUnder(x, z, 3.0, 0.3);
       if (blockedAt(x, z, y)) continue;
+      if (y < 0.3 && hazardAt(x, z) === 'lava') continue;
       nodes.push({ x, y, z, n: [] });
     }
   }
@@ -34,14 +35,14 @@ function buildNav() {
       for (let k = 1; k <= n; k++) {
         const x = a.x + (b.x - a.x) * k / n, z = a.z + (b.z - a.z) * k / n;
         const y = groundUnder(x, z, prevY + 1.35, 0.25);
-        if (blockedAt(x, z, y)) { ok = false; break; }
+        if (blockedAt(x, z, y) || (y < 0.3 && hazardAt(x, z) === 'lava')) { ok = false; break; }
         if (y - prevY > 0.56) { if (y - prevY <= 1.3) jump = true; else { ok = false; break; } }
         prevY = y;
       }
       if (ok && Math.abs(prevY - b.y) < 0.2) a.n.push({ j, d, jump });
     }
   }
-  NAV = nodes;
+  NAV = nodes; NAV_ID = MAP.cur?.id;
 }
 function nearestNode(pos) {
   let best = -1, bd = 1e9;
@@ -86,7 +87,7 @@ const DIFF = [
 
 export class BotBrain {
   constructor(sim, p, difficulty = 1) {
-    if (!NAV) buildNav();
+    if (!NAV || NAV_ID !== MAP.cur?.id) buildNav();
     this.sim = sim; this.p = p;
     this.d = DIFF[clamp(difficulty, 0, 2)];
     this.target = null; this.seeT = 0; this.scanT = 0;
@@ -270,6 +271,7 @@ export class BotBrain {
     } else {
       this.charging = false;
       this.seeT = 0;
+      if (p.def.abilities.lmb.ammo && p.ammo < p.def.abilities.lmb.ammo) this.sim.reload(p.id);
       // heal/support usage without target
       if (hdef.abilities.e.ai?.use === 'heal' && this.ready('e') && this.wantAbility('e', hdef.abilities.e, null, 0)) this.cast('e', { yaw: p.yaw, pitch: -0.3 });
       // hunt: last seen, else nearest enemy (bots get a rough sense of the fight)

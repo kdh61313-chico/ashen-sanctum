@@ -54,6 +54,12 @@ export class Audio {
     const v = (x) => x * att;
     const P = { pan: Math.max(-1, Math.min(1, pan)) };
     switch (name) {
+      case 'gun': this.noiseHit({ f: 2600, f2: 600, q: 0.8, type: 'bandpass', dur: 0.09, vol: v(0.5), ...P }); this.tone({ f: 160, f2: 60, type: 'square', dur: 0.06, vol: v(0.12), ...P }); break;
+      case 'rifle': this.noiseHit({ f: 1800, f2: 200, q: 0.6, dur: 0.22, vol: v(0.7), ...P }); this.tone({ f: 110, f2: 40, type: 'sine', dur: 0.2, vol: v(0.4), ...P }); break;
+      case 'shotgun': this.noiseHit({ f: 900, f2: 120, q: 0.5, type: 'lowpass', dur: 0.3, vol: v(0.85), ...P }); this.tone({ f: 90, f2: 35, type: 'sine', dur: 0.25, vol: v(0.5), ...P }); break;
+      case 'thump': this.tone({ f: 220, f2: 80, type: 'sine', dur: 0.14, vol: v(0.35), ...P }); this.noiseHit({ f: 500, q: 1, type: 'lowpass', dur: 0.1, vol: v(0.3), ...P }); break;
+      case 'cannon': this.tone({ f: 140, f2: 50, type: 'sawtooth', dur: 0.3, vol: v(0.2), ...P }); this.noiseHit({ f: 1400, f2: 200, q: 0.6, dur: 0.3, vol: v(0.5), ...P }); break;
+      case 'reload': this.noiseHit({ f: 3000, q: 8, dur: 0.05, vol: 0.18 }); this.noiseHit({ f: 2200, q: 8, dur: 0.06, vol: 0.18, delay: 0.25 }); this.tone({ f: 900, type: 'square', dur: 0.03, vol: 0.04, delay: 0.5 }); break;
       case 'swing': this.noiseHit({ f: 1800, f2: 400, q: 1.2, dur: 0.16, vol: v(0.35), ...P }); break;
       case 'heavySwing': this.noiseHit({ f: 900, f2: 200, q: 1, dur: 0.28, vol: v(0.45), ...P }); break;
       case 'hit': this.noiseHit({ f: 300, q: 0.8, type: 'lowpass', dur: 0.12, vol: v(0.6), ...P }); this.tone({ f: 140, f2: 60, type: 'triangle', dur: 0.12, vol: v(0.3), ...P }); break;

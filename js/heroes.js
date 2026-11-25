@@ -12,7 +12,10 @@ export const ROLES = {
   support: { name: '인도자', color: '#5fd4a4' },
 };
 
-export const HEROES = [
+import { NEW_HEROES, RARITY, STARTERS } from './heroes2.js';
+export { RARITY, STARTERS };
+
+const BASE = [
   {
     id: 'valok', name: '발로크', title: '혈맹 기사', role: 'tank', hp: 480, speed: 6.2, diff: 1,
     color: '#b3262e', quote: '맹세는 피로 쓰고, 피로 지킨다.',
@@ -151,7 +154,7 @@ export const HEROES = [
     model: 'werewolf',
     ai: { range: 2.2, style: 'melee' },
     abilities: {
-      lmb: { name: '발톱 연타', desc: '빠르게 연속으로 할퀸다.', kind: 'melee', cd: 0.32, range: 2.7, arc: 80, dmg: 24, icon: 'claw' },
+      lmb: { name: '발톱 연타', desc: '빠르게 연속으로 할퀸다.', kind: 'melee', cd: 0.32, range: 2.8, arc: 85, dmg: 27, icon: 'claw' },
       q: { name: '덮치기', desc: '조준 방향으로 도약해 착지 지점에 피해.', kind: 'leap', cd: 7, fwd: 14, up: 7, land: { r: 3.2, dmg: 40, st: { slow: [1, 0.3] } }, icon: 'leap', ai: { use: 'gap', min: 5, max: 15 } },
       e: { name: '포효', desc: '주변 적을 둔화시키고 자신은 빨라진다.', kind: 'aoe', at: 'self', look: 'roar', cd: 10, r: 7, dmg: 15, st: { slow: [2.5, 0.4] }, selfSt: { haste: [3, 0.3] }, icon: 'roar', ai: { use: 'self', max: 6 } },
       x: { name: '야수화', desc: '7초간 빨라지고 공격 속도와 흡혈이 크게 오른다.', kind: 'buff', target: 'self', heal: 60, st: { haste: [7, 0.35], atkSpd: [7, 0.6], steal: [7, 0.3], giant: [7] }, icon: 'wolf', ai: { use: 'engage', max: 12 } },
@@ -254,6 +257,9 @@ export const HEROES = [
     },
   },
 ];
+
+export const HEROES = [...BASE, ...NEW_HEROES];
+for (const h of HEROES) { h.rarity = RARITY[h.id] || 4; h.starter = STARTERS.includes(h.id); }
 
 export const DUMMY = {
   id: 'dummy', name: '허수아비', title: '훈련용', role: 'tank', hp: 750, speed: 3, diff: 1, color: '#c9a45c', quote: '', model: 'dummy',

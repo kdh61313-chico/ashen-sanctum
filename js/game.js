@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { HERO_MAP, SLOTS, SLOT_KEYS, ULT_COST } from './heroes.js';
 import { statusMods, ROUNDS_TO_WIN } from './sim.js';
-import { buildHero, animateHero, triggerAttack, ownMaterials, setOpacity } from './models.js';
+import { buildHero, animateHero, triggerAttack, ownMaterials, setOpacity, attackDur } from './models.js';
+import { Trail } from './fx.js';
 import { ViewModel } from './viewmodel.js';
 import { icon } from './icons.js';
 import { moveCharacter, applyMoveAbility, MOVE_KINDS, EYE, losClear, fwdFromYaw, dirFromAngles, raycast } from './physics.js';
@@ -44,6 +45,8 @@ export class Game {
       blockFx: (e) => { const v = this.view.get(e.id); if (v) { const [fx, fz] = fwdFromYaw(v.yaw); this.fx.P.emit([v.pos[0] + fx * 0.8, v.pos[1] + 1.2, v.pos[2] + fz * 0.8], { n: 12, c: '#ff3b3b', c2: '#ffffff', sp: 3, s: 0.15, life: 0.3 }); } },
     };
     this.vm = new ViewModel(this.camera);
+    this.ammo = 0; this.reloadT = 0; this.combo = 0; this.lastAtk = -9; this.lastShot = -9;
+    this._v3 = new THREE.Vector3(); this._v3b = new THREE.Vector3();
     this.plates = $('plates');
     this.dmgLayer = $('dmgnums');
     if (o.roster) this.setRoster(o.roster);
@@ -90,7 +93,7 @@ export class Game {
       v.pos = [a[1], a[2], a[3]]; v.yaw = a[4]; v.pitch = a[5]; v.hp = a[6]; v.alive = !!a[7]; v.ult = a[8]; v.shield = a[9];
       const st = {}; for (const k in a[10]) st[k] = { t: a[10][k][0], v: a[10][k][1] }; v.st = st;
       v.cds = { lmb: a[11], q: a[12], e: a[13] }; v.vel = [a[14], 0, a[15]]; v.onGround = !!a[16];
-      v.stats = { k: a[17], d: a[18], dmg: a[19], heal: a[20] }; v.maxHp = a[21];
+      v.stats = { k: a[17], d: a[18], dmg: a[19], heal: a[20] }; v.maxHp = a[21]; v.ammo = a[22]; v.reloadT = a[23];
       const r = this.roster.get(id); if (r) { v.team = r.team; v.hero = r.hero; v.name = r.name; v.isBot = r.isBot; }
     }
     const now = this.clock;
@@ -105,6 +108,7 @@ export class Game {
     this.hero = HERO_MAP[heroId];
     this.vm.setHero(this.hero);
     this.cds = { lmb: 0, q: 0, e: 0 };
+    this.ammo = this.hero.abilities.lmb.ammo || 0; this.reloadT = 0;
     this.buildHud();
   }
 
@@ -186,6 +190,10 @@ export class Game {
       e.wasCd = !ready;
       e.el.classList.toggle('is-ready', ready);
     }
+    if (this.app.input.touch) {
+      for (const [k, id] of [['q', 't-q'], ['e', 't-e']]) { const b = $(id); const cd = this.cds[k]; const txt = cd > 0.05 ? (cd < 1 ? cd.toFixed(1) : Math.ceil(cd)) : k.toUpperCase(); if (b.textContent !== String(txt)) b.textContent = txt; b.classList.toggle('is-cd', cd > 0.05); }
+      const bx = $('t-x'), u = Math.floor(Math.min(100, me.ult || 0)); const tx = u >= 100 ? 'X' : u + '%'; if (bx.textContent !== tx) bx.textContent = tx; bx.classList.toggle('is-ready-ult', u >= 100);
+    }
     const ue = this.abEls.x;
     if (ue) {
       const u = Math.min(ULT_COST, me.ult || 0);
@@ -196,6 +204,17 @@ export class Game {
       this.ultWasReady = ready;
       ue.el.classList.toggle('is-ready', ready);
     }
+    // ammo
+    const lmbd = h.abilities.lmb;
+    const am = $('ammo');
+    am.hidden = !lmbd.ammo;
+    if (lmbd.ammo) {
+      $('ammo-num').textContent = me.st?.infAmmo ? '∞' : this.ammo;
+      $('ammo-max').textContent = '/ ' + lmbd.ammo;
+      am.classList.toggle('is-reloading', this.reloadT > 0);
+      am.classList.toggle('is-low', this.ammo <= Math.ceil(lmbd.ammo * 0.25));
+      if (this.app.input.touch) { const tr = $('t-r'); if (tr) tr.hidden = false; }
+    } else if (this.app.input.touch) { const tr = $('t-r'); if (tr) tr.hidden = true; }
     // charge
     const cb = $('chargebar');
     cb.classList.toggle('is-on', this.charging);
@@ -271,9 +290,10 @@ export class Game {
     const d = HERO_MAP[heroId]?.abilities[slot]; if (!d) return;
     let s = 'magic';
     switch (d.kind) {
-      case 'melee': s = d.range > 3.2 || d.cd > 0.8 ? 'heavySwing' : 'swing'; break;
-      case 'proj': s = ({ fireball: 'fire', arrow: 'arrow', feather: 'arrow', reaper: 'dark', flask: 'poison', hook: 'heavySwing', bloodspear: 'dark', shuriken: 'swing', mirrorblade: 'swing', void: 'dark' })[d.look] || 'magic'; break;
-      case 'beam': s = d.look === 'lightning' || d.look === 'chain' ? 'zap' : 'magic'; break;
+      case 'melee': s = d.look === 'flame' ? 'fire' : (d.range > 3.2 || d.cd > 0.8 ? 'heavySwing' : 'swing'); break;
+      case 'proj': s = ({ bullet: 'gun', shadowbullet: 'gun', pellet: 'shotgun', grenade: 'thump', bomb: 'thump', bigbomb: 'thump', plasma: 'cannon', icicle: 'ice', bloodorb: 'dark', tentacle: 'dark', needle: 'swing', fireball: 'fire', arrow: 'arrow', feather: 'arrow', reaper: 'dark', flask: 'poison', hook: 'heavySwing', bloodspear: 'dark', shuriken: 'swing', mirrorblade: 'swing', void: 'dark' })[d.look] || 'magic'; break;
+      case 'beam': s = d.look === 'bullet' ? 'gun' : (d.look === 'silver' || d.look === 'runebullet' || d.look === 'execution') ? 'rifle' : (d.look === 'lightning' || d.look === 'chain' ? 'zap' : 'magic'); break;
+      case 'deadeye': s = 'rifle'; break;
       case 'dash': case 'leap': case 'launch': case 'glide': case 'grapple': s = 'dash'; break;
       case 'blink': s = 'blink'; break;
       case 'buff': s = 'shield'; break;
@@ -303,7 +323,18 @@ export class Game {
         break;
       case 'cast': {
         const v = this.view.get(e.id);
-        if (e.id !== me) { const en = this.ents.get(e.id); if (en) triggerAttack(en.P, e.slot); this.castSound(e.hero, e.slot, v?.pos); }
+        if (e.id !== me) {
+          const en = this.ents.get(e.id);
+          if (en) {
+            triggerAttack(en.P, e.slot, e.combo || 0);
+            const hd = HERO_MAP[e.hero];
+            if (e.slot === 'lmb' && hd?.gun && v) {
+              const w = (hd.gun === 'dual' && en.P.anim.swingSide < 0) ? en.P.weaponL : en.P.weaponR;
+              if (w?.muzzle) { en.P.root.updateMatrixWorld(true); w.muzzle.getWorldPosition(this._v3); this.fx.muzzle([this._v3.x, this._v3.y, this._v3.z], dirFromAngles(v.yaw, v.pitch || 0), hd.color, hd.gun === 'long' || hd.gun === 'arm'); }
+            }
+          }
+          this.castSound(e.hero, e.slot, v?.pos);
+        }
         if (e.slot === 'x' && e.id !== me && v) {
           const r = this.roster.get(e.id);
           if (r && r.team !== this.myTeam()) this.fx.flash(v.pos, HERO_MAP[e.hero].color, 30, 0.5, 14);
@@ -311,6 +342,10 @@ export class Game {
         break;
       }
       case 'fx': {
+        if (e.fx === 'flame') {
+          if (e.id !== me) { const v = this.view.get(e.id), en = this.ents.get(e.id); if (v && en?.P.weaponR?.muzzle) { en.P.root.updateMatrixWorld(true); en.P.weaponR.muzzle.getWorldPosition(this._v3); this.fx.flameCone([this._v3.x, this._v3.y, this._v3.z], dirFromAngles(v.yaw, v.pitch || 0)); } }
+          break;
+        }
         if (e.fx === 'swing') {
           if (e.id !== me) { const v = this.view.get(e.id); if (v) { const [fx, fz] = fwdFromYaw(v.yaw); this.fx.slash([v.pos[0] + fx * 1.1, v.pos[1] + 1.2, v.pos[2] + fz * 1.1], v.yaw, HERO_MAP[v.hero]?.color || '#fff', 1.8, 0.18, Math.random() < 0.5 ? 1 : -1); } }
           else if (e.hit) this.soundAt('hit');
@@ -375,6 +410,16 @@ export class Game {
   }
 
   // ---------- local input / casting ----------
+  tryReload(auto = false) {
+    const d = this.hero.abilities.lmb;
+    if (!d.ammo || this.reloadT > 0 || this.ammo >= d.ammo) return;
+    const me = this.view.get(this.localId); if (!me || !me.alive) return;
+    this.reloadT = d.reload;
+    this.vm.reload?.(d.reload);
+    this.audio.play('reload');
+    if (this.sim) this.sim.reload(this.localId); else this.net.send('host', { t: 'reload' });
+  }
+
   tryCast(slot, charge = 0) {
     const me = this.view.get(this.localId);
     const def = this.hero.abilities[slot];
@@ -383,6 +428,13 @@ export class Game {
     if (me.st?.stun) { this.deny(slot); return false; }
     if (slot === 'x') { if ((me.ult || 0) < ULT_COST - 0.5) { this.deny(slot); return false; } }
     else if (this.cds[slot] > 0.02) { if (slot !== 'lmb') this.deny(slot); return false; }
+    if (slot === 'lmb' && def.ammo) {
+      if (this.reloadT > 0) return false;
+      if (this.ammo <= 0) { this.tryReload(true); return false; }
+      if (!me.st?.infAmmo) this.ammo--;
+      this.lastShot = this.clock;
+    }
+    if (slot === 'lmb') { this.combo = this.clock - this.lastAtk < Math.max(1.1, def.cd * 2.5) ? (this.combo + 1) % 3 : 0; this.lastAtk = this.clock; }
     if (slot !== 'x') {
       let cd = def.cd;
       if (slot === 'lmb' && me.st?.atkSpd) cd /= (1 + me.st.atkSpd.v);
@@ -390,13 +442,16 @@ export class Game {
       this.lastCast = this.lastCast || {}; this.lastCast[slot] = this.clock;
     }
     if (MOVE_KINDS.has(def.kind)) applyMoveAbility(this.body, def, this.yaw, this.pitch, this.clock);
-    this.vm.attack(slot);
+    this.vm.attack(slot, this.combo);
     this.castSound(this.hero.id, slot, null);
-    if (def.kind === 'melee') {
+    if (slot === 'lmb' && this.hero.gun) { const mp = this.vm.muzzleWorld(); if (mp) this.fx.muzzle(mp, dirFromAngles(this.yaw, this.pitch), this.hero.color, this.hero.gun === 'long' || this.hero.gun === 'arm'); }
+    if (def.look === 'flame') { const mp = this.vm.muzzleWorld() || [this.camera.position.x, this.camera.position.y - 0.3, this.camera.position.z]; this.fx.flameCone(mp, dirFromAngles(this.yaw, this.pitch)); }
+    else if (def.kind === 'melee') {
       const [fx, fz] = fwdFromYaw(this.yaw);
       const c = this.camera.position;
       this.fx.slash([c.x + fx * 1.0, c.y - 0.35, c.z + fz * 1.0], this.yaw, this.hero.color, Math.min(2.2, def.range * 0.6), 0.16, this.vm.side);
     }
+    if (slot === 'lmb' && def.ammo && this.ammo <= 0 && !me.st?.infAmmo) setTimeout(() => this.tryReload(true), 120);
     const aim = { yaw: +this.yaw.toFixed(4), pitch: +this.pitch.toFixed(4), charge };
     if (this.sim) {
       this.pushLocalState();
@@ -437,7 +492,7 @@ export class Game {
     const st = me?.st || {};
     const mods = statusMods(st, this.body.glideUntil > this.clock, frozen);
     if (alive && me) {
-      const inp = { fwd: (input.keys.KeyW ? 1 : 0) - (input.keys.KeyS ? 1 : 0), right: (input.keys.KeyD ? 1 : 0) - (input.keys.KeyA ? 1 : 0), jump: !!input.keys.Space, yaw: this.yaw };
+      const inp = { fwd: (input.keys.KeyW ? 1 : 0) - (input.keys.KeyS ? 1 : 0) - (input.move?.y || 0), right: (input.keys.KeyD ? 1 : 0) - (input.keys.KeyA ? 1 : 0) + (input.move?.x || 0), jump: !!input.keys.Space, yaw: this.yaw };
       const wasGround = this.body.onGround, vy = this.body.vel[1];
       let rem = dt;
       const speed = this.hero.speed * (st.giant ? 1.05 : 1);
@@ -462,6 +517,7 @@ export class Game {
           if (s === 'KeyQ') this.tryCast('q');
           if (s === 'KeyE') this.tryCast('e');
           if (s === 'KeyX') this.tryCast('x');
+          if (s === 'KeyR') this.tryReload();
         }
       }
     } else {
@@ -469,6 +525,11 @@ export class Game {
       if (input.locked && input.pressedMouse) this.spectIdx++;
     }
     for (const k of ['lmb', 'q', 'e']) if (this.cds[k] > 0) this.cds[k] = Math.max(0, this.cds[k] - dt);
+    if (this.reloadT > 0) { this.reloadT -= dt; if (this.reloadT <= 0) { this.reloadT = 0; this.ammo = this.hero.abilities.lmb.ammo || 0; } }
+    if (me && this.clock - this.lastShot > 0.6 && this.reloadT <= 0 && me.ammo !== undefined && me.reloadT !== undefined) {
+      if (me.reloadT > 0.15 && this.reloadT <= 0) this.reloadT = me.reloadT;
+      else if (me.reloadT <= 0 && Math.abs(me.ammo - this.ammo) >= 2) this.ammo = me.ammo;
+    }
 
     // simulation / networking
     if (this.sim) {
@@ -506,7 +567,7 @@ export class Game {
     this.fx.syncProjectiles(this.projs, dt);
     this.fx.syncZones(this.zones, dt, this.myTeam());
     // viewmodel
-    this.vm.update(dt, { speed: Math.hypot(this.body.vel[0], this.body.vel[2]), onGround: this.body.onGround, vy: this.body.vel[1], dYaw: this.dYaw, dPitch: this.dPitch, charge: this.charging ? this.charge : 0, alive });
+    this.vm.update(dt, { speed: Math.hypot(this.body.vel[0], this.body.vel[2]), onGround: this.body.onGround, vy: this.body.vel[1], dYaw: this.dYaw, dPitch: this.dPitch, charge: this.charging ? this.charge : 0, alive, reloading: this.reloadT > 0 });
     this.updateHud(dt);
   }
 
@@ -558,7 +619,7 @@ export class Game {
         plate.className = 'plate ' + (r.team === myTeam ? 'plate--ally' : 'plate--enemy');
         plate.innerHTML = `<div class="plate__st"></div><div>${esc(r.name)}</div><div class="plate__bar"><i></i><b></b></div>`;
         this.plates.appendChild(plate);
-        en = { P, plate, rpos: [...v.pos], speed: 0, snap: false, vis: true, hurt: 0, team: r.team, statusMesh: {} };
+        en = { P, plate, rpos: [...v.pos], speed: 0, vel: [0, 0, 0], snap: false, vis: true, hurt: 0, team: r.team, statusMesh: {}, trail: P.isMelee && P.weaponR?.tip ? new Trail(this.scene, HERO_MAP[r.hero]?.color || '#fff') : null };
         this.ents.set(id, en);
       }
       if (en.team !== r.team) { en.team = r.team; en.plate.className = 'plate ' + (r.team === myTeam ? 'plate--ally' : 'plate--enemy'); }
@@ -571,14 +632,24 @@ export class Game {
         en.rpos[0] += (tgt[0] - en.rpos[0]) * k; en.rpos[1] += (tgt[1] - en.rpos[1]) * k; en.rpos[2] += (tgt[2] - en.rpos[2]) * k;
         if (Math.hypot(tgt[0] - en.rpos[0], tgt[2] - en.rpos[2]) > 6) en.rpos = [...tgt];
       }
-      const sp = Math.hypot(en.rpos[0] - prev[0], en.rpos[2] - prev[2]) / Math.max(dt, 1e-3);
+      const idt = 1 / Math.max(dt, 1e-3);
+      const kv = Math.min(1, dt * 10);
+      for (let i = 0; i < 3; i++) en.vel[i] += ((en.rpos[i] - prev[i]) * idt - en.vel[i]) * kv;
+      const sp = Math.hypot(en.vel[0], en.vel[2]);
       en.speed += (sp - en.speed) * Math.min(1, dt * 10);
       const P = en.P;
       P.root.position.set(en.rpos[0], en.rpos[1], en.rpos[2]);
       const yaw = isMe ? this.yaw : v.yaw;
       P.root.rotation.y = yaw + Math.PI;
       const onGround = v.onGround !== undefined ? v.onGround : true;
-      animateHero(P, { speed: en.speed, onGround: isMe ? this.body.onGround : onGround, vy: 0, alive: v.alive, t: this.clock, pitch: v.pitch, giant: !!v.st?.giant, glide: false, aiming: false }, dt);
+      const [efx, efz] = fwdFromYaw(isMe ? this.yaw : v.yaw);
+      const fwdS = en.vel[0] * efx + en.vel[2] * efz, sideS = en.vel[0] * -efz + en.vel[2] * efx;
+      animateHero(P, { speed: en.speed, fwd: fwdS, side: sideS, onGround: isMe ? this.body.onGround : (onGround && Math.abs(en.vel[1]) < 2.5), vy: en.vel[1], alive: v.alive, t: this.clock, pitch: v.pitch, giant: !!v.st?.giant, glide: false, aiming: false }, dt);
+      if (en.trail) {
+        const w = P.weaponR;
+        const active = P.anim.atk < attackDur(P) && P.anim.atk > attackDur(P) * 0.2 && v.alive && !isMe;
+        if (active || en.trail.fade > 0) { P.root.updateMatrixWorld(true); w.tipBase.getWorldPosition(this._v3); w.tip.getWorldPosition(this._v3b); en.trail.push(this._v3, this._v3b, active); }
+      }
       // visibility
       P.root.visible = !isMe || !v.alive;
       if (isMe && v.alive) P.root.visible = false;
@@ -612,7 +683,7 @@ export class Game {
       if (plate.firstElementChild.textContent !== stTxt) plate.firstElementChild.textContent = stTxt;
       plate.style.opacity = dist > 30 ? 0.6 : 1;
     }
-    for (const [id, en] of this.ents) if (!this.view.has(id) || !this.roster.has(id)) { this.scene.remove(en.P.root); en.plate.remove(); this.ents.delete(id); }
+    for (const [id, en] of this.ents) if (!this.view.has(id) || !this.roster.has(id)) { this.scene.remove(en.P.root); en.plate.remove(); en.trail?.dispose(); this.ents.delete(id); }
   }
 
   statusVisuals(en, v, dt) {
@@ -657,10 +728,11 @@ export class Game {
   }
 
   dispose() {
-    for (const en of this.ents.values()) { this.scene.remove(en.P.root); en.plate.remove(); }
+    for (const en of this.ents.values()) { this.scene.remove(en.P.root); en.plate.remove(); en.trail?.dispose(); }
     this.ents.clear();
     this.fx.clear();
     this.camera.remove(this.vm.root);
+    this.vm.trail?.dispose();
     $('killfeed').innerHTML = ''; this.dmgLayer.innerHTML = ''; this.plates.innerHTML = '';
   }
 }
