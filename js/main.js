@@ -13,7 +13,7 @@ import { Net, makeCode } from './net.js';
 import { icon } from './icons.js';
 import { Stage, renderPortraits } from './stage.js';
 import { Game, esc } from './game.js';
-import { Profile, PULL_COST, TOKEN_PRICE, PERMIT_TOKEN_PRICE } from './profile.js';
+import { Profile, PULL_COST, TOKEN_PRICE, PERMIT_TOKEN_PRICE, RATES, PITY_START } from './profile.js';
 
 const $ = (id) => document.getElementById(id);
 const qsa = (s, r = document) => [...r.querySelectorAll(s)];
@@ -72,7 +72,7 @@ class App {
     $('loading').classList.remove('is-on');
     const daily = this.profile.daily();
     this.showHome();
-    if (daily) setTimeout(() => this.toast(`오늘의 보급: 잿빛 결정 ${daily.crystals}, 모집 허가증 ${daily.permits}`, 3500), 600);
+    if (daily) setTimeout(() => this.toast(`오늘의 보급: 잿빛 결정 ${daily.crystals}`, 3500), 600);
     this.last = performance.now();
     requestAnimationFrame((t) => this.frame(t));
   }
@@ -135,7 +135,7 @@ class App {
     $('gl').addEventListener('click', () => { if (this.state === 'game' && !I.locked && $('pause').hidden && $('results').hidden) this.lock(); });
     $('click-to-play').addEventListener('click', () => this.lock());
     let dragging = false, lx = 0;
-    for (const id of ['select', 'home', 'recruit']) $(id).addEventListener('pointerdown', (e) => { if (e.target.closest('button, aside, footer, .lobby, .actions, nav, .banner, .pull')) return; dragging = true; lx = e.clientX; this.stage.drag = true; });
+    for (const id of ['select', 'home', 'recruit']) $(id).addEventListener('pointerdown', (e) => { if (IS_TOUCH) return; if (e.target.closest('button, aside, footer, .lobby, .actions, nav, .banner, .pull')) return; dragging = true; lx = e.clientX; this.stage.drag = true; });
     addEventListener('pointermove', (e) => { if (dragging) { this.stage.pointer(e.clientX - lx); lx = e.clientX; } });
     addEventListener('pointerup', () => { dragging = false; this.stage.drag = false; });
     $('select').addEventListener('wheel', (e) => { this.focus = Math.max(0, Math.min(1, this.focus + (e.deltaY < 0 ? 0.25 : -0.25))); }, { passive: true });
@@ -144,6 +144,15 @@ class App {
   bindTouch() {
     if (!IS_TOUCH) return;
     const I = this.input;
+    // Force fullscreen on phones: browsers only allow it from a tap, so try on every tap until it sticks.
+    const fs = () => {
+      if (document.fullscreenElement || document.webkitFullscreenElement) return;
+      const d = document.documentElement;
+      try { const p = d.requestFullscreen ? d.requestFullscreen({ navigationUI: 'hide' }) : d.webkitRequestFullscreen?.(); p?.catch?.(() => {}); } catch (e) { }
+    };
+    addEventListener('pointerup', fs, { passive: true });
+    addEventListener('touchend', fs, { passive: true });
+    document.addEventListener('fullscreenchange', () => { if (document.fullscreenElement) try { screen.orientation?.lock?.('landscape')?.catch?.(() => {}); } catch (e) { } });
     const stick = $('t-stick'), knob = $('t-knob');
     let sid = null, cx = 0, cy = 0;
     const move = (e) => { if (e.pointerId !== sid) return; let dx = e.clientX - cx, dy = e.clientY - cy; const l = Math.hypot(dx, dy), m = 60; if (l > m) { dx *= m / l; dy *= m / l; } I.move.x = dx / m; I.move.y = dy / m; knob.style.transform = `translate(${dx}px, ${dy}px)`; };
@@ -184,6 +193,7 @@ class App {
   // ---------------- screens ----------------
   setScreen(name) {
     this.state = name;
+    for (const s of ['home', 'select', 'recruit', 'shop']) $(s).scrollTop = 0;
     for (const s of ['home', 'select', 'recruit', 'shop']) $(s).classList.toggle('is-on', s === name);
     $('hud').classList.toggle('is-on', name === 'game');
     $('topbar').hidden = name === 'game';
@@ -337,7 +347,7 @@ class App {
   refreshRecruit() {
     const d = this.profile.d;
     $('rate6').textContent = (this.profile.rate6() * 100).toFixed(0) + '%';
-    $('ban-pity').textContent = d.pity6 >= 50 ? `★6 확률이 올라가는 중이에요. 지금 ${(this.profile.rate6() * 100).toFixed(0)}%.` : `★6 없이 ${d.pity6}회 모집했어요. 50회가 넘으면 매번 ★6 확률이 2%씩 올라요.`;
+    $('ban-pity').textContent = d.pity6 >= PITY_START ? `★6 확률이 올라가는 중이에요. 지금 ${(this.profile.rate6() * 100).toFixed(0)}%.` : `★6 없이 ${d.pity6}회 모집했어요. ${PITY_START}회가 넘으면 매번 ★6 확률이 2%씩 올라요.`;
     const cost = (n) => d.permits >= n ? `허가증 ${n}장` : `잿빛 결정 ${(PULL_COST * (n - Math.min(d.permits, n))).toLocaleString()}${d.permits ? ` + 허가증 ${Math.min(d.permits, n)}장` : ''}`;
     $('pull1-cost').textContent = cost(1); $('pull10-cost').textContent = cost(10);
     $('btn-pull1').disabled = !this.profile.canPull(1); $('btn-pull10').disabled = !this.profile.canPull(10);
@@ -546,7 +556,7 @@ class App {
     $('res-body').innerHTML = game.scoreboardRows();
     const me = game.view.get(game.localId);
     const rw = this.profile.reward({ win, kills: me?.stats?.k || 0, mode: this.net ? 'online' : 'ai', diff: this.settings.diff, rounds: score[my] });
-    $('res-reward').innerHTML = `<span><i class="cur__ico cur__ico--crystal"></i>잿빛 결정 +${rw.crystals}</span><span>경험치 +${rw.xp}</span>${rw.ups.length ? `<span class="lvup">레벨 ${rw.ups[rw.ups.length - 1]} 달성 · 결정 +${600 * rw.ups.length} · 허가증 +${rw.ups.length}</span>` : ''}`;
+    $('res-reward').innerHTML = `<span><i class="cur__ico cur__ico--crystal"></i>잿빛 결정 +${rw.crystals}</span><span>경험치 +${rw.xp}</span>${rw.ups.length ? `<span class="lvup">레벨 ${rw.ups[rw.ups.length - 1]} 달성 · 결정 +${200 * rw.ups.length}${rw.ups.some(l => l % 5 === 0) ? ' · 허가증 +1' : ''}</span>` : ''}`;
     this.refreshTop();
     const online = !!this.net;
     $('btn-again').hidden = online && !this.net.isHost;

@@ -1,0 +1,11 @@
+{
+  "name": "잿빛 성역 · Ashen Sanctum",
+  "short_name": "잿빛 성역",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#16131a",
+  "theme_color": "#16131a",
+  "icons": [{ "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%2316131a'/%3E%3Cpath d='M32 4 L40 26 L32 60 L24 26Z' fill='%23c9a45c'/%3E%3Ccircle cx='32' cy='24' r='5' fill='%23ff3b3b'/%3E%3C/svg%3E", "sizes": "any", "type": "image/svg+xml" }]
+}
