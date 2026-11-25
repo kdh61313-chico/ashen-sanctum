@@ -10,7 +10,7 @@ import { MAPS, setMap } from './map.js';
 import { buildWorld } from './world.js';
 import { FX } from './fx.js';
 import { Audio } from './audio.js';
-import { Net, makeCode } from './net.js';
+import { Net, makeCode, cleanCode } from './net.js';
 import { icon } from './icons.js';
 import { Stage, renderPortraits } from './stage.js';
 import { Game, esc } from './game.js';
@@ -80,6 +80,15 @@ class App {
     const daily = this.profile.daily();
     this.showHome();
     if (daily) setTimeout(() => this.toast(`오늘의 보급: 잿빛 결정 ${daily.crystals}`, 3500), 600);
+    { // invite link: ?join=CODE opens the online window with the code filled in
+      const inv = cleanCode(new URLSearchParams(location.search).get('join') || '');
+      if (inv.length === 5) {
+        $('btn-online').click();
+        $('in-code').value = inv;
+        $('online-note').textContent = `초대받은 방 ${inv}. 이름을 적고 참가를 눌러 주세요.`;
+        history.replaceState(null, '', location.pathname);
+      }
+    }
     this.last = performance.now();
     requestAnimationFrame((t) => this.frame(t));
   }
@@ -416,7 +425,7 @@ class App {
     $('tile-battle').addEventListener('click', () => { this.audio.init(); this.audio.play('click'); $('battle-sub').hidden = !$('battle-sub').hidden; });
     $('btn-ai').addEventListener('click', () => this.openSelect('ai'));
     $('btn-training').addEventListener('click', () => this.openSelect('training'));
-    $('btn-online').addEventListener('click', () => { this.audio.init(); $('in-name').value = S.name || ''; $('online').hidden = false; $('online-note').textContent = '서버 없이 브라우저끼리 직접 연결돼요. 방을 만든 사람이 나가면 게임이 끝나요.'; });
+    $('btn-online').addEventListener('click', () => { this.audio.init(); $('in-name').value = S.name || ''; $('online').hidden = false; $('online-note').textContent = '브라우저끼리 직접 연결돼요. 방장이 나가거나 게임 화면을 오래 벗어나면 방이 닫혀요.'; });
     $('tile-recruit').addEventListener('click', () => { this.audio.init(); this.openRecruit(); });
     $('tile-roster').addEventListener('click', () => { this.audio.init(); this.openSelect('browse'); });
     $('tile-shop').addEventListener('click', () => { this.audio.init(); this.openShop(); });
@@ -466,7 +475,7 @@ class App {
     $('btn-quit').addEventListener('click', () => { $('pause').hidden = true; this.quitToMenu(); });
     $('btn-again').addEventListener('click', () => this.again());
     $('btn-menu').addEventListener('click', () => { $('results').hidden = true; if (this.net && this.lobby) this.leaveOnline(); else this.quitToMenu(); });
-    $('lobby-code').addEventListener('click', () => { navigator.clipboard?.writeText(this.lobby?.code || ''); this.toast('방 코드를 복사했어요'); });
+    $('lobby-code').addEventListener('click', () => this.shareInvite());
     $('btn-switch-team').addEventListener('click', () => this.lobbySwitchTeam());
     $('btn-leave-lobby').addEventListener('click', () => this.leaveOnline());
     $('btn-start').addEventListener('click', () => this.hostStart());
@@ -593,14 +602,16 @@ class App {
     this.net = net; this.myId = 'h';
     this.peerMap = new Map(); this.nextPid = 1;
     this.lobby = { code, players: [{ id: 'h', name, team: 0, hero: this.settings.hero, host: true }], fill: true, diff: this.settings.diff, map: 'random', inGame: false };
-    net.on({ join: (peer) => this.onPeerJoin(peer), leave: (peer) => this.onPeerLeave(peer), data: (peer, m) => this.onHostData(peer, m) });
+    net.on({ join: (peer) => this.onPeerJoin(peer), leave: (peer) => this.onPeerLeave(peer), data: (peer, m) => this.onHostData(peer, m),
+      status: (st) => { if (st === 'reconnecting') this.toast('방 연결을 다시 잇는 중…'); else if (st === 'lost') this.toast('방이 중계 서버에서 끊겼어요. 새 친구는 들어올 수 없어요. 방을 다시 만들어 주세요.'); } });
     $('online').hidden = true;
     this.openSelect('lobby');
   }
 
   async joinRoom() {
     const name = ($('in-name').value || '').trim() || '도전자';
-    const code = ($('in-code').value || '').trim().toUpperCase();
+    const code = cleanCode($('in-code').value);
+    $('in-code').value = code;
     const note = $('online-note');
     if (code.length !== 5) { note.textContent = '방 코드는 다섯 글자예요.'; return; }
     this.settings.name = name; saveSettings(this.settings);
@@ -608,16 +619,27 @@ class App {
     note.textContent = '연결하는 중…';
     const net = new Net();
     net.on({ data: (_, m) => this.onClientData(m), leave: () => this.onHostLost() });
-    try { await net.join(code); }
+    const stages = { server: '중계 서버에 접속하는 중…', search: `방 ${code}을(를) 찾는 중…`, p2p: '방을 찾았어요. 방장과 직접 연결하는 중…' };
+    try { await net.join(code, (st) => { note.textContent = stages[st] || note.textContent; }); }
     catch (e) { note.textContent = this.netErr(e); net.close(); return; }
     this.net = net;
     net.send('host', { t: 'hello', name, hero: this.settings.hero });
     note.textContent = '입장했어요.';
   }
 
+  inviteUrl() { return location.origin + location.pathname + '?join=' + (this.lobby?.code || ''); }
+  async shareInvite() {
+    const code = this.lobby?.code; if (!code) return;
+    const url = this.inviteUrl();
+    const text = `잿빛 성역 같이 하자! 방 코드 ${code}`;
+    try { await navigator.clipboard?.writeText(`${text}\n${url}`); this.toast('초대 링크를 복사했어요. 보낸 뒤 이 화면으로 바로 돌아와 주세요'); } catch (e) { this.toast('방 코드: ' + code); }
+  }
+
   netErr(e) {
     const m = e?.message || e?.type || '';
-    if (m === 'notfound') return '그 코드의 방을 찾지 못했어요. 코드를 다시 확인해 주세요.';
+    if (m === 'notfound') return '그 코드의 방을 찾지 못했어요. 코드가 맞는지, 방장이 게임 화면을 켜 두고 있는지 확인해 주세요. (방장이 다른 앱으로 오래 나가 있으면 방이 닫혀요)';
+    if (m === 'server') return '중계 서버에 접속하지 못했어요. 인터넷 연결을 확인하고 잠시 후 다시 시도해 주세요.';
+    if (m === 'p2p') return '방은 찾았지만 방장과 직접 연결이 막혔어요. 휴대폰 데이터에서 자주 생겨요. 두 사람 중 한 명이라도 와이파이로 바꾸거나, 방장을 바꿔서 다시 시도해 주세요.';
     if (m === 'timeout') return '연결 시간이 초과됐어요. 네트워크를 확인하고 다시 시도해 주세요.';
     if (m === 'nolib') return '연결 모듈을 불러오지 못했어요. 페이지를 새로고침해 주세요.';
     return '연결에 실패했어요 (' + m + '). 잠시 후 다시 시도해 주세요.';
@@ -772,7 +794,7 @@ class App {
     qsa('button', $('lobby-diff')).forEach(b => { b.classList.toggle('is-on', +b.dataset.d === L.diff); b.disabled = !this.net.isHost; });
     this.refreshChips();
     $('btn-start').hidden = !this.net.isHost;
-    $('lobby-note').textContent = this.net.isHost ? `방 코드 ${L.code}를 알려 주세요. 아래에서 영웅을 고르고 시작해요.` : '아래에서 영웅을 고르고 방장을 기다려요.';
+    $('lobby-note').textContent = this.net.isHost ? `방 코드를 누르면 초대 링크가 복사돼요. 친구에게 보낸 뒤 이 화면으로 바로 돌아와 주세요. 방장이 다른 앱에 오래 있으면 방이 닫혀요.` : '아래에서 영웅을 고르고 방장을 기다려요.';
     if (my) {
       const taken = new Set(L.players.filter(p => p.team === my.team && p.id !== this.myId).map(p => p.hero));
       qsa('.sigil').forEach(s => s.classList.toggle('is-taken', taken.has(s.dataset.id)));
