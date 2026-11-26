@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { HERO_MAP, SLOTS, SLOT_KEYS, ULT_COST } from './heroes.js';
 import { statusMods, ROUNDS_TO_WIN } from './sim.js';
-import { buildHero, animateHero, triggerAttack, ownMaterials, setOpacity, attackDur } from './models.js';
+import { buildHero, animateHero, triggerAttack, triggerHurt, triggerCheer, triggerSpawn, ownMaterials, setOpacity, attackDur } from './models.js';
 import { Trail } from './fx.js';
 import { ViewModel } from './viewmodel.js';
 import { icon } from './icons.js';
@@ -357,7 +357,7 @@ export class Game {
         if (e.id !== me) {
           const en = this.ents.get(e.id);
           if (en) {
-            triggerAttack(en.P, e.slot, e.combo || 0);
+            triggerAttack(en.P, e.slot, e.combo || 0, HERO_MAP[e.hero]?.abilities?.[e.slot]?.kind || '');
             const hd = HERO_MAP[e.hero];
             if (e.slot === 'lmb' && hd?.gun && v) {
               const w = (hd.gun === 'dual' && en.P.anim.swingSide < 0) ? en.P.weaponL : en.P.weaponR;
@@ -400,7 +400,11 @@ export class Game {
           this.audio.play('hitmark');
         }
         if (e.id === me) { this.hurtV = Math.min(0.8, (this.hurtV || 0) + e.a / 120); this.audio.play('hurt'); }
-        { const en = this.ents.get(e.id); if (en) en.hurt = 0.15; }
+        { const en = this.ents.get(e.id); if (en) { en.hurt = 0.15;
+          const vv = this.view.get(e.id), att = this.view.get(e.by);
+          if (vv && e.a >= 4) { let dir = 1, side = 0;
+            if (att && att !== vv) { const dx = vv.pos[0] - att.pos[0], dz = vv.pos[2] - att.pos[2], l = Math.hypot(dx, dz) || 1; const [fx, fz] = fwdFromYaw(vv.yaw || 0); const f = (dx * fx + dz * fz) / l, sd = (dx * -fz + dz * fx) / l; dir = f > 0.3 ? -1 : 1; side = Math.abs(f) < 0.7 ? Math.sign(sd) : 0; }
+            triggerHurt(en.P, dir, side, e.a); } } }
         this.fx.P.emit(e.pos, { n: 6, c: '#8a0a14', c2: '#ff5a5a', sp: 2.5, s: 0.12, life: 0.4, g: 8 });
         { const att = this.view.get(e.by), ar = this.roster.get(e.by);
           const col = HERO_MAP[ar?.hero]?.color || '#ffcf6a';
@@ -438,6 +442,7 @@ export class Game {
       case 'fight': this.announce('전투 개시', '', 'rgba(179,38,46,.8)', 1.4); this.audio.play('select'); break;
       case 'roundEnd': {
         const my = this.myTeam();
+        if (e.w >= 0 && !e.horde) for (const [id, en] of this.ents) { const r = this.roster.get(id), vv = this.view.get(id); if (r && r.team === e.w && vv?.alive) triggerCheer(en.P); }
         if (e.horde) { if (e.w === 0) { this.announce('웨이브 돌파', `${e.score[0]}웨이브 클리어`, 'rgba(79,224,208,.7)', 2.5); this.audio.play('win'); } else { this.announce('전멸', `${e.score[0]}웨이브 돌파`, 'rgba(179,38,46,.8)', 3); this.audio.play('lose'); } break; }
         if (e.w < 0) this.announce('무승부', '라운드', 'rgba(201,164,92,.6)', 3);
         else if (e.w === my) { this.announce('라운드 승리', `${e.score[my]} : ${e.score[1 - my]}`, 'rgba(79,224,208,.7)', 3); this.audio.play('win'); }
@@ -449,6 +454,7 @@ export class Game {
         this.ended = true;
         break;
       case 'respawn':
+        { const en = this.ents.get(e.id); if (en) triggerSpawn(en.P); }
         if (e.id === me) this.announce('부활', '', 'rgba(79,224,208,.6)', 1);
         break;
     }
@@ -725,7 +731,7 @@ export class Game {
       const onGround = v.onGround !== undefined ? v.onGround : true;
       const [efx, efz] = fwdFromYaw(isMe ? this.yaw : v.yaw);
       const fwdS = en.vel[0] * efx + en.vel[2] * efz, sideS = en.vel[0] * -efz + en.vel[2] * efx;
-      animateHero(P, { speed: en.speed, fwd: fwdS, side: sideS, onGround: isMe ? this.body.onGround : (onGround && Math.abs(en.vel[1]) < 2.5), vy: en.vel[1], alive: v.alive, t: this.clock, pitch: v.pitch, giant: !!v.st?.giant, glide: false, aiming: false }, dt);
+      animateHero(P, { speed: en.speed, fwd: fwdS, side: sideS, onGround: isMe ? this.body.onGround : (onGround && Math.abs(en.vel[1]) < 2.5), vy: en.vel[1], alive: v.alive, t: this.clock, pitch: v.pitch, giant: !!v.st?.giant, glide: false, aiming: false, stun: !!(v.st?.stun || v.st?.sleep) }, dt);
       if (en.trail) {
         const w = P.weaponR;
         const active = P.anim.atk < attackDur(P) && P.anim.atk > attackDur(P) * 0.2 && v.alive && !isMe;

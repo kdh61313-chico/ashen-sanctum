@@ -888,6 +888,14 @@ function addRim(m) {
   m.customProgramCacheKey = () => 'rim1';
 }
 
+const smoothCache = new Map();
+function smoothOf(m) {
+  if (m.userData.smooth) return m;
+  let c = smoothCache.get(m);
+  if (!c) { c = m.clone(); c.flatShading = false; c.userData = { smooth: true }; c.needsUpdate = true; smoothCache.set(m, c); }
+  return c;
+}
+
 function weaponTip(w) {
   if (!w) return;
   w.updateMatrixWorld(true);
@@ -909,9 +917,15 @@ export function buildHero(heroDef) {
   P.isGun = GUN_POSES.has(P.poseName);
   P.isMelee = MELEE_POSES.has(P.poseName);
   P.root.userData.hero = heroDef.id;
-  P.anim = { phase: 0, atk: 9, cast: 9, castSlot: 'q', dead: 0, hurt: 0, land: 0, wasAir: false, hipYaw: 0, combo: 0, swingSide: 1, airL: [0, 0], airK: [0, 0] };
+  P.anim = { phase: 0, atk: 9, cast: 9, castSlot: 'q', castKind: '', dead: 0, hurt: 9, hurtDir: 1, hurtSide: 0, hurtAmt: 0, land: 0, wasAir: false, hipYaw: 0, combo: 0, swingSide: 1, airL: [0, 0], airK: [0, 0], idleT: 0, fidget: 9, fidgetKind: 0, cheer: 9, spawn: 9, deathDir: -1, deathRoll: 0, wobble: 0 };
   P.baseSpine = P.spine.rotation.x;
-  P.root.traverse(o => { if (o.isMesh) { addRim(o.material); o.userData.baseMat = o.material; } });
+  P.root.traverse(o => {
+    if (!o.isMesh) return;
+    // round parts (limbs, joints, skulls) read better smooth; plates and boxes stay crisp
+    const g = o.geometry?.type || '';
+    if (/Cylinder|Icosahedron|Lathe|Sphere|Torus|Cone/.test(g) && o.material.flatShading) o.material = smoothOf(o.material);
+    addRim(o.material); o.userData.baseMat = o.material;
+  });
   if (P.isMelee) { weaponTip(P.weaponR); if (P.poseName === 'dual' || P.poseName === 'claws') weaponTip(P.weaponL); }
   applyPose(P);
   return P;
@@ -960,7 +974,7 @@ export function animateHero(P, s, dt) {
   const t = s.t;
   A.atk += dt; A.cast += dt;
   A.land = Math.max(0, A.land - dt);
-  if (!s.alive) A.dead = Math.min(1, A.dead + dt * 2.2); else A.dead = Math.max(0, A.dead - dt * 4);
+  if (!s.alive) { if (A.dead === 0) { A.deathDir = A.hurt < 1 ? -A.hurtDir : (Math.random() < 0.5 ? -1 : 1); A.deathRoll = (Math.random() - 0.5) * 0.8; } A.dead = Math.min(1, A.dead + dt * 1.5); } else A.dead = Math.max(0, A.dead - dt * 4);
   const air = !s.onGround;
   if (A.wasAir && !air && (A.airT || 0) > 0.18) A.land = 0.24;
   A.airT = air ? (A.airT || 0) + dt : 0;
@@ -1084,6 +1098,94 @@ export function animateHero(P, s, dt) {
     }
   }
 
+  // cast flavour by ability kind (layered on top of the generic flourish above)
+  if (A.cast < cd && A.castSlot !== 'x') {
+    const kk = A.cast / cd, e = Math.sin(kk * Math.PI), K = A.castKind;
+    if (K === 'dash' || K === 'leap' || K === 'blink' || K === 'shadowstep' || K === 'launch' || K === 'grapple') {
+      P.spine.rotation.x += 0.45 * e; P.shL.rotation.x += 0.9 * e; if (!P.isGun) P.shR.rotation.x += 0.6 * e;
+      P.legL.rotation.x -= 0.6 * e; P.legR.rotation.x += 0.5 * e; P.kneeR.rotation.x += 0.5 * e;
+    } else if (K === 'zone' || K === 'aoe' || K === 'detonate' || K === 'trap') {
+      const up = ease(kk / 0.45), dn = easeIn((kk - 0.45) / 0.3);
+      const arm = mix(mix(P.shL.rotation.x, -2.7, up), -0.6, dn);
+      P.shL.rotation.x = arm; P.elL.rotation.x = -0.15;
+      if (!P.isGun) { P.shR.rotation.x = mix(mix(P.shR.rotation.x, -2.6, up), -0.7, dn); }
+      P.spine.rotation.x += -0.2 * up * (1 - dn) + 0.4 * dn * (1 - easeIn((kk - 0.75) / 0.25));
+      P.hips.position.y -= 0.12 * dn * (1 - kk);
+      P.kneeL.rotation.x += 0.5 * dn * (1 - kk); P.kneeR.rotation.x += 0.5 * dn * (1 - kk);
+    } else if (K === 'proj' || K === 'beam' || K === 'cone' || K === 'channel' || K === 'chain' || K === 'deadeye' || K === 'tether') {
+      P.shL.rotation.x = mix(P.shL.rotation.x, -1.6, e); P.shL.rotation.z = mix(P.shL.rotation.z, -0.15, e); P.elL.rotation.x = mix(P.elL.rotation.x, -0.05, e);
+      P.spine.rotation.y += 0.35 * e; P.spine.rotation.x += 0.08 * e;
+    } else if (K === 'buff' || K === 'stance' || K === 'revive' || K === 'recall' || K === 'allywarp' || K === 'swap' || K === 'glide') {
+      P.shL.rotation.z = mix(P.shL.rotation.z, 1.1, e); P.shL.rotation.x = mix(P.shL.rotation.x, -0.6, e);
+      if (!P.isGun) { P.shR.rotation.z = mix(P.shR.rotation.z, -1.0, e); }
+      P.spine.rotation.x -= 0.22 * e; P.head.rotation.x -= 0.25 * e;
+    }
+  }
+  if (A.cast < cd && A.castSlot === 'x') {
+    // ultimate: gather low, then rise
+    const kk = A.cast / cd, crouch = Math.sin(Math.min(1, kk / 0.35) * Math.PI * 0.5) * (1 - ease((kk - 0.35) / 0.4));
+    P.hips.position.y -= 0.16 * crouch; P.kneeL.rotation.x += 0.7 * crouch; P.kneeR.rotation.x += 0.7 * crouch; P.legL.rotation.x -= 0.35 * crouch; P.legR.rotation.x -= 0.35 * crouch;
+  }
+
+  // idle: slow weight shift, and now and then a small fidget
+  const still = sp < 0.3 && !air && A.atk > 1 && A.cast > 1 && s.alive;
+  A.idleT = still ? A.idleT + dt : 0;
+  if (still) {
+    const ws = Math.sin(t * 0.55 + (P.def?.id?.length || 0));
+    P.hips.rotation.z = ws * 0.035; P.legL.rotation.z += ws * 0.03; P.legR.rotation.z += ws * 0.03; P.spine.rotation.z -= ws * 0.04;
+    P.kneeL.rotation.x += Math.max(0, ws) * 0.12; P.kneeR.rotation.x += Math.max(0, -ws) * 0.12;
+    if (A.idleT > 3 && A.fidget > 2.2 && Math.random() < dt * 0.25) { A.fidget = 0; A.fidgetKind = (Math.random() * 3) | 0; }
+  } else { P.hips.rotation.z *= 0.8; if (A.fidget < 2.2) A.fidget = 9; }
+  if (!(sp > 0.4 && !air)) P.head.rotation.z *= 0.85;
+  if (sp > 0.4 && !air) { P.hips.rotation.z = Math.sin(A.phase) * 0.05 * mv; P.spine.rotation.z += -Math.sin(A.phase) * 0.06 * mv; P.head.rotation.z = Math.sin(A.phase) * 0.04 * mv; }
+  A.fidget += dt;
+  if (A.fidget < 2.2) {
+    const f = A.fidget / 2.2, e = Math.sin(f * Math.PI);
+    if (A.fidgetKind === 0) { P.head.rotation.y = Math.sin(f * Math.PI * 2) * 0.6 * e; P.spine.rotation.y += Math.sin(f * Math.PI * 2) * 0.15 * e; }
+    else if (A.fidgetKind === 1) { // check the weapon
+      P.shR.rotation.x = mix(P.shR.rotation.x, -1.3, e); P.elR.rotation.x = mix(P.elR.rotation.x, -1.2, e); P.shR.rotation.z = mix(P.shR.rotation.z, 0.5, e);
+      P.head.rotation.x += 0.35 * e; P.head.rotation.y = -0.3 * e;
+    } else { P.spine.rotation.x -= 0.12 * e; P.shL.rotation.z += 0.5 * e; P.shR.rotation.z -= 0.5 * e; P.head.rotation.x -= 0.2 * e; } // stretch
+  } else P.head.rotation.y *= 0.9;
+
+  // flinch when hit
+  A.hurt += dt;
+  if (A.hurt < 0.26 && s.alive) {
+    const e = Math.sin((A.hurt / 0.26) * Math.PI) * (0.6 + Math.min(0.6, A.hurtAmt / 80));
+    P.spine.rotation.x -= 0.32 * e * A.hurtDir; P.head.rotation.x -= 0.35 * e * A.hurtDir;
+    P.spine.rotation.z += 0.25 * e * A.hurtSide; P.head.rotation.z += 0.2 * e * A.hurtSide;
+    P.shL.rotation.z += 0.3 * e; P.shR.rotation.z -= 0.3 * e;
+    P.hips.position.y -= 0.04 * e;
+  }
+
+  // stunned / asleep: unsteady sway, arms hang
+  if (s.stun && s.alive) {
+    A.wobble += dt;
+    P.spine.rotation.z += Math.sin(A.wobble * 3.1) * 0.12; P.spine.rotation.x += 0.18 + Math.sin(A.wobble * 2.3) * 0.06;
+    P.head.rotation.z = Math.sin(A.wobble * 4.2) * 0.25; P.head.rotation.x = 0.35;
+    P.shL.rotation.x = mix(P.shL.rotation.x, -0.1, 0.7); P.shR.rotation.x = mix(P.shR.rotation.x, -0.2, 0.7); P.elL.rotation.x = -0.2; P.elR.rotation.x = -0.3;
+    P.kneeL.rotation.x += 0.25; P.kneeR.rotation.x += 0.25; P.hips.position.y -= 0.06;
+  } else A.wobble = 0;
+
+  // round won: raise the weapon
+  A.cheer += dt;
+  if (A.cheer < 2.6 && s.alive) {
+    const up = ease(A.cheer / 0.35) * (1 - easeIn((A.cheer - 2.1) / 0.5));
+    const hop = A.cheer < 0.6 ? Math.sin((A.cheer / 0.6) * Math.PI) : 0;
+    P.shR.rotation.x = mix(P.shR.rotation.x, -2.9, up); P.shR.rotation.z = mix(P.shR.rotation.z, -0.25, up); P.elR.rotation.x = mix(P.elR.rotation.x, -0.15, up);
+    P.shL.rotation.x = mix(P.shL.rotation.x, -0.9 + Math.sin(A.cheer * 9) * 0.25, up); P.elL.rotation.x = mix(P.elL.rotation.x, -1.8, up);
+    P.spine.rotation.x -= 0.2 * up; P.head.rotation.x -= 0.35 * up;
+    P.hips.position.y += 0.12 * hop;
+  }
+
+  // respawn: rise from one knee
+  A.spawn += dt;
+  if (A.spawn < 0.8 && s.alive) {
+    const r = 1 - ease(A.spawn / 0.8);
+    P.hips.position.y -= 0.42 * r; P.legL.rotation.x -= 1.2 * r; P.kneeL.rotation.x += 1.4 * r; P.legR.rotation.x += 0.3 * r; P.kneeR.rotation.x += 1.9 * r;
+    P.spine.rotation.x += 0.55 * r; P.head.rotation.x += 0.3 * r; P.shR.rotation.x = mix(P.shR.rotation.x, 0.1, r); P.shL.rotation.x = mix(P.shL.rotation.x, -0.4, r);
+  }
+
   // capes follow motion
   for (const segs of P.capes) {
     segs.forEach((seg, i) => {
@@ -1099,19 +1201,36 @@ export function animateHero(P, s, dt) {
   }
   const bar = P.weaponR?.barrel;
   if (bar) { bar.userData.bspin = Math.max(0, (bar.userData.bspin || 0) - dt * 14); bar.rotation.y += bar.userData.bspin * dt; }
-  // death: topple
-  P.body.rotation.x = -A.dead * 1.45;
-  P.body.position.y = -A.dead * 0.25;
+  // death: knees give out first, then the body falls the way the last hit pushed it
+  if (A.dead > 0) {
+    const buckle = ease(A.dead / 0.4), fall = easeIn((A.dead - 0.3) / 0.7);
+    P.kneeL.rotation.x += 1.3 * buckle; P.kneeR.rotation.x += 1.1 * buckle; P.legL.rotation.x -= 0.5 * buckle; P.legR.rotation.x -= 0.3 * buckle;
+    P.hips.position.y -= 0.3 * buckle;
+    P.spine.rotation.x += 0.45 * buckle * (A.deathDir > 0 ? 1 : 0.3);
+    P.shL.rotation.x = mix(P.shL.rotation.x, 0.25, buckle); P.shR.rotation.x = mix(P.shR.rotation.x, 0.15, buckle);
+    P.shL.rotation.z = mix(P.shL.rotation.z, 0.5, fall); P.shR.rotation.z = mix(P.shR.rotation.z, -0.6, fall);
+    P.elL.rotation.x = mix(P.elL.rotation.x, -0.1, buckle); P.elR.rotation.x = mix(P.elR.rotation.x, -0.1, buckle);
+    P.head.rotation.x += 0.4 * buckle; P.head.rotation.z = A.deathRoll * fall;
+    P.body.rotation.x = A.deathDir * 1.42 * fall;
+    P.body.rotation.z = A.deathRoll * 0.4 * fall;
+    P.body.position.y = -0.12 * fall;
+    P.body.position.z = A.deathDir * 0.25 * fall;
+  } else { P.body.rotation.x = 0; P.body.rotation.z = 0; P.body.position.y = 0; P.body.position.z = 0; }
   const gs = (P.def?.scale || 1) * (s.giant ? 1.4 : 1);
   const cur = P.root.scale.x;
   P.root.scale.setScalar(cur + (gs - cur) * Math.min(1, dt * 6));
 }
 
-export function triggerAttack(P, slot, combo = 0) {
+// dir: +1 hit from the front (rock back), -1 from behind; side: -1..1
+export function triggerHurt(P, dir = 1, side = 0, amt = 20) { const A = P.anim; if (A.hurt < 0.12) return; A.hurt = 0; A.hurtDir = dir; A.hurtSide = side; A.hurtAmt = amt; A.fidget = 9; }
+export function triggerCheer(P) { P.anim.cheer = 0; }
+export function triggerSpawn(P) { P.anim.spawn = 0; P.anim.dead = 0; }
+export function triggerAttack(P, slot, combo = 0, kind = '') {
+  P.anim.fidget = 9;
   if (slot === 'lmb') {
     P.anim.atk = 0; P.anim.combo = combo; P.anim.swingSide = -(P.anim.swingSide || 1);
     const bar = P.weaponR?.barrel; if (bar) bar.userData.bspin = 30;
-  } else { P.anim.cast = 0; P.anim.castSlot = slot; }
+  } else { P.anim.cast = 0; P.anim.castSlot = slot; P.anim.castKind = kind; }
 }
 
 export { G, add, grp, GLOW };

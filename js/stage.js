@@ -89,7 +89,7 @@ export class Stage {
     this.hero = P;
     const c = new THREE.Color(def.color);
     this.rim.color.copy(c); this.rim2.color.copy(c);
-    this.runeMat.color.copy(c); this.outer.material.color.copy(c);
+    const rc = c.clone().lerp(new THREE.Color('#8a3a22'), 0.55).multiplyScalar(0.8); this.runeMat.color.copy(rc); this.outer.material.color.copy(rc);
     this.window.material = M('#0a0608', { e: def.color, ei: 0.2 });
     this.windowTop.material = this.window.material;
     if (burst) {
@@ -113,7 +113,7 @@ export class Stage {
     }
     this.rune.rotation.z = this.t * 0.15;
     this.outer.rotation.z = -this.t * 0.05;
-    this.runeMat.opacity = 0.7 + Math.sin(this.t * 1.5) * 0.2;
+    this.runeMat.opacity = 0.42 + Math.sin(this.t * 1.5) * 0.08;
     for (const b of this.braziers) {
       if (Math.random() < dt * 45) this.fx.P.emit([b[0] + (Math.random() - 0.5) * 0.3, b[1], b[2] + (Math.random() - 0.5) * 0.3], { c: '#ff3a0a', c2: '#ffd27a', sp: 0.25, up: 1.8, s: 0.4, s1: 0.04, life: 0.6, drag: 0.5 });
       b.light.intensity = 9 + Math.sin(this.t * 12 + b[0]) * 1.5;
