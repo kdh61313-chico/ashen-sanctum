@@ -17,7 +17,7 @@ export const PERMIT_TOKEN_PRICE = 40;
 export const RATES = { 6: 0.01, 5: 0.05, 4: 0.45 };
 export const PITY_START = 70;
 const DUP_TOKENS = { 4: 4, 5: 10, 6: 20 };
-const MAXPOT = 6;
+export const MAXPOT = 6;
 
 // ---------------- quests ----------------
 // counters: match, win, kill, skill, ult, online, horde (best wave), heal, dmg
@@ -71,6 +71,8 @@ const fresh = () => ({
   hordeBest: 0, lastPatch: '', created: Date.now(), saves: 0,
   // v4: growth, materials, campaign, raid, ranked
   growth: {}, mats: { essence: 40, seal: 0, tome: 2 }, camp: {}, raid: { clears: {}, best: {} }, rank: { season: '', pts: 0, best: 0, reached: {}, last: null },
+  // v5: redeemed coupon codes
+  codes: {},
 });
 
 // deep-merge saved data over defaults without ever dropping saved values
@@ -117,6 +119,13 @@ export class Profile {
     try { const prev = localStorage.getItem(KEY); if (prev) localStorage.setItem(BAK, prev); localStorage.setItem(KEY, json); } catch (e) { }
     try { IDB.set(KEY, JSON.parse(json)); } catch (e) { }
   }
+  adminCompleteQuests() {
+    const q = this.d.q;
+    for (const qd of DAILY_POOL) if (q.dailyIds.includes(qd.id)) q.daily[qd.stat] = Math.max(q.daily[qd.stat] || 0, qd.goal);
+    for (const qd of WEEKLY_POOL) if (q.weeklyIds.includes(qd.id)) q.weekly[qd.stat] = Math.max(q.weekly[qd.stat] || 0, qd.goal);
+    this.save();
+  }
+  wipe() { this.d = fresh(); this.save(); this.save(); try { IDB.set(KEY, JSON.parse(JSON.stringify(this.d))); } catch (e) { } }
   exportCode() {
     const json = JSON.stringify(this.d);
     let h = 0; for (let i = 0; i < json.length; i++) h = (h * 31 + json.charCodeAt(i)) >>> 0;
@@ -183,7 +192,14 @@ export class Profile {
   }
   claimable() { const L = this.questList(); return [...L.daily, ...L.weekly, ...L.ach].filter(x => x.done && !x.claimed).length + (this.bonusReady('daily') ? 1 : 0) + (this.bonusReady('weekly') ? 1 : 0); }
   bonusReady(scope) { const L = this.questList(); const list = scope === 'daily' ? L.daily : L.weekly; return list.every(x => x.claimed) && !(scope === 'daily' ? L.dailyBonus : L.weeklyBonus); }
-  give(r) { if (r.crystals) this.d.crystals += r.crystals; if (r.permits) this.d.permits += r.permits; if (r.tokens) this.d.tokens += r.tokens; }
+  give(r) { if (r.crystals) this.d.crystals += r.crystals; if (r.permits) this.d.permits += r.permits; if (r.tokens) this.d.tokens += r.tokens; for (const k of ['essence', 'seal', 'tome']) if (r[k]) this.d.mats[k] = (this.d.mats[k] || 0) + r[k]; }
+  // coupon: returns { ok, msg }
+  redeem(c) {
+    if (this.d.codes[c.code]) return { ok: false, msg: '이미 사용한 코드예요.' };
+    if (c.until && new Date() > new Date(c.until + 'T23:59:59')) return { ok: false, msg: '기간이 끝난 코드예요.' };
+    this.give(c.reward); this.d.codes[c.code] = Date.now(); this.save();
+    return { ok: true };
+  }
   claim(id) {
     const L = this.questList();
     const it = [...L.daily, ...L.weekly, ...L.ach].find(x => x.id === id);
@@ -296,8 +312,8 @@ export class Profile {
       this.d.pulls++;
       const r = Math.random();
       let rar;
-      const p6 = this.rate6();
-      if (r < p6) rar = 6; else if (r < p6 + RATES[5]) rar = 5; else if (r < p6 + RATES[5] + RATES[4]) rar = 4; else rar = 3;
+      const p6 = this.d.force6 ? 1 : this.rate6();
+      if (r < p6) { rar = 6; this.d.force6 = false; } else if (r < p6 + RATES[5]) rar = 5; else if (r < p6 + RATES[5] + RATES[4]) rar = 4; else rar = 3;
       if (rar === 6) this.d.pity6 = 0; else this.d.pity6++;
       if (rar === 3) { this.d.tokens += 1; out.push({ id: null, rarity: 3, tokens: 1 }); continue; }
       const pool = HEROES.filter(h => h.rarity === rar);

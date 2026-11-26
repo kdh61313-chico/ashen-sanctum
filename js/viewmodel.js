@@ -32,6 +32,14 @@ function basis(y, zHint, out = new THREE.Quaternion()) {
 
 // pose = { h: Vector3 (right grip position), q: Quaternion (weapon orientation) }
 const P = (h, r) => ({ h: V(...h), q: E(...r) });
+// orientation from where the weapon points (its +Y) and which way its edge (+X) faces, in camera space
+function aimQ(dir, edge) {
+  const y = V(...dir).normalize(), x = V(...edge);
+  x.sub(y.clone().multiplyScalar(x.dot(y))).normalize();
+  const z = new THREE.Vector3().crossVectors(x, y);
+  return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, z));
+}
+const PA = (h, dir, edge) => ({ h: V(...h), q: aimQ(dir, edge) });
 function lerpPose(a, b, k, out) {
   out.h.lerpVectors(a.h, b.h, k);
   out.q.slerpQuaternions(a.q, b.q, k);
@@ -142,13 +150,14 @@ function layoutFor(pose, len, minY, hero, wid = 0) {
   switch (pose) {
     case 'twohand': {
       const pole = minY < -0.4;
+      if (wid > 0.3 && !pole) return { kind: 'heavyMelee', scale: Math.min(0.62, 1.1 / Math.max(1, len)), rest: PA([0.31, -0.42, -0.5], [0.18, 0.62, -0.62], [0.3, 0, -1]), gripR: V(0, 0.13, 0), gripL: V(0, -0.04, 0), dur: 0.46 };
       return { kind: 'heavyMelee', scale: Math.min(0.72, 1.25 / Math.max(1, len)), rest: P([0.24, -0.33, -0.42], [0.28, 0.4, -0.85]), gripR: V(0, 0.13, 0), gripL: V(0, pole ? -0.3 : -0.04, 0), dur: 0.46 };
     }
     case 'onehand':
-      if (len > 2.0) return { kind: 'polearm', scale: 0.72, rest: P([0.2, -0.3, -0.44], [-1.3, 0.2, 0.14]), gripR: V(0, 0, 0), gripL: V(0, 0.42, 0), dur: 0.4 };
+      if (len > 2.0) return { kind: 'polearm', scale: 0.72, rest: PA([0.21, -0.3, -0.44], [-0.12, 0.3, -0.95], [1, 0, 0]), gripR: V(0, 0, 0), gripL: V(0, 0.42, 0), dur: 0.4 };
       if (len < 0.5) return { kind: 'knife', scale: wid > 0.17 ? 0.62 : 1.1, rest: P([0.23, -0.26, wid > 0.17 ? -0.48 : -0.4], [-1.05, 0.3, 0.25]), gripR: V(0, 0.02, 0), dur: 0.3 };
-      return { kind: 'sword', scale: Math.min(0.8, 0.95 / Math.max(0.8, len)), rest: P([0.25, -0.3, -0.44], [-0.2, 0.45, -0.5]), gripR: V(0, 0.02, 0), dur: 0.38 };
-    case 'dual': return len > 0.6 ? { kind: 'dual', scale: 0.6, rest: P([0.27, -0.3, -0.42], [-0.75, 0.5, -0.2]), gripR: V(0, 0.05, 0), dur: 0.27 } : { kind: 'dual', scale: wid > 0.3 ? 0.6 : 1.05, rest: P([0.25, -0.27, -0.44], [-1.05, 0.25, 0.28]), gripR: V(0, 0.02, 0), dur: 0.27 };
+      return { kind: 'sword', scale: Math.min(0.8, 0.95 / Math.max(0.8, len)), rest: PA([0.25, -0.3, -0.44], [-0.32, 0.62, -0.7], [0.35, 0.1, -1]), gripR: V(0, 0.02, 0), dur: 0.38 };
+    case 'dual': return len > 0.6 ? { kind: 'dual', scale: 0.6, rest: PA([0.27, -0.31, -0.43], [-0.22, 0.68, -0.7], [-0.75, 0.2, -0.65]), gripR: V(0, 0.05, 0), dur: 0.27 } : { kind: 'dual', scale: wid > 0.3 ? 0.6 : 1.05, rest: P([0.25, -0.27, -0.44], [-1.05, 0.25, 0.28]), gripR: V(0, 0.02, 0), dur: 0.27 };
     case 'claws': return { kind: 'claws', gauntlet: wid > 0.2, scale: wid > 0.2 ? 0.42 : 1.15, rest: P([0.22, -0.27, -0.38], [-1.4, 0.2, 0.2]), gripR: V(0, 0, 0), dur: 0.25 };
     case 'staff': return { kind: 'staff', scale: 0.8, rest: P([0.27, -0.34, -0.5], [-0.26, 0.25, 0.14]), gripR: V(0, 0.42, 0), dur: 0.34 };
     case 'bow': return { kind: 'bow', scale: 0.62, dur: 0.3 };
@@ -164,15 +173,16 @@ function layoutFor(pose, len, minY, hero, wid = 0) {
 
 // Melee swing key poses (right grip + weapon orientation), per class and combo.
 const SWINGS = {
+  // [windup grip, windup orientation, strike grip, strike orientation]; orientation = aimQ(blade direction, edge direction)
   sword: [
-    [[0.36, -0.14, -0.3], [-0.25, 0.4, -1.3], [-0.24, -0.3, -0.52], [-1.4, 0.1, 1.5]],   // right → left
-    [[-0.14, -0.36, -0.38], [-1.0, -0.2, 1.7], [0.4, -0.08, -0.5], [-1.25, 0.2, -1.35]],    // rising backhand
-    [[0.15, 0.02, -0.26], [0.55, 0.3, 0.1], [0.05, -0.42, -0.55], [-2.05, 0.2, 0.05]],      // overhead chop
+    [[0.34, -0.06, -0.3], aimQ([0.5, 0.78, 0.25], [-1, 0, -0.4]), [-0.24, -0.3, -0.5], aimQ([-0.78, -0.2, -0.58], [-0.4, -0.7, 0.3])],   // right → left
+    [[-0.16, -0.32, -0.36], aimQ([-0.7, -0.4, -0.35], [1, 0.4, 0]), [0.36, -0.05, -0.48], aimQ([0.62, 0.6, -0.5], [0.4, 0.5, 0.6])],      // rising backhand
+    [[0.14, 0.05, -0.26], aimQ([0.06, 0.62, 0.78], [0, 1, -0.3]), [0.05, -0.4, -0.55], aimQ([0, -0.5, -0.86], [0, -1, 0.35])],            // overhead chop
   ],
   heavyMelee: [
-    [[0.36, -0.12, -0.3], [-0.1, 0.5, -1.2], [-0.26, -0.32, -0.5], [-1.4, 0.2, 1.45]],
-    [[-0.16, -0.38, -0.36], [-0.9, -0.2, 1.65], [0.38, -0.06, -0.5], [-1.2, 0.2, -1.3]],
-    [[0.12, 0.06, -0.24], [0.7, 0.4, 0.2], [0.04, -0.44, -0.55], [-2.1, 0.2, 0.1]],
+    [[0.36, -0.08, -0.3], aimQ([0.45, 0.8, 0.35], [-1, 0, -0.3]), [-0.26, -0.32, -0.5], aimQ([-0.8, -0.25, -0.55], [-0.3, -0.8, 0.3])],
+    [[-0.18, -0.36, -0.36], aimQ([-0.72, -0.4, -0.3], [1, 0.4, 0]), [0.38, -0.04, -0.5], aimQ([0.6, 0.62, -0.5], [0.4, 0.5, 0.6])],
+    [[0.12, 0.08, -0.24], aimQ([0.05, 0.55, 0.84], [0, 1, -0.3]), [0.04, -0.44, -0.55], aimQ([0, -0.55, -0.83], [0, -1, 0.3])],
   ],
   polearm: [
     [[0.24, -0.25, -0.16], [-1.3, 0.2, 0.18], [0.12, -0.2, -0.72], [-1.5, 0.1, 0.05]],      // thrust
@@ -264,7 +274,12 @@ export class ViewModel {
     this.pose = PH.spec.pose; this.isGun = PH.isGun; this.isMelee = PH.isMelee;
     const c = PH.c;
     this.rim.color.set(def.color);
-    const prep = (w) => { if (!w) return null; const k = w.clone(); k.position.set(0, 0, 0); k.rotation.set(0, 0, 0); k.scale.setScalar(1); return k; };
+    const prep = (w) => {
+      if (!w) return null; const k = w.clone(); k.position.set(0, 0, 0); k.rotation.set(0, 0, 0); k.scale.setScalar(1);
+      // up close, glowing parts bloom across the screen: tone them down for the first-person copy
+      k.traverse(o => { if (o.isMesh && o.material?.emissiveIntensity > 1.2) { o.material = o.material.clone(); o.material.emissiveIntensity = 1.2 + (o.material.emissiveIntensity - 1.2) * 0.35; } });
+      return k;
+    };
     let wR = prep(PH.weaponR), wL = prep(PH.weaponL);
     const bb = new THREE.Box3();
     if (wR) { wR.updateMatrixWorld(true); bb.setFromObject(wR); }
@@ -407,8 +422,8 @@ export class ViewModel {
     // keys: [windupH, windupR, strikeH, strikeR]
     const w = this._w || (this._w = { h: V(), q: new THREE.Quaternion() });
     const s = this._s || (this._s = { h: V(), q: new THREE.Quaternion() });
-    w.h.set(...keys[0]); w.q.setFromEuler(new THREE.Euler(...keys[1], 'XYZ'));
-    s.h.set(...keys[2]); s.q.setFromEuler(new THREE.Euler(...keys[3], 'XYZ'));
+    w.h.set(...keys[0]); if (keys[1].isQuaternion) w.q.copy(keys[1]); else w.q.setFromEuler(new THREE.Euler(...keys[1], 'XYZ'));
+    s.h.set(...keys[2]); if (keys[3].isQuaternion) s.q.copy(keys[3]); else s.q.setFromEuler(new THREE.Euler(...keys[3], 'XYZ'));
     if (k < 0.24) return lerpPose(rest, w, ease(k / 0.24), out);
     if (k < 0.52) return lerpPose(w, s, easeIn((k - 0.24) / 0.28) * 0.7 + smooth((k - 0.24) / 0.28) * 0.3, out);
     if (k < 0.62) return lerpPose(s, s, 0, out);
@@ -469,8 +484,8 @@ export class ViewModel {
         const both = this.combo % 3 === 2;
         const doHand = (p, sd) => {
           const kk = atkK;
-          const wu = { h: V(sd * 0.34, -0.14, -0.3), q: E(-0.35, sd * 0.3, -sd * 0.95) };
-          const st = { h: V(-sd * 0.1, -0.34, -0.6), q: E(-1.7, sd * 0.2, sd * 1.25) };
+          const wu = { h: V(sd * 0.34, -0.1, -0.3), q: aimQ([sd * 0.45, 0.8, 0.3], [-sd, 0, -0.4]) };
+          const st = { h: V(-sd * 0.12, -0.34, -0.58), q: aimQ([-sd * 0.7, -0.25, -0.66], [-sd * 0.4, -0.7, 0.3]) };
           if (Lk === 'claws') { wu.h.set(sd * 0.36, -0.06, -0.28); wu.q = E(-0.5, 0, -sd * 0.7); st.h.set(-sd * 0.14, -0.38, -0.56); st.q = E(-1.65, 0, sd * 0.95); }
           const r0 = { h: p.h.clone(), q: p.q.clone() };
           this.swingPose(r0, [wu.h.toArray(), [0, 0, 0], st.h.toArray(), [0, 0, 0]], kk, p);

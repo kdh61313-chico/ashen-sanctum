@@ -204,6 +204,47 @@ export const REMODEL = {
     return g;
   },
 
+
+  // ================= axes and hammers =================
+  axe(c) {
+    const g = new THREE.Group();
+    // haft with a leather wrap at the grip and an iron butt cap
+    add(g, cylY(0.022, 0.026, 0.82, 10), wood(), [0, 0.21, 0]);
+    wrappedGrip(g, -0.1, 0.18, 0.027);
+    add(g, cylY(0.03, 0.026, 0.04, 10), steel(c), [0, -0.19, 0]);
+    // bearded head: profile in the X-Y plane, edge toward +X
+    const sh = new THREE.Shape();
+    sh.moveTo(0.0, 0.47); sh.lineTo(0.09, 0.5); sh.quadraticCurveTo(0.16, 0.56, 0.25, 0.64);
+    sh.quadraticCurveTo(0.3, 0.52, 0.27, 0.36); sh.quadraticCurveTo(0.17, 0.4, 0.09, 0.4);
+    sh.lineTo(0.03, 0.33); sh.lineTo(0.0, 0.33); sh.closePath();
+    const hg = new THREE.ExtrudeGeometry(sh, { depth: 0.012, bevelEnabled: true, bevelThickness: 0.018, bevelSize: 0.022, bevelOffset: -0.022, bevelSegments: 1, curveSegments: 10 });
+    hg.translate(0, 0, -0.006); hg.computeVertexNormals();
+    add(g, hg, edge('#9aa0aa'), [0, 0, 0]);
+    // socket, back spike, rune
+    add(g, profile(rrect(0.31, -0.035, 0.53, 0.035, 0.01), 0.06, 0.006), dark(), [0, 0, 0], [0, Math.PI / 2, 0]);
+    add(g, new THREE.ConeGeometry(0.022, 0.1, 4), steel(c), [-0.07, 0.43, 0], [0, 0, Math.PI / 2]);
+    add(g, G.box(0.006, 0.18, 0.05), glow(c, 2.4), [0.255, 0.5, 0], [0, 0, -0.2]);
+    add(g, cylY(0.03, 0.03, 0.04, 10), steel(c), [0, 0.58, 0]);
+    return g;
+  },
+
+  hammer(c) {
+    const g = new THREE.Group();
+    add(g, cylY(0.032, 0.036, 1.16, 10), wood(), [0, 0.32, 0]);
+    wrappedGrip(g, -0.18, 0.3, 0.038);
+    add(g, lathe([[0, 0], [0.05, 0.01], [0.052, 0.05], [0.03, 0.08], [0, 0.085]]), steel(c), [0, -0.27, 0]);
+    for (const y of [0.55, 0.72]) add(g, new THREE.TorusGeometry(0.04, 0.009, 5, 12), steel(c), [0, y, 0], [Math.PI / 2, 0, 0]);
+    // head: a bevelled block with stepped faces on both ends
+    add(g, profile(rrect(0.83, -0.13, 1.09, 0.13, 0.025), 0.42, 0.02), steel(c), [0, 0, 0], [0, Math.PI / 2, 0]);
+    for (const sd of [-1, 1]) {
+      add(g, profile(rrect(0.86, -0.1, 1.06, 0.1, 0.02), 0.07, 0.012), dark(), [sd * 0.235, 0, 0], [0, Math.PI / 2, 0]);
+      add(g, G.box(0.012, 0.12, 0.12), glow(c, 2.2), [sd * 0.272, 0.96, 0]);
+    }
+    add(g, G.box(0.36, 0.024, 0.27), dark(), [0, 0.96, 0]);
+    add(g, new THREE.ConeGeometry(0.03, 0.12, 4), steel(c), [0, 1.15, 0]);
+    return g;
+  },
+
   // ================= blades =================
   sword(c) {
     const g = new THREE.Group();

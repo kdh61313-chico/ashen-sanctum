@@ -326,3 +326,23 @@ body.is-touch .me__portrait img.me__el { width: 22px; height: 22px; }
 .el-mu img { width: 15px; height: 15px; vertical-align: -3px; }
 .el-mu button { margin-left: auto; background: none; border: 1px solid var(--hair); color: var(--bone-dim); font-size: 12px; padding: 3px 8px; }
 .el-mu button:hover { color: var(--bone); border-color: rgba(233, 226, 214, .3); }
+
+/* coupon codes */
+.codebox__row { display: flex; gap: 8px; margin: 8px 0 4px; }
+.codebox__row input { flex: 1; min-width: 0; background: rgba(0, 0, 0, .35); border: 1px solid var(--hair); color: var(--bone); font: 600 15px var(--sans); letter-spacing: .06em; padding: 8px 10px; text-transform: uppercase; }
+.codebox__row input:focus { outline: none; border-color: var(--accent); }
+/* admin tools */
+.admin { max-height: 86vh; overflow-y: auto; }
+.admin__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 10px 0; }
+.admin__f { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--bone-dim); }
+.admin__f input, .admin__row select { background: rgba(0, 0, 0, .35); border: 1px solid var(--hair); color: var(--bone); font: 600 14px var(--sans); padding: 6px 8px; min-width: 0; }
+.admin__row { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin: 6px 0; }
+.admin__row select { flex: 1 1 220px; }
+.admin__h { margin: 16px 0 4px; font-size: 14px; color: var(--bone-dim); font-weight: 600; }
+.admin__danger .btn__k { color: #ff7a6a; }
+/* developer tools guard */
+.devguard { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; background: rgba(8, 6, 7, .96); backdrop-filter: blur(6px); }
+.devguard[hidden] { display: none; }
+.devguard__card { max-width: 420px; padding: 28px; text-align: center; color: var(--bone); }
+.devguard__card h2 { font-size: 22px; margin: 0 0 10px; }
+.devguard__card p { color: var(--bone-dim); line-height: 1.6; font-size: 14px; }

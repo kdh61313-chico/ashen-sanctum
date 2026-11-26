@@ -20,6 +20,9 @@ import { renderSplash } from './stage.js';
 import { icon } from './icons.js';
 import { Stage, renderPortraits } from './stage.js';
 import { Game, esc } from './game.js';
+import { COUPONS, normCode, isAdminCode, rewardText } from './codes.js';
+import { installGuard } from './guard.js';
+import { MAXPOT } from './profile.js';
 import { Profile, PULL_COST, TOKEN_PRICE, PERMIT_TOKEN_PRICE, RATES, PITY_START } from './profile.js';
 
 const $ = (id) => document.getElementById(id);
@@ -253,6 +256,54 @@ class App {
     { const next = CHAPTERS.flatMap(c => c.stages).find(st => !this.profile.stars(st.id)); $('tile-battle-sub').textContent = next ? `캠페인 · 레이드 · 랭크전 · 대전 — 다음 ${next.id} ${next.name}` : '캠페인 · 레이드 · 랭크전 · 대전'; }
     this.refreshQuestBadge();
     $('notes-badge').hidden = this.profile.d.lastPatch === NOTES_VERSION;
+  }
+
+  // ---------------- admin tools ----------------
+  openAdmin() {
+    if (!this.adminOn) return;
+    const d = this.profile.d;
+    const F = [['crystals', '잿빛 결정', d.crystals], ['permits', '모집 허가증', d.permits], ['tokens', '잔불 증표', d.tokens], ['essence', '정수', d.mats.essence], ['seal', '인장', d.mats.seal], ['tome', '기술서', d.mats.tome], ['level', '계정 레벨', d.level]];
+    $('adm-cur').innerHTML = F.map(([k, n, v]) => `<label class="admin__f">${n}<input type="number" min="0" data-cur="${k}" value="${v}"></label>`).join('');
+    $('adm-hero').innerHTML = [...HEROES].filter(h => !h.boss).sort((a, b) => b.rarity - a.rarity || a.name.localeCompare(b.name)).map(h => `<option value="${h.id}">${'★'.repeat(h.rarity)} ${esc(h.name)}${d.owned[h.id] ? '' : ' (미보유)'}</option>`).join('');
+    $('adm-rank').value = d.rank.pts || 0; $('adm-horde').value = d.hordeBest || 0;
+    $('adm-note').textContent = '';
+    $('settings').hidden = true; $('admin').hidden = false;
+  }
+  adminDone(msg) { this.profile.save(); this.refreshTop(); if (this.state === 'home') this.showHome?.(); $('adm-note').textContent = msg; const sel = $('adm-hero').value; this.openAdmin(); $('adm-hero').value = sel; $('adm-note').textContent = msg; }
+  adminApplyCurrency() {
+    if (!this.adminOn) return;
+    const d = this.profile.d;
+    for (const inp of qsa('[data-cur]', $('adm-cur'))) {
+      const v = Math.max(0, Math.floor(+inp.value || 0)), k = inp.dataset.cur;
+      if (k === 'crystals' || k === 'permits' || k === 'tokens') d[k] = v;
+      else if (k === 'level') { d.level = Math.max(1, Math.min(99, v)); d.xp = 0; }
+      else d.mats[k] = v;
+    }
+    this.adminDone('재화를 바꿨어요.');
+  }
+  adminAction(a) {
+    if (!this.adminOn) return;
+    const P = this.profile, d = P.d, id = $('adm-hero').value;
+    const own = (hid) => { if (!d.owned[hid]) d.owned[hid] = { pot: 1, at: Date.now() }; };
+    const maxGrow = (hid) => { own(hid); d.owned[hid].pot = MAXPOT; d.growth[hid] = { lv: 40, elite: 2, sk: 7 }; };
+    const heroes = HEROES.filter(h => !h.boss);
+    switch (a) {
+      case 'rich': for (const k of ['crystals', 'permits', 'tokens']) d[k] = 99999; for (const k of ['essence', 'seal', 'tome']) d.mats[k] = 99999; return this.adminDone('모든 재화를 99,999로 바꿨어요.');
+      case 'zero': for (const k of ['crystals', 'permits', 'tokens']) d[k] = 0; for (const k of ['essence', 'seal', 'tome']) d.mats[k] = 0; return this.adminDone('모든 재화를 0으로 바꿨어요.');
+      case 'give1': own(id); return this.adminDone(`${HERO_MAP[id].name}을(를) 얻었어요.`);
+      case 'max1': maxGrow(id); return this.adminDone(`${HERO_MAP[id].name}: 레벨 40, 정예 2, 기술 7, 잠재 ${MAXPOT}.`);
+      case 'take1': if (Object.keys(d.owned).length <= 1) return this.adminDone('마지막 영웅은 뺄 수 없어요.'); delete d.owned[id]; delete d.growth[id]; return this.adminDone(`${HERO_MAP[id].name}을(를) 목록에서 뺐어요.`);
+      case 'all': heroes.forEach(h => own(h.id)); return this.adminDone(`영웅 ${heroes.length}명을 모두 얻었어요.`);
+      case 'maxall': heroes.forEach(h => maxGrow(h.id)); return this.adminDone('모든 영웅을 최대로 육성했어요.');
+      case 'resetgrowth': d.growth = {}; return this.adminDone('육성을 초기화했어요.');
+      case 'camp': for (const ch of CHAPTERS) for (const st of ch.stages) d.camp[st.id] = 3; return this.adminDone('캠페인을 모두 ★3으로 클리어했어요.');
+      case 'raid': for (let i = 0; i < RAID.diffs.length; i++) { d.raid.clears[i] = (d.raid.clears[i] || 0) + 1; d.raid.best[i] = d.raid.best[i] || 60; } return this.adminDone('레이드를 모든 난이도로 클리어했어요.');
+      case 'quests': { P.adminCompleteQuests(); if (this.qTab) this.renderQuests(); this.refreshQuestBadge?.(); return this.adminDone('일일 · 주간 임무를 모두 달성 상태로 바꿨어요. 임무 화면에서 보상을 받으세요.'); }
+      case 'pity': d.force6 = true; return this.adminDone('다음 모집 한 번은 ★6이 확정이에요.');
+      case 'prog': d.rank.pts = Math.max(0, Math.floor(+$('adm-rank').value || 0)); d.rank.best = Math.max(d.rank.best || 0, d.rank.pts); d.hordeBest = Math.max(0, Math.floor(+$('adm-horde').value || 0)); return this.adminDone('랭크 점수와 심연 기록을 바꿨어요.');
+      case 'codes': d.codes = {}; return this.adminDone('쿠폰 코드를 다시 쓸 수 있어요.');
+      case 'wipe': if (!confirm('정말 저장 데이터를 처음 상태로 되돌릴까요? 되돌릴 수 없어요.')) return; P.wipe(); setTimeout(() => location.reload(), 300); return;
+    }
   }
 
   openElChart() {
@@ -592,6 +643,23 @@ class App {
     rng('set-vol', 'vol', 'out-vol', v => Math.round(v * 100) + '%');
     $('btn-settings').addEventListener('click', () => $('settings').hidden = false);
     $('btn-settings-close').addEventListener('click', () => { $('settings').hidden = true; });
+    // coupon codes (and the admin code)
+    $('code-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const raw = $('code-input').value, code = normCode(raw), note = $('code-note');
+      if (!code) return;
+      if (await isAdminCode(code)) { this.adminOn = true; $('btn-admin').hidden = false; $('code-input').value = ''; note.textContent = '관리자 도구가 열렸어요.'; this.openAdmin(); return; }
+      const c = COUPONS.find(x => normCode(x.code) === code);
+      if (!c) { note.textContent = '없는 코드예요. 철자를 확인해 주세요.'; return; }
+      const r = this.profile.redeem(c);
+      if (!r.ok) { note.textContent = r.msg; return; }
+      $('code-input').value = ''; note.textContent = `${c.label}: ${rewardText(c.reward)} 받았어요.`;
+      this.refreshTop(); this.audio.ui?.('buy');
+    });
+    $('btn-admin').addEventListener('click', () => this.openAdmin());
+    $('btn-admin-close').addEventListener('click', () => { $('admin').hidden = true; });
+    $('adm-apply').addEventListener('click', () => this.adminApplyCurrency());
+    $('admin').addEventListener('click', (e) => { const b = e.target.closest('[data-adm]'); if (b) this.adminAction(b.dataset.adm); });
     $('btn-help').addEventListener('click', () => $('help').hidden = false);
     $('btn-help-close').addEventListener('click', () => $('help').hidden = true);
     $('btn-help-el').addEventListener('click', () => { $('help').hidden = true; this.openElChart(); });
@@ -1113,7 +1181,12 @@ class App {
 function tick() { return new Promise(r => setTimeout(r, 16)); }
 
 const app = new App();
-window.__app = app;
+// the app handle is only exposed on a local dev server (tests); on the live site it stays out of the console
+if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.__app = app;
+installGuard({
+  onOpen: () => { $('devguard').hidden = false; try { document.exitPointerLock?.(); } catch (e) { } },
+  onClose: () => { $('devguard').hidden = true; },
+});
 app.boot().catch((e) => {
   console.error(e);
   document.querySelector('.loading__text').textContent = '불러오기에 실패했어요: ' + e.message;
