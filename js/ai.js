@@ -148,6 +148,13 @@ export class BotBrain {
   }
 
   cast(slot, aim, charge = 0) {
+    // don't dash or leap into a chasm or lava
+    const def = this.sim.players.get(this.p.id)?.def?.abilities?.[slot];
+    const mk = def && { dash: def.dist, leap: (def.fwd || 0) * 0.9, blink: def.dist, launch: -(def.back || 0) * 0.9, shadowstep: 0 }[def.kind];
+    if (mk && this.p.pos[1] < 0.6) {
+      const fx = -Math.sin(aim.yaw), fz = -Math.cos(aim.yaw);
+      for (const k of [0.35, 0.7, 1]) if (pitAt(this.p.pos[0] + fx * mk * k, this.p.pos[2] + fz * mk * k)) return false;
+    }
     return this.sim.cast(this.p.id, slot, { yaw: aim.yaw, pitch: aim.pitch, charge }, false);
   }
 
@@ -308,11 +315,11 @@ export class BotBrain {
     // never walk (or strafe) into lava or a chasm
     if (p.pos[1] < 0.6 && (inp.fwd || inp.right)) {
       const fy = p.yaw, fx = -Math.sin(fy), fz = -Math.cos(fy), rx = Math.cos(fy), rz = -Math.sin(fy);
-      const ahead = (f, r) => { const dx = fx * f + rx * r, dz = fz * f + rz * r, l = Math.hypot(dx, dz) || 1; return pitAt(p.pos[0] + dx / l * 1.3, p.pos[2] + dz / l * 1.3); };
+      const ahead = (f, r) => { const dx = fx * f + rx * r, dz = fz * f + rz * r, l = Math.hypot(dx, dz) || 1; for (const k of [0.45, 0.9, 1.4]) { if (pitAt(p.pos[0] + dx / l * k, p.pos[2] + dz / l * k) || pitAt(p.pos[0] + dx / l * k + 0.35, p.pos[2] + dz / l * k) || pitAt(p.pos[0] + dx / l * k - 0.35, p.pos[2] + dz / l * k) || pitAt(p.pos[0] + dx / l * k, p.pos[2] + dz / l * k + 0.35) || pitAt(p.pos[0] + dx / l * k, p.pos[2] + dz / l * k - 0.35)) return true; } return false; };
       if (ahead(inp.fwd, inp.right)) {
         if (!ahead(inp.fwd, 0)) inp.right = 0;
         else if (!ahead(0, inp.right)) inp.fwd = 0;
-        else { inp.fwd = -inp.fwd * 0.5; inp.right = -inp.right * 0.5; this.path = []; }
+        else { inp.fwd = -inp.fwd * 0.5; inp.right = -inp.right * 0.5; this.path = []; this.strafe *= -1; }
       }
     }
 

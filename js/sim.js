@@ -130,7 +130,7 @@ export class Sim {
   spawn(p, idx) {
     p.pas = PASSIVES[p.def.id] || null; p.pasT = p.pasT || {}; p.marks = p.marks || {};
     p.hist = []; p.tpLock = 0; p.form = null; p.fm = ''; p.channel = null; p.flurry = null; p.marks = {}; p.rs = p.pas?.res?.start || 0; p.pasT = {};
-    const s = SPAWNS[p.team][idx % 6];
+    const s = SPAWNS[p.team][idx % SPAWNS[p.team].length];
     p.pos = [...s]; p.vel = [0, 0, 0]; p.yaw = SPAWN_YAW[p.team]; p.pitch = 0;
     p.maxHp = Math.round(p.def.hp * (p.hpMul || 1) * (p.gMul?.hp || 1) * (p.reso === 'frost' ? 1.08 : 1));
     p.hp = p.maxHp; p.alive = true; p.st = {}; p.shield = 0; p.dashT = 0; p.glideUntil = 0; p.tether = null; p.doom = null;
@@ -872,7 +872,7 @@ export class Sim {
           // fell into the chasm: lose a chunk of health and climb back out at your own side
           const sp = SPAWNS[p.team][0];
           const fall = [p.pos[0], 0, p.pos[2]];
-          let to = [Math.sign(sp[0]) * 6, 0, Math.max(-20, Math.min(20, p.pos[2]))];
+          let to = [Math.sign(sp[0]) * 7.5, 0, Math.max(-26, Math.min(26, p.pos[2]))];
           if (hazardAt(to[0], to[2])) to = [sp[0], 0, sp[2]];
           p.vel = [0, 0, 0]; this.teleport(p, to, p.yaw);
           this.ev({ t: 'fx', fx: 'blink', pos: fall, to, color: '#8ad8ff' });

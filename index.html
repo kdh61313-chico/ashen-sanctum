@@ -8,7 +8,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="mobile-web-app-capable" content="yes">
 <title>잿빛 성역 · Ashen Sanctum</title>
-<meta name="description" content="마흔 명의 영웅이 칼, 마법, 총으로 맞붙는 1인칭 다크 판타지 아레나. 3대3 라운드제 섬멸전, AI 대전과 방 코드 온라인 대전, 영웅 모집.">
+<meta name="description" content="예순 명의 영웅이 칼, 마법, 총으로 맞붙는 1인칭 다크 판타지 아레나. 3대3 · 5대5 라운드제 섬멸전, 캠페인과 보스 레이드, AI 대전과 방 코드 온라인 대전, 영웅 모집.">
 <meta name="theme-color" content="#16131a">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M32 4 L40 26 L32 60 L24 26Z' fill='%23c9a45c'/%3E%3Ccircle cx='32' cy='24' r='5' fill='%23ff3b3b'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -47,18 +47,21 @@
 
 <!-- ============ HOME ============ -->
 <section id="home" class="screen">
-  <div class="home__brand">
-    <h1 class="home__wordmark">잿빛 성역</h1>
-    <p class="home__en">Ashen Sanctum</p>
+  <div class="home__title">
+    <h1 class="home__ko">잿빛<br>성역</h1>
+    <p class="home__line" id="home-line"></p>
   </div>
-  <p class="home__line" id="home-line"></p>
-  <nav class="ledger" id="home-menu">
-    <button class="ledger__item ledger__item--main" id="tile-battle"><span class="ledger__k">출정</span><span class="ledger__s" id="tile-battle-sub">캠페인 · 레이드 · 랭크전 · 대전</span></button>
-    <button class="ledger__item" id="tile-recruit"><span class="ledger__k">모집</span><span class="ledger__s" id="tile-recruit-sub"></span></button>
-    <button class="ledger__item" id="tile-roster"><span class="ledger__k">영웅</span><span class="ledger__s" id="tile-roster-sub"></span></button>
-    <button class="ledger__item" id="tile-quests"><span class="ledger__k">임무</span><span class="ledger__s" id="tile-quests-sub">일일 · 주간 · 업적</span><b class="badge" id="quest-badge" hidden>0</b></button>
-    <button class="ledger__item" id="tile-shop"><span class="ledger__k">상점</span><span class="ledger__s">증표 교환</span></button>
-    <button class="ledger__item" id="tile-notes"><span class="ledger__k">소식</span><span class="ledger__s">패치 노트</span><b class="badge badge--new" id="notes-badge" hidden>N</b></button>
+  <nav class="home__menu">
+    <button class="slab slab--battle" id="tile-battle"><span class="slab__k">전투</span><span class="slab__s" id="tile-battle-sub">캠페인 · 레이드 · 랭크전 · 대전</span></button>
+    <button class="slab slab--recruit" id="tile-recruit"><span class="slab__k">모집</span><span class="slab__s" id="tile-recruit-sub">오늘의 영웅</span></button>
+    <div class="slab-row">
+      <button class="slab slab--sm" id="tile-roster"><span class="slab__k">영웅</span><span class="slab__s" id="tile-roster-sub">0 / 60</span></button>
+      <button class="slab slab--sm" id="tile-shop"><span class="slab__k">상점</span><span class="slab__s">증표 교환</span></button>
+    </div>
+    <div class="slab-row">
+      <button class="slab slab--sm" id="tile-quests"><span class="slab__k">임무</span><span class="slab__s" id="tile-quests-sub">일일 · 주간 · 업적</span><b class="badge" id="quest-badge" hidden>0</b></button>
+      <button class="slab slab--sm" id="tile-notes"><span class="slab__k">소식</span><span class="slab__s">패치 노트</span><b class="badge badge--new" id="notes-badge" hidden>N</b></button>
+    </div>
   </nav>
   <div class="home__assist" id="home-assist"></div>
 </section>
@@ -72,6 +75,7 @@
       <button class="mode" id="btn-raid" data-art="ashlord"><span class="mode__art"></span><span class="mode__body"><b class="mode__k">보스 레이드</b><span class="mode__d">잿빛 군주를 세 난이도로.</span><span class="mode__rec" id="rec-raid"></span></span></button>
       <button class="mode" id="btn-ranked" data-art="hyeon"><span class="mode__art"></span><span class="mode__body"><b class="mode__k">랭크전</b><span class="mode__d">이길수록 강해지는 상대. 시즌 보상.</span><span class="mode__rec" id="rec-ranked"></span></span></button>
       <button class="mode" id="btn-ai" data-art="igna"><span class="mode__art"></span><span class="mode__body"><b class="mode__k">AI 대전</b><span class="mode__d">3대3 섬멸전, 먼저 3라운드.</span><span class="mode__rec"></span></span></button>
+      <button class="mode" id="btn-ai5" data-art="ragna"><span class="mode__art"></span><span class="mode__body"><b class="mode__k">5대5 난전</b><span class="mode__d">열 명이 넓은 전장에서 맞붙어요. 먼저 3라운드.</span><span class="mode__rec"></span></span></button>
       <button class="mode" id="btn-horde" data-art="nyx"><span class="mode__art"></span><span class="mode__body"><b class="mode__k">심연 토벌</b><span class="mode__d">끝없는 웨이브 생존.</span><span class="mode__rec" id="horde-sub"></span></span></button>
       <button class="mode" id="btn-online" data-art="grave"><span class="mode__art"></span><span class="mode__body"><b class="mode__k">온라인</b><span class="mode__d">방 코드로 친구와 팀전.</span><span class="mode__rec"></span></span></button>
       <button class="mode" id="btn-training" data-art="tyr"><span class="mode__art"></span><span class="mode__body"><b class="mode__k">훈련장</b><span class="mode__d">허수아비로 기술 연습.</span><span class="mode__rec"></span></span></button>
@@ -169,6 +173,7 @@
     </div>
     <div class="lobby__opts" id="lobby-opts">
       <label class="check"><input type="checkbox" id="opt-fill" checked> 빈 자리 AI</label>
+      <div class="seg seg--sm" id="lobby-size"><button data-n="3" class="is-on">3대3</button><button data-n="5">5대5</button></div>
       <div class="seg seg--sm" id="lobby-diff"><button data-d="0">쉬움</button><button data-d="1" class="is-on">보통</button><button data-d="2">어려움</button></div>
     </div>
     <div class="chips chips--sm" id="lobby-maps"></div>

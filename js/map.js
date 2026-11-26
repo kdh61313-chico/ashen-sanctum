@@ -1,11 +1,15 @@
 // Arena registry. Pure data (no three.js). Every map shares bounds and spawn layout,
 // and is point-symmetric for fairness. setMap() swaps the live collider list in place.
+// Layouts are authored on the original 68x48 plan and scaled up by S (positions and
+// footprints; heights stay). Slim standalone pieces keep their footprint so they stay slim.
 
-export const HALF_X = 34, HALF_Z = 24;
+export const S = 1.3;
+export const HALF_X = 44, HALF_Z = 31;
 
+const sp = (x, z) => [x * S, 0, z * S];
 export const SPAWNS = [
-  [[-29, 0, -3], [-29, 0, 0], [-29, 0, 3], [-30.5, 0, -1.5], [-30.5, 0, 1.5], [-28, 0, 5]],
-  [[29, 0, 3], [29, 0, 0], [29, 0, -3], [30.5, 0, 1.5], [30.5, 0, -1.5], [28, 0, -5]],
+  [sp(-29, -3), sp(-29, 0), sp(-29, 3), sp(-30.5, -1.5), sp(-30.5, 1.5), sp(-28, 5), sp(-28, -5)],
+  [sp(29, 3), sp(29, 0), sp(29, -3), sp(30.5, 1.5), sp(30.5, -1.5), sp(28, -5), sp(28, 5)],
 ];
 export const SPAWN_YAW = [-Math.PI / 2, Math.PI / 2];
 
@@ -13,17 +17,23 @@ export const COLLIDERS = [];
 export const HAZARDS = [];
 export const MAP = { cur: null };
 
+const SLIM = new Set(['pillar', 'post', 'spillar', 'sobelisk', 'obelisk', 'grave', 'lectern', 'pedestal', 'chimney', 'trunk', 'crate', 'coffin', 'books', 'rubble']);
 function builder() {
   const boxes = [], props = [], hazards = [];
+  const box = (cx, cz, sx, sz, h, y0, kind) => boxes.push({ min: [cx - sx / 2, y0, cz - sz / 2], max: [cx + sx / 2, y0 + h, cz + sz / 2], kind });
   const B = (cx, cz, sx, sz, h, y0 = 0, kind = 'stone', mirror = true) => {
-    boxes.push({ min: [cx - sx / 2, y0, cz - sz / 2], max: [cx + sx / 2, y0 + h, cz + sz / 2], kind });
-    if (mirror && !(cx === 0 && cz === 0)) boxes.push({ min: [-cx - sx / 2, y0, -cz - sz / 2], max: [-cx + sx / 2, y0 + h, -cz + sz / 2], kind });
+    const k = SLIM.has(kind) ? 1 : S;
+    cx *= S; cz *= S; sx *= k; sz *= k;
+    box(cx, cz, sx, sz, h, y0, kind);
+    if (mirror && !(cx === 0 && cz === 0)) box(-cx, -cz, sx, sz, h, y0, kind);
   };
   const P = (type, x, z, rot = 0, s = 1, y = 0, mirror = true) => {
+    x *= S; z *= S;
     props.push({ type, x, z, rot, s, y });
     if (mirror) props.push({ type, x: -x, z: -z, rot: rot + Math.PI, s, y });
   };
   const H = (x0, z0, x1, z1, kind, mirror = true) => {
+    x0 *= S; z0 *= S; x1 *= S; z1 *= S;
     hazards.push({ min: [x0, z0], max: [x1, z1], kind });
     if (mirror) hazards.push({ min: [-x1, -z1], max: [-x0, -z0], kind });
   };
@@ -36,10 +46,10 @@ function builder() {
     }
   };
   const outer = (kind = 'wall') => {
-    B(0, -HALF_Z - 1, HALF_X * 2 + 4, 2, 10, 0, kind, false);
-    B(0, HALF_Z + 1, HALF_X * 2 + 4, 2, 10, 0, kind, false);
-    B(-HALF_X - 1, 0, 2, HALF_Z * 2 + 4, 10, 0, kind, false);
-    B(HALF_X + 1, 0, 2, HALF_Z * 2 + 4, 10, 0, kind, false);
+    box(0, -HALF_Z - 1, HALF_X * 2 + 4, 2, 10, 0, kind);
+    box(0, HALF_Z + 1, HALF_X * 2 + 4, 2, 10, 0, kind);
+    box(-HALF_X - 1, 0, 2, HALF_Z * 2 + 4, 10, 0, kind);
+    box(HALF_X + 1, 0, 2, HALF_Z * 2 + 4, 10, 0, kind);
   };
   return { boxes, props, hazards, B, P, H, steps, outer };
 }
@@ -78,7 +88,7 @@ const DEFS = {
       P('banner', -33.9, -6, Math.PI / 2); P('banner', -33.9, 6, Math.PI / 2);
       P('crystal', -12, 15, 0.3, 1); P('crystal', -24, 8, 1.3, 0.8);
       P('candles', -10.6, -3.6); P('candles', -1.8, -2.6, 0, 1, 1.2); P('bones', -6, 6); P('bones', -18, -11);
-      P('statue', -32.6, 0, Math.PI / 2, 1.2);
+      B(-17, 15, 3.5, 1.2, 1.6, 0, 'lowwall'); B(-28, 9, 1.4, 1.4, 4, 0, 'pillar'); P('brazier', -17, 13); P('tree', -6, -21, 1, 1.1); P('candles', -28, 9, 0, 1, 4);
     },
     dummies: [[-12, 0, -2], [-12, 0, 3], [-6, 0, -8], [-6, 0, 8], [0, 1.2, 0], [-16, 0, 8]],
   },
@@ -107,7 +117,7 @@ const DEFS = {
       P('pine', -30, -20, 0, 1.3); P('pine', -22, 21, 1, 1.1); P('pine', -12, 21.5, 2, 1.2); P('pine', -31, 10, 0.5, 1.0); P('pine', -18, -21, 0.2, 1.4);
       P('lantern', -21, -3.5); P('lantern', -21, 3.5); P('lantern', -5, -4.2); P('lantern', -9, 14);
       P('grave', -24, -8, 0.3); P('grave', -25, -10, -0.2); P('grave', -14, 17, 0.2); P('angel', -33, 0, Math.PI / 2, 1.1);
-      P('crystal', -11, -19, 0.4, 0.9); P('bones', -7, 4);
+      B(-14, -17, 4, 1.2, 1.4, 0, 'lowwall'); B(-5, -8, 0.6, 1.3, 1.2, 0, 'grave'); P('pine', -2, -21, 0.4, 1.2); P('lantern', -14, -15);
     },
     dummies: [[-12, 0, 2], [-10, 0, -4], [-6, 0, 8], [-6, 0, -8], [-14, 0, 8], [-3, 0, -2]],
   },
@@ -134,7 +144,7 @@ const DEFS = {
       P('furnace', -4, 18, 0, 1); P('furnace', -32, -8, Math.PI / 2, 1);
       P('anvilprop', -21, -3.6); P('anvilprop', -12, 6, 0.5);
       P('chain', -8.5, -16.5); P('chain', -8.5, 3); P('ore', -20, 16); P('ore', -2, -16, 1.2);
-      P('brazier', -21, 3.6); P('brazier', -5, 5); P('lavafall', -8.5, -23.2);
+      B(-4, 15, 3, 2, 1.4, 0, 'crate'); B(-22, 13, 1.2, 5, 2.6, 0, 'wall'); P('brazier', -12, -4);
     },
     dummies: [[-14, 0, -4], [-14, 0, 2], [-4, 0, -9], [-4, 0, 9], [0, 2.0, 0], [-20, 0, 10]],
   },
@@ -161,6 +171,7 @@ const DEFS = {
       P('reeds', -3, -8); P('reeds', 4, -11); P('reeds', -19, 11); P('reeds', -16, 14);
       P('mushroom', -24, 4, 0, 1.2); P('mushroom', -11, -15, 0.5); P('mushroom', -6, 21, 1, 0.9);
       P('willow', -30, -20, 0.5, 1.1); P('willow', -12, 21, 1.5, 1.0); P('willow', -31, 19, 2, 1.2);
+      B(-24, -8, 1.3, 1.3, 3, 0, 'pillar'); B(-27, 8, 4, 1, 1.2, 0, 'lowwall'); P('willow', -20, -21, 0.5, 1); P('mushroom', -16, -3);
       P('idol', -33, 0, Math.PI / 2, 1.1); P('lantern', -21, -4); P('lantern', -21, 4.5); P('crystal', -27, 9, 0.3, 0.8);
     },
     dummies: [[-12, 0, 0], [-10, 0, 6], [-6, 0, -8], [-14, 2, -8], [-4, 0, 4], [-18, 0, 6]],
@@ -193,6 +204,7 @@ const DEFS = {
       P('armillary', 0, 0, 0, 1, 2.6, false);
       P('scrolls', -11, -2); P('scrolls', -17, 7, 1); P('scrolls', -26, -10, 2);
       P('firepatch', -28, -21, 0, 1); P('firepatch', -10, 20, 1, 0.8);
+      B(-4, 18, 3.2, 1.6, 0.95, 0, 'table'); P('candles', -4, 18, 0, 1, 0.95); P('scrolls', -2, 14, 0.5);
       P('statue', -32.6, 0, Math.PI / 2, 1.1);
     },
     dummies: [[-10, 0, -2], [-10, 0, 3], [-6, 0, -9], [-5, 0, 9], [0, 1.0, 0], [-6, 2.4, -20]],
@@ -220,9 +232,9 @@ const DEFS = {
       B(-26, 14, 3, 3, 1.2, 0, 'rubble');
       P('catapult', -14, 17, 0.6, 1); P('banner', -33.9, -6, Math.PI / 2); P('banner', -33.9, 6, Math.PI / 2);
       P('lantern', -21, -3.5); P('lantern', -21, 3.5); P('lantern', -6, -13); P('lantern', -6, 0.5);
-      P('stormcore', 0, 0, 0, 1, 8, false); P('bridge', 0, -13, 0, 1, 0, false); P('bridge', 0, 0, 0, 1.1, 0, false); P('bridge', 0, 13, 0, 1, 0, false);
-      P('chasm', 0, 0, 0, 1, 0, false);
+      P('stormcore', 0, 0, 0, 1, 8, false); P('bridge', 0, -13, 0, 1.3, 0, false); P('bridge', 0, 0, 0, 1.43, 0, false); P('bridge', 0, 13, 0, 1.3, 0, false);
       P('spearrack', -18, -9, 0.2); P('spearrack', -27, 3, 1.4);
+      B(-16, -12, 2, 2, 1.4, 0, 'crate'); B(-17, 12, 6, 1.2, 2.6, 0, 'wall'); P('lantern', -16, 14);
     },
     dummies: [[-12, 0, -2], [-12, 0, 4], [-6, 0, -12], [-6, 0, 12], [0, 0, 0], [-24, 2.6, -16]],
   },
@@ -249,6 +261,7 @@ const DEFS = {
       P('canopy', -25, 16, 0.3, 1); P('urns', -9, -16); P('urns', -27, -4, 1); P('urns', -19, 6, 2, 0.8);
       P('palm', -30, -20, 0.3, 1.2); P('palm', -29, 20, 1.2, 1.0); P('palm', -8, 21, 2.2, 1.1);
       P('brazier', -21, -3.6); P('brazier', -21, 3.6); P('bones', -17, -6); P('bones', -4, 17, 1);
+      B(-20, -20, 1.3, 1.3, 4, 0, 'spillar'); B(-6, 8, 2.4, 1.2, 1.2, 0, 'sandstone'); P('palm', -17, -18, 0.8, 1.1); P('urns', -6, 10, 1.3, 0.8);
       P('jackal', -32.6, 0, Math.PI / 2, 1.1);
     },
     dummies: [[-12, 0, 0], [-8, 0, -6], [-8, 0, 8], [-14, 0, -9], [0, 2.0, 0], [-3, 0.5, 4]],
@@ -263,7 +276,7 @@ export function getMap(id) {
   if (!built[id]) {
     const m = builder();
     DEFS[id].build(m);
-    built[id] = { id, ...DEFS[id], boxes: m.boxes, props: m.props, hazards: m.hazards };
+    built[id] = { id, ...DEFS[id], dummies: (DEFS[id].dummies || []).map(([x, y, z]) => [x * S, y, z * S]), boxes: m.boxes, props: m.props, hazards: m.hazards };
   }
   return built[id];
 }

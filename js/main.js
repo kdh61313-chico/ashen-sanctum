@@ -245,9 +245,12 @@ class App {
     $('home').style.setProperty('--accent', a.color);
     $('home-line').textContent = `“${a.quote}” — ${a.name}`;
     const B = this.profile.banner(), six = HERO_MAP[B.six];
-    $('tile-recruit-sub').textContent = `오늘의 영웅 ${six.name}`;
-    $('tile-roster-sub').textContent = `${this.profile.ownedList().length} / ${HEROES.length}명`;
-    { const next = CHAPTERS.flatMap(c => c.stages).find(st => !this.profile.stars(st.id)); $('tile-battle-sub').textContent = next ? `다음 이야기 ${next.id} ${next.name}` : '캠페인 완료 · 레이드와 랭크전'; }
+    $('tile-recruit-sub').textContent = `오늘의 영웅 · ${six.name} ${stars(6)}`;
+    let bg = $('tile-recruit').querySelector('.slab__bg');
+    if (!bg) { bg = document.createElement('span'); bg.className = 'slab__bg'; $('tile-recruit').prepend(bg); }
+    bg.style.backgroundImage = `url(${this.portraits[six.id]})`;
+    $('tile-roster-sub').textContent = `보유 ${this.profile.ownedList().length} / ${HEROES.length}`;
+    { const next = CHAPTERS.flatMap(c => c.stages).find(st => !this.profile.stars(st.id)); $('tile-battle-sub').textContent = next ? `캠페인 · 레이드 · 랭크전 · 대전 — 다음 ${next.id} ${next.name}` : '캠페인 · 레이드 · 랭크전 · 대전'; }
     this.refreshQuestBadge();
     $('notes-badge').hidden = this.profile.d.lastPatch === NOTES_VERSION;
   }
@@ -318,7 +321,7 @@ class App {
       this.filterRoster(); this.audio.play('click');
     });
     const sorted = [...HEROES].sort((a, b) => (b.rarity - a.rarity));
-    $('roster').innerHTML = sorted.map(h => `<button class="sigil" data-id="${h.id}" data-r="${h.rarity}" style="--rc:${ROLES[h.role].color}" title="${h.name} · ${h.title}"><span class="sigil__frame"></span><span class="sigil__img" style="background-image:url(${this.portraits[h.id]})"></span><span class="sigil__stars">${stars(h.rarity)}</span><span class="sigil__role"></span><img class="sigil__el" src="assets/el-${h.el}.svg" alt=""><span class="sigil__pot" hidden></span></button>`).join('');
+    $('roster').innerHTML = sorted.map(h => `<button class="sigil" data-id="${h.id}" data-r="${h.rarity}" style="--rc:${ROLES[h.role].color}" title="${h.name} · ${h.title}"><span class="sigil__frame"></span><span class="sigil__img" style="background-image:url(${this.portraits[h.id]})"></span><span class="sigil__stars"><i>★</i>${h.rarity}</span><span class="sigil__role"></span><img class="sigil__el" src="assets/el-${h.el}.svg" alt=""><span class="sigil__pot" hidden></span><span class="sigil__name">${h.name}</span></button>`).join('');
     $('roster').addEventListener('click', (e) => {
       const b = e.target.closest('.sigil'); if (!b) return;
       if (b.classList.contains('is-taken')) { this.toast('같은 팀이 이미 고른 영웅이에요'); return; }
@@ -366,8 +369,8 @@ class App {
   updateSelectActions() {
     const m = this.selMode, owned = this.profile.owns(this.selHero);
     $('sel-actions').hidden = m === 'lobby';
-    $('opt-map').hidden = !(m === 'ai' || m === 'training' || m === 'horde');
-    $('opt-diff').hidden = !(m === 'ai' || m === 'horde');
+    $('opt-map').hidden = !(m === 'ai' || m === 'ai5' || m === 'training' || m === 'horde');
+    $('opt-diff').hidden = !(m === 'ai' || m === 'ai5' || m === 'horde');
     { const g = this.profile.gr(this.selHero); $('btn-grow').hidden = !owned || m === 'lobby'; $('grow-sub').textContent = `레벨 ${g.lv} · ${['', '정예 1', '정예 2'][g.elite] || '정예 0'} · 기술 ${g.sk}`; }
     qsa('button', $('diff-seg')).forEach(b => b.classList.toggle('is-on', +b.dataset.d === this.settings.diff));
     const note = $('locked-note');
@@ -377,6 +380,7 @@ class App {
     go.disabled = false;
     if (m === 'browse') { k.textContent = owned ? (this.profile.d.assistant === this.selHero ? '현재 조수' : '조수로 설정') : '모집하러 가기'; sub.textContent = owned ? '홈 화면에 이 영웅이 서 있어요' : ''; }
     else if (m === 'ai') { k.textContent = '전투 시작'; sub.textContent = '3대3 · 먼저 3라운드'; go.disabled = !owned; }
+    else if (m === 'ai5') { k.textContent = '난전 시작'; sub.textContent = '5대5 · 먼저 3라운드'; go.disabled = !owned; }
     else if (m === 'training') { k.textContent = '훈련 시작'; sub.textContent = '허수아비로 스킬 연습'; go.disabled = !owned; }
     else if (m === 'stage') { const st = this.ctx?.st; k.textContent = '출전'; sub.textContent = st ? `${st.id} ${st.name} · ${STAGE_TYPES[st.type]}` : ''; go.disabled = !owned; }
     else if (m === 'raid') { k.textContent = '레이드 시작'; sub.textContent = `${RAID.name} · ${RAID.diffs[this.ctx?.diff || 0].name}`; go.disabled = !owned; }
@@ -396,7 +400,7 @@ class App {
     $('sel-role').textContent = ROLES[h.role].name;
     { const E = ELEMENTS[h.el]; const ec = $('sel-el'); ec.innerHTML = `<img src="assets/el-${h.el}.svg" alt="">${E.name}`; ec.style.setProperty('--ec', E.color);
       $('sel-elbox').innerHTML = `<img src="assets/el-${h.el}.svg" alt=""><div><b style="color:${E.color}">${E.name} 속성</b><p>${E.desc}</p><small>같은 속성 2명 이상이면 공명: ${E.reso}</small></div>`; }
-    $('sel-stars').textContent = stars(h.rarity); $('sel-stars').className = 'stars stars--' + h.rarity;
+    $('sel-stars').innerHTML = `${stars(h.rarity)} <b>${h.rarity}성</b>`; $('sel-stars').className = 'stars stars--' + h.rarity;
     $('select').style.setProperty('--accent', h.color);
     $('sel-quote').textContent = h.quote;
     const bars = (v) => Array.from({ length: 5 }, (_, i) => `<i class="${i < v ? 'on' : ''}"></i>`).join('');
@@ -473,6 +477,12 @@ class App {
     const S = this.settings;
     const seg = (el, cb) => el.addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b || b.disabled) return; qsa('button', el).forEach(x => x.classList.toggle('is-on', x === b)); cb(b); this.audio.play('click'); });
     seg($('diff-seg'), (b) => { S.diff = +b.dataset.d; saveSettings(S); });
+    seg($('lobby-size'), (b) => {
+      const L = this.lobby; if (!L || !this.net?.isHost) return;
+      const n = +b.dataset.n;
+      if (n < (L.size || 3) && [0, 1].some(t => L.players.filter(p => p.team === t).length > n)) { this.toast('한 팀 인원이 3명보다 많아서 줄일 수 없어요'); this.updateLobbyUi(); return; }
+      L.size = n; this.broadcastLobby();
+    });
     seg($('lobby-diff'), (b) => { S.diff = +b.dataset.d; saveSettings(S); if (this.lobby && this.net?.isHost) { this.lobby.diff = S.diff; this.broadcastLobby(); } });
     qsa('button', $('set-q')).forEach(b => b.classList.toggle('is-on', b.dataset.q === S.q));
     seg($('set-q'), (b) => { S.q = b.dataset.q; saveSettings(S); this.applyQuality(); const m = this.world?.mapId; this.world?.dispose(); this.world = null; if (m) this.buildArena(m); });
@@ -500,6 +510,7 @@ class App {
     $('raid-diffs').addEventListener('click', (e) => { const b = e.target.closest('button[data-d]'); if (!b) return; this.raidDiff = +b.dataset.d; this.audio.play('click'); this.openRaid(); });
     $('rank-season-rw').addEventListener('click', (e) => { if (!e.target.closest('button')) return; const r = this.profile.claimSeason(); if (r) { this.toast(`시즌 보상: 결정 ${r.crystals} · 허가증 ${r.permits}`); this.audio.play('win'); this.refreshTop(); this.openRanked(); } });
     $('btn-ai').addEventListener('click', () => this.openSelect('ai'));
+    $('btn-ai5').addEventListener('click', () => this.openSelect('ai5'));
     $('btn-training').addEventListener('click', () => this.openSelect('training'));
     $('btn-online').addEventListener('click', () => { this.audio.init(); $('in-name').value = S.name || ''; $('online').hidden = false; $('online-note').textContent = '브라우저끼리 직접 연결돼요. 방장이 나가거나 게임 화면을 오래 벗어나면 방이 닫혀요.'; });
     $('tile-recruit').addEventListener('click', () => { this.audio.init(); this.openRecruit(); });
@@ -529,7 +540,7 @@ class App {
       if (this.state === 'select' && this.selMode === 'stage') { this.openCampaign(); return; }
       if (this.state === 'select' && this.selMode === 'raid') { this.openRaid(); return; }
       if (this.state === 'select' && this.selMode === 'ranked') { this.openRanked(); return; }
-      if ((this.state === 'select' && ['ai', 'horde', 'training'].includes(this.selMode)) || ['campaign', 'raid', 'ranked'].includes(this.state)) { this.openPlay(); return; }
+      if ((this.state === 'select' && ['ai', 'ai5', 'horde', 'training'].includes(this.selMode)) || ['campaign', 'raid', 'ranked'].includes(this.state)) { this.openPlay(); return; }
       this.showHome();
     });
     $('btn-go').addEventListener('click', () => {
@@ -537,7 +548,8 @@ class App {
       const m = this.selMode, owned = this.profile.owns(this.selHero);
       if (m === 'browse') { if (owned) { this.profile.d.assistant = this.selHero; this.profile.save(); this.updateSelectActions(); this.toast('조수를 바꿨어요'); } else this.openRecruit(); return; }
       if (!owned) return;
-      if (m === 'ai') this.startOffline();
+      if (m === 'ai') this.startOffline(3);
+      else if (m === 'ai5') this.startOffline(5);
       else if (m === 'horde') this.startHorde();
       else if (m === 'stage') this.startStage();
       else if (m === 'raid') this.startRaid();
@@ -629,11 +641,11 @@ class App {
     this.beginGame(g);
   }
 
-  pickBots(sim, used) {
+  pickBots(sim, used, size = 3) {
     const pool = HEROES.map(h => h.id);
     for (const team of [0, 1]) {
       let n = [...sim.players.values()].filter(p => p.team === team).length, k = 0;
-      while (n < 3) {
+      while (n < size) {
         const avail = pool.filter(id => !used[team].has(id));
         const id = avail[(Math.random() * avail.length) | 0];
         used[team].add(id);
@@ -643,13 +655,14 @@ class App {
     }
   }
 
-  startOffline() {
+  startOffline(size = 3) {
     this.leaveOnline(true);
     const mapId = pickMap(this.settings.map);
     this.buildArena(mapId);
     const sim = new Sim({ mode: 'match', difficulty: this.settings.diff, mapId });
-    sim.addPlayer({ id: 'me', name: this.settings.name || '나', team: 0, hero: this.selHero });
-    this.pickBots(sim, [new Set([this.selHero]), new Set()]);
+    sim.addPlayer({ id: 'me', name: this.settings.name || '나', team: 0, hero: this.selHero, mul: this.growthFor(this.selHero) });
+    this.pickBots(sim, [new Set([this.selHero]), new Set()], size);
+    sim.teamSize = size;
     sim.startMatch();
     this.beginGame(new Game(this, { role: 'offline', sim, localId: 'me', mapId }));
   }
@@ -856,7 +869,7 @@ class App {
     }
     this.net = net; this.myId = 'h';
     this.peerMap = new Map(); this.nextPid = 1;
-    this.lobby = { code, players: [{ id: 'h', name, team: 0, hero: this.settings.hero, host: true }], fill: true, diff: this.settings.diff, map: 'random', inGame: false };
+    this.lobby = { code, players: [{ id: 'h', name, team: 0, hero: this.settings.hero, host: true }], fill: true, diff: this.settings.diff, map: 'random', size: 3, inGame: false };
     net.on({ join: (peer) => this.onPeerJoin(peer), leave: (peer) => this.onPeerLeave(peer), data: (peer, m) => this.onHostData(peer, m),
       status: (st) => { if (st === 'reconnecting') this.toast('방 연결을 다시 잇는 중…'); else if (st === 'lost') this.toast('방이 중계 서버에서 끊겼어요. 새 친구는 들어올 수 없어요. 방을 다시 만들어 주세요.'); } });
     $('online').hidden = true;
@@ -924,7 +937,7 @@ class App {
   onPeerJoin(peer) {
     const L = this.lobby;
     if (L.inGame) { this.net.send(peer, { t: 'busy' }); return; }
-    if (L.players.length >= 6) { this.net.send(peer, { t: 'full' }); return; }
+    if (L.players.length >= (L.size || 3) * 2) { this.net.send(peer, { t: 'full' }); return; }
     const pid = 'c' + this.nextPid++;
     this.peerMap.set(peer, pid);
     const ta = L.players.filter(p => p.team === 0).length, tb = L.players.length - ta;
@@ -950,7 +963,7 @@ class App {
     switch (m.t) {
       case 'hello': if (p) { p.name = String(m.name || '도전자').slice(0, 10); this.assignHero(p, m.hero); this.broadcastLobby(); } break;
       case 'pick': if (p && !L.inGame) { this.assignHero(p, m.hero); this.broadcastLobby(); } break;
-      case 'team': if (p && !L.inGame) { const other = 1 - p.team; if (L.players.filter(x => x.team === other).length < 3) { p.team = other; this.assignHero(p, p.hero); } this.broadcastLobby(); } break;
+      case 'team': if (p && !L.inGame) { const other = 1 - p.team; if (L.players.filter(x => x.team === other).length < (L.size || 3)) { p.team = other; this.assignHero(p, p.hero); } this.broadcastLobby(); } break;
       case 'st': if (this.game?.sim) this.game.sim.clientState(pid, m); break;
       case 'cast': if (this.game?.sim) { const sp = this.game.sim.players.get(pid); if (sp && m.pos && sp.alive) sp.pos = m.pos; this.game.sim.cast(pid, m.slot, m.aim, true); } break;
       case 'reload': if (this.game?.sim) this.game.sim.reload(pid); break;
@@ -965,7 +978,7 @@ class App {
   }
   broadcastLobby() {
     const L = this.lobby; if (!L) return;
-    const pub = { code: L.code, players: L.players.map(({ id, name, team, hero, host }) => ({ id, name, team, hero, host })), fill: L.fill, diff: L.diff, map: L.map, inGame: L.inGame };
+    const pub = { code: L.code, players: L.players.map(({ id, name, team, hero, host }) => ({ id, name, team, hero, host })), fill: L.fill, diff: L.diff, map: L.map, size: L.size || 3, inGame: L.inGame };
     this.net.broadcast({ t: 'lobby', lobby: pub });
     this.updateLobbyUi();
   }
@@ -979,7 +992,7 @@ class App {
     if (this.net.isHost) {
       const me = this.lobby.players.find(p => p.id === 'h');
       const other = 1 - me.team;
-      if (this.lobby.players.filter(x => x.team === other).length >= 3) { this.toast('상대 팀이 가득 찼어요'); return; }
+      if (this.lobby.players.filter(x => x.team === other).length >= (this.lobby.size || 3)) { this.toast('상대 팀이 가득 찼어요'); return; }
       me.team = other; this.assignHero(me, me.hero); this.broadcastLobby();
     } else this.net.send('host', { t: 'team' });
   }
@@ -992,7 +1005,8 @@ class App {
     const sim = new Sim({ mode: 'match', difficulty: L.diff, mapId });
     const used = [new Set(), new Set()];
     for (const p of L.players) { if (!p.hero) this.assignHero(p, null); sim.addPlayer({ id: p.id, name: p.name, team: p.team, hero: p.hero }); used[p.team].add(p.hero); }
-    if (L.fill) this.pickBots(sim, used);
+    if (L.fill) this.pickBots(sim, used, L.size || 3);
+    sim.teamSize = L.size || 3;
     sim.startMatch();
     L.inGame = true;
     const roster = sim.roster();
@@ -1042,11 +1056,12 @@ class App {
     for (const [team, el] of [[0, $('team-a')], [1, $('team-b')]]) {
       const ps = L.players.filter(p => p.team === team);
       let html = ps.map(p => `<li>${p.hero ? `<img src="${this.portraits[p.hero]}" alt="">` : ''}<span>${esc(p.name)}</span>${p.id === this.myId ? '<span class="me-tag">나</span>' : ''}${p.host ? '<span class="me-tag">방장</span>' : ''}</li>`).join('');
-      for (let i = ps.length; i < 3; i++) html += `<li class="empty">${L.fill ? 'AI' : '빈 자리'}</li>`;
+      for (let i = ps.length; i < (L.size || 3); i++) html += `<li class="empty">${L.fill ? 'AI' : '빈 자리'}</li>`;
       el.innerHTML = html;
     }
     $('opt-fill').checked = L.fill; $('opt-fill').disabled = !this.net.isHost;
     qsa('button', $('lobby-diff')).forEach(b => { b.classList.toggle('is-on', +b.dataset.d === L.diff); b.disabled = !this.net.isHost; });
+    qsa('button', $('lobby-size')).forEach(b => { b.classList.toggle('is-on', +b.dataset.n === (L.size || 3)); b.disabled = !this.net.isHost; });
     this.refreshChips();
     $('btn-start').hidden = !this.net.isHost;
     $('lobby-note').textContent = this.net.isHost ? `방 코드를 누르면 초대 링크가 복사돼요. 친구에게 보낸 뒤 이 화면으로 바로 돌아와 주세요. 방장이 다른 앱에 오래 있으면 방이 닫혀요.` : '아래에서 영웅을 고르고 방장을 기다려요.';

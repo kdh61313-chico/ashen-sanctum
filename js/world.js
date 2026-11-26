@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { HALF_X, HALF_Z, getMap } from './map.js';
+import { HALF_X, HALF_Z, S as MS, SPAWNS, getMap } from './map.js';
 import { M, G, add, grp, GLOW } from './models.js';
 
 // ---------- procedural textures ----------
@@ -231,7 +231,7 @@ export function buildWorld(scene, quality = 'high', mapId = 'sanctum') {
   sun.castShadow = quality !== 'low';
   const sm = quality === 'high' ? 2048 : 1024;
   sun.shadow.mapSize.set(sm, sm);
-  const sc = sun.shadow.camera; sc.left = -45; sc.right = 45; sc.top = 40; sc.bottom = -40; sc.near = 1; sc.far = 160;
+  const sc = sun.shadow.camera; sc.left = -HALF_X - 10; sc.right = HALF_X + 10; sc.top = HALF_Z + 16; sc.bottom = -HALF_Z - 16; sc.near = 1; sc.far = 200;
   sun.shadow.bias = -0.0012; sun.shadow.normalBias = 0.08;
   root.add(sun); root.add(sun.target);
   const rim = new THREE.DirectionalLight(th.rim[0], th.rim[1]); rim.position.set(40, 12, 50); root.add(rim);
@@ -271,11 +271,11 @@ export function buildWorld(scene, quality = 'high', mapId = 'sanctum') {
   // rune circles (center + spawns)
   const runeMat = new THREE.MeshBasicMaterial({ map: T.runes, transparent: true, color: th.accent, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.8, fog: false });
   if (mapId === 'sanctum') {
-    const rc = new THREE.Mesh(new THREE.PlaneGeometry(15, 15), runeMat); rc.rotation.x = -Math.PI / 2; rc.position.y = 0.03; root.add(rc);
-    const rt = new THREE.Mesh(new THREE.PlaneGeometry(7, 7), runeMat.clone()); rt.material.color.set('#ff5a2a'); rt.rotation.x = -Math.PI / 2; rt.position.y = 1.21; root.add(rt);
+    const rc = new THREE.Mesh(new THREE.PlaneGeometry(15 * MS, 15 * MS), runeMat); rc.rotation.x = -Math.PI / 2; rc.position.y = 0.03; root.add(rc);
+    const rt = new THREE.Mesh(new THREE.PlaneGeometry(7 * MS, 7 * MS), runeMat.clone()); rt.material.color.set('#ff5a2a'); rt.rotation.x = -Math.PI / 2; rt.position.y = 1.21; root.add(rt);
     upd.push((t) => { rc.rotation.z = t * 0.05; rt.rotation.z = -t * 0.12; runeMat.opacity = 0.55 + Math.sin(t * 1.3) * 0.2; });
   }
-  for (const [x, col] of [[-29, '#4fe0d0'], [29, '#ff3b4b']]) {
+  for (const [x, col] of [[SPAWNS[0][1][0], '#4fe0d0'], [SPAWNS[1][1][0], '#ff3b4b']]) {
     const m = runeMat.clone(); m.color.set(col); m.opacity = 0.5;
     const s = new THREE.Mesh(new THREE.PlaneGeometry(9, 9), m);
     s.rotation.x = -Math.PI / 2; s.position.set(x, 0.03, 0); root.add(s);
@@ -692,6 +692,7 @@ export function buildWorld(scene, quality = 'high', mapId = 'sanctum') {
   if (mapId === 'forge') {
     for (const [x, z] of [[-45, 0], [45, 0], [0, 45], [0, -45]]) { const g = grp(far, [x, 0, z]); add(g, G.cone(16, 30, 7), M('#1a0e0a', { r: 1 }), [0, 15, 0]); add(g, G.cyl(4, 5, 1, 7), GLOW('#ff4a0a', 2.5), [0, 29.5, 0]); }
   }
+  far.scale.set(MS, 1, MS);
   far.traverse(m => { m.castShadow = false; m.receiveShadow = false; });
 
   // ---- props ----
