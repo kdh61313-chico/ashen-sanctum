@@ -451,4 +451,37 @@ export const THIRD_BUILDERS = {
     orbs(P);
     return P;
   },
+  ashlord() {
+    const c = { cloth: '#1a1210', armor: '#2a2422', torso: '#2a2422', metal: '#3a3230', glow: '#ff5a1a', skin: '#1a1412', leg: '#1e1816', arm: '#2a2422', fore: '#2a2422', hand: '#1e1816', pelvis: '#1a1412' };
+    const P = rig({ c, h: 1.1, bw: 1.6, lw: 1.5, kneeGuard: true, pose: 'twohand' });
+    const iron = M('#2a2422', { m: 0.7, r: 0.5 }), lava = GLOW('#ff5a1a', 2.6), ember = GLOW('#ffb03a', 3.5);
+    add(P.spine, G.cyl(0.32, 0.24, 0.42, 6), iron, [0, 0.36, 0.01], [0, Math.PI / 6, 0], [1, 1, 0.75]);
+    for (let i = 0; i < 7; i++) add(P.spine, G.box(0.02, 0.16 + (i % 3) * 0.05, 0.02), lava, [-0.22 + i * 0.07, 0.3 + Math.sin(i * 2) * 0.08, 0.2], [0, 0, Math.sin(i * 3) * 0.7]);
+    // the burning core on the back (weak point)
+    const core = grp(P.spine, [0, 0.38, -0.2]);
+    add(core, G.ico(0.13, 1), ember, [0, 0, 0]);
+    for (let i = 0; i < 6; i++) add(core, G.box(0.03, 0.22, 0.03), iron, [Math.cos(i * 1.05) * 0.15, Math.sin(i * 1.05) * 0.15, -0.02], [0, 0, i * 1.05]);
+    P.update.push((t) => { core.children[0].scale.setScalar(1 + Math.sin(t * 4) * 0.18); });
+    for (const sd of [-1, 1]) {
+      pauldron(P, sd, iron, 2.0, 3);
+      for (let i = 0; i < 3; i++) add(sd < 0 ? P.shL : P.shR, G.cone(0.05, 0.35, 4), M('#1a1412', { m: 0.6 }), [sd * (0.05 + i * 0.07), 0.2 + i * 0.03, (i - 1) * 0.08], [0, 0, sd * -0.4]);
+    }
+    const h = P.head;
+    add(h, G.box(0.28, 0.3, 0.28), iron, [0, 0.02, 0]);
+    add(h, G.box(0.2, 0.03, 0.02), ember, [0, 0.03, 0.145]);
+    for (let i = 0; i < 7; i++) { const a = (i - 3) * 0.32; add(h, G.cone(0.035, 0.34 + (3 - Math.abs(i - 3)) * 0.06, 4), M('#1a1412', { m: 0.7 }), [Math.sin(a) * 0.15, 0.25, -Math.cos(a) * 0.05], [-0.2, 0, -a * 0.6]); }
+    for (let i = 0; i < 3; i++) add(h, G.oct(0.025), ember, [(i - 1) * 0.1, 0.3, 0.02]);
+    const cp = cape(P, '#1a1210', 1.2, 0.75, true); cp.position.z = -0.24;
+    const embers = grp(P.root, [0, 1.4, 0]);
+    for (let i = 0; i < 10; i++) add(embers, G.oct(0.025), GLOW(i % 2 ? '#ffb03a' : '#ff5a1a', 3), [Math.cos(i) * 0.5, i * 0.12, Math.sin(i) * 0.5]);
+    P.update.push((t) => { embers.rotation.y = t * 0.6; embers.children.forEach((e, i) => { e.position.y = (t * 0.5 + i * 0.12) % 1.6; }); });
+    const blade = new THREE.Group();
+    add(blade, G.cyl(0.045, 0.05, 0.55, 6), M('#1a1412'), [0, 0.1, 0]);
+    add(blade, G.box(0.5, 0.08, 0.1), iron, [0, 0.38, 0]);
+    add(blade, G.box(0.26, 1.7, 0.05), M('#3a3230', { m: 0.85, r: 0.35 }), [0, 1.28, 0]);
+    add(blade, G.box(0.04, 1.5, 0.06), lava, [0, 1.25, 0]);
+    add(blade, G.cone(0.13, 0.3, 4), M('#3a3230', { m: 0.85 }), [0, 2.27, 0], [0, Math.PI / 4, 0], [1, 1, 0.2]);
+    hold(P, 1, blade, 2.45);
+    return P;
+  },
 };

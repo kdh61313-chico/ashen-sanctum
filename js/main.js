@@ -14,6 +14,9 @@ import { Net, makeCode, cleanCode } from './net.js';
 import { ELEMENTS, EL_ORDER } from './elements.js';
 import { GachaShow } from './gacha.js';
 import { NOTES, NOTES_VERSION } from './notes.js';
+import { CHAPTERS, STAGE_MAP, STAGE_TYPES, RAID } from './campaign.js';
+import { TIERS, tierOf } from './profile.js';
+import { renderSplash } from './stage.js';
 import { icon } from './icons.js';
 import { Stage, renderPortraits } from './stage.js';
 import { Game, esc } from './game.js';
@@ -214,8 +217,9 @@ class App {
   // ---------------- screens ----------------
   setScreen(name) {
     this.state = name;
-    for (const s of ['home', 'select', 'recruit', 'shop', 'quests']) $(s).scrollTop = 0;
-    for (const s of ['home', 'select', 'recruit', 'shop', 'quests']) $(s).classList.toggle('is-on', s === name);
+    const SCR = ['home', 'select', 'recruit', 'shop', 'quests', 'play', 'campaign', 'raid', 'ranked'];
+    for (const s of SCR) $(s).scrollTop = 0;
+    for (const s of SCR) $(s).classList.toggle('is-on', s === name);
     $('hud').classList.toggle('is-on', name === 'game');
     $('topbar').hidden = name === 'game';
     $('btn-back').hidden = name === 'home';
@@ -241,13 +245,9 @@ class App {
     $('home').style.setProperty('--accent', a.color);
     $('home-line').textContent = `“${a.quote}” — ${a.name}`;
     const B = this.profile.banner(), six = HERO_MAP[B.six];
-    $('tile-recruit-sub').textContent = `오늘의 영웅 · ${six.name} ${stars(6)}`;
-    let bg = $('tile-recruit').querySelector('.slab__bg');
-    if (!bg) { bg = document.createElement('span'); bg.className = 'slab__bg'; $('tile-recruit').prepend(bg); }
-    bg.style.backgroundImage = `url(${this.portraits[six.id]})`;
-    $('tile-roster-sub').textContent = `보유 ${this.profile.ownedList().length} / ${HEROES.length}`;
-    $('battle-sub').hidden = true;
-    $('horde-sub').textContent = this.profile.d.hordeBest ? `최고 기록 ${this.profile.d.hordeBest}웨이브` : '끝없는 웨이브 생존';
+    $('tile-recruit-sub').textContent = `오늘의 영웅 ${six.name}`;
+    $('tile-roster-sub').textContent = `${this.profile.ownedList().length} / ${HEROES.length}명`;
+    { const next = CHAPTERS.flatMap(c => c.stages).find(st => !this.profile.stars(st.id)); $('tile-battle-sub').textContent = next ? `다음 이야기 ${next.id} ${next.name}` : '캠페인 완료 · 레이드와 랭크전'; }
     this.refreshQuestBadge();
     $('notes-badge').hidden = this.profile.d.lastPatch === NOTES_VERSION;
   }
@@ -255,6 +255,7 @@ class App {
   refreshQuestBadge() {
     const n = this.profile.claimable();
     $('quest-badge').hidden = !n; $('quest-badge').textContent = n;
+    $('tile-quests-sub').textContent = n ? `받을 보상 ${n}개` : '일일 · 주간 · 업적';
   }
 
   // ---------------- quests ----------------
@@ -276,7 +277,7 @@ class App {
     const bonus = this.qTab === 'ach' ? '' : (() => {
       const scope = this.qTab, got = scope === 'daily' ? L.dailyBonus : L.weeklyBonus;
       const all = list.filter(x => x.claimed).length;
-      const r = scope === 'daily' ? { crystals: 150 } : { permits: 1, tokens: 20 };
+      const r = scope === 'daily' ? { crystals: 250 } : { permits: 1, tokens: 30 };
       return `<div class="qbonus__in${this.profile.bonusReady(scope) ? ' is-ready' : ''}${got ? ' is-got' : ''}"><div><b>${scope === 'daily' ? '오늘의' : '이번 주'} 임무 완수 보상</b><small>${all} / ${list.length} 완료</small></div><div class="quest__rw">${rw(r)}</div><button class="btn btn--ember btn--sm" data-bonus="${scope}" ${this.profile.bonusReady(scope) ? '' : 'disabled'}><span class="btn__k">${got ? '받음' : '받기'}</span></button></div>`;
     })();
     $('qbonus').innerHTML = bonus;
@@ -352,8 +353,9 @@ class App {
 
   openSelect(mode) {
     this.selMode = mode;
+    if (!['stage', 'raid', 'ranked'].includes(mode)) this.ctx = null;
     this.setScreen('select');
-    $('back-label').textContent = mode === 'lobby' ? '방 나가기' : mode === 'swap' ? '훈련장' : '홈';
+    $('back-label').textContent = mode === 'lobby' ? '방 나가기' : mode === 'swap' ? '훈련장' : mode === 'stage' ? '캠페인' : mode === 'raid' ? '레이드' : mode === 'ranked' ? '랭크전' : mode === 'browse' ? '홈' : '출정';
     if (!this.profile.owns(this.selHero) && mode !== 'browse') this.selHero = this.profile.owns(this.settings.hero) ? this.settings.hero : 'valok';
     this.filterRoster();
     this.setHero(this.selHero, false);
@@ -366,6 +368,7 @@ class App {
     $('sel-actions').hidden = m === 'lobby';
     $('opt-map').hidden = !(m === 'ai' || m === 'training' || m === 'horde');
     $('opt-diff').hidden = !(m === 'ai' || m === 'horde');
+    { const g = this.profile.gr(this.selHero); $('btn-grow').hidden = !owned || m === 'lobby'; $('grow-sub').textContent = `레벨 ${g.lv} · ${['', '정예 1', '정예 2'][g.elite] || '정예 0'} · 기술 ${g.sk}`; }
     qsa('button', $('diff-seg')).forEach(b => b.classList.toggle('is-on', +b.dataset.d === this.settings.diff));
     const note = $('locked-note');
     note.hidden = owned;
@@ -375,6 +378,9 @@ class App {
     if (m === 'browse') { k.textContent = owned ? (this.profile.d.assistant === this.selHero ? '현재 조수' : '조수로 설정') : '모집하러 가기'; sub.textContent = owned ? '홈 화면에 이 영웅이 서 있어요' : ''; }
     else if (m === 'ai') { k.textContent = '전투 시작'; sub.textContent = '3대3 · 먼저 3라운드'; go.disabled = !owned; }
     else if (m === 'training') { k.textContent = '훈련 시작'; sub.textContent = '허수아비로 스킬 연습'; go.disabled = !owned; }
+    else if (m === 'stage') { const st = this.ctx?.st; k.textContent = '출전'; sub.textContent = st ? `${st.id} ${st.name} · ${STAGE_TYPES[st.type]}` : ''; go.disabled = !owned; }
+    else if (m === 'raid') { k.textContent = '레이드 시작'; sub.textContent = `${RAID.name} · ${RAID.diffs[this.ctx?.diff || 0].name}`; go.disabled = !owned; }
+    else if (m === 'ranked') { const R = this.profile.rankState(); k.textContent = '랭크전 시작'; sub.textContent = `${TIERS[tierOf(R.pts)].name} · ${R.pts}점`; go.disabled = !owned; }
     else if (m === 'horde') { k.textContent = '토벌 시작'; sub.textContent = `AI 아군 2명과 웨이브 생존 · 최고 ${this.profile.d.hordeBest}웨이브`; go.disabled = !owned; }
     else if (m === 'swap') { k.textContent = '이 영웅으로 계속'; sub.textContent = ''; go.disabled = !owned; }
   }
@@ -470,7 +476,29 @@ class App {
     seg($('lobby-diff'), (b) => { S.diff = +b.dataset.d; saveSettings(S); if (this.lobby && this.net?.isHost) { this.lobby.diff = S.diff; this.broadcastLobby(); } });
     qsa('button', $('set-q')).forEach(b => b.classList.toggle('is-on', b.dataset.q === S.q));
     seg($('set-q'), (b) => { S.q = b.dataset.q; saveSettings(S); this.applyQuality(); const m = this.world?.mapId; this.world?.dispose(); this.world = null; if (m) this.buildArena(m); });
-    $('tile-battle').addEventListener('click', () => { this.audio.init(); this.audio.play('click'); $('battle-sub').hidden = !$('battle-sub').hidden; });
+    $('tile-battle').addEventListener('click', () => { this.audio.init(); this.audio.play('click'); this.openPlay(); });
+    $('btn-campaign').addEventListener('click', () => { this.audio.play('click'); this.openCampaign(); });
+    $('btn-raid').addEventListener('click', () => { this.audio.play('click'); this.openRaid(); });
+    $('btn-ranked').addEventListener('click', () => { this.audio.play('click'); this.openRanked(); });
+    $('btn-raid-go').addEventListener('click', () => { this.ctx = { type: 'raid', diff: this.raidDiff || 0 }; this.openSelect('raid'); });
+    $('btn-ranked-go').addEventListener('click', () => { this.ctx = { type: 'ranked' }; this.openSelect('ranked'); });
+    $('btn-grow').addEventListener('click', () => this.openGrowth(this.selHero));
+    $('btn-gr-close').addEventListener('click', () => { $('growth').hidden = true; this.updateSelectActions(); this.refreshTop(); });
+    $('gr-body').addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-act]'); if (!b) return;
+      const id = this.grHero, P = this.profile; let ok = false;
+      if (b.dataset.act === 'lv1') ok = P.levelUp(id, 1) > 0;
+      else if (b.dataset.act === 'lv10') ok = P.levelUp(id, 10) > 0;
+      else if (b.dataset.act === 'promote') ok = P.promote(id);
+      else if (b.dataset.act === 'skill') ok = P.skillUp(id);
+      this.audio.play(ok ? 'heal' : 'deny'); if (!ok) this.toast('재료가 부족하거나 조건이 맞지 않아요.');
+      this.openGrowth(id); this.refreshTop();
+    });
+    $('camp-chapters').addEventListener('click', (e) => { const b = e.target.closest('button[data-ch]'); if (!b || b.disabled) return; this.audio.play('click'); this.openCampaign(+b.dataset.ch); });
+    $('camp-map').addEventListener('click', (e) => { const b = e.target.closest('button[data-st]'); if (!b || b.disabled) return; this.audio.play('click'); this.showStage(b.dataset.st); });
+    $('stage-panel').addEventListener('click', (e) => { if (e.target.closest('#btn-stage-go')) { this.ctx = { type: 'stage', st: STAGE_MAP[this.curStage] }; this.openSelect('stage'); } if (e.target.closest('#btn-stage-close')) $('stage-panel').hidden = true; });
+    $('raid-diffs').addEventListener('click', (e) => { const b = e.target.closest('button[data-d]'); if (!b) return; this.raidDiff = +b.dataset.d; this.audio.play('click'); this.openRaid(); });
+    $('rank-season-rw').addEventListener('click', (e) => { if (!e.target.closest('button')) return; const r = this.profile.claimSeason(); if (r) { this.toast(`시즌 보상: 결정 ${r.crystals} · 허가증 ${r.permits}`); this.audio.play('win'); this.refreshTop(); this.openRanked(); } });
     $('btn-ai').addEventListener('click', () => this.openSelect('ai'));
     $('btn-training').addEventListener('click', () => this.openSelect('training'));
     $('btn-online').addEventListener('click', () => { this.audio.init(); $('in-name').value = S.name || ''; $('online').hidden = false; $('online-note').textContent = '브라우저끼리 직접 연결돼요. 방장이 나가거나 게임 화면을 오래 벗어나면 방이 닫혀요.'; });
@@ -498,6 +526,10 @@ class App {
       this.audio.play('click');
       if (this.state === 'select' && this.selMode === 'lobby') { this.leaveOnline(); return; }
       if (this.state === 'select' && this.selMode === 'swap') { this.resumeTrainingWith(this.settings.hero); return; }
+      if (this.state === 'select' && this.selMode === 'stage') { this.openCampaign(); return; }
+      if (this.state === 'select' && this.selMode === 'raid') { this.openRaid(); return; }
+      if (this.state === 'select' && this.selMode === 'ranked') { this.openRanked(); return; }
+      if ((this.state === 'select' && ['ai', 'horde', 'training'].includes(this.selMode)) || ['campaign', 'raid', 'ranked'].includes(this.state)) { this.openPlay(); return; }
       this.showHome();
     });
     $('btn-go').addEventListener('click', () => {
@@ -507,6 +539,9 @@ class App {
       if (!owned) return;
       if (m === 'ai') this.startOffline();
       else if (m === 'horde') this.startHorde();
+      else if (m === 'stage') this.startStage();
+      else if (m === 'raid') this.startRaid();
+      else if (m === 'ranked') this.startRanked();
       else if (m === 'training') this.startTraining();
       else if (m === 'swap') this.resumeTrainingWith(this.selHero);
     });
@@ -619,12 +654,135 @@ class App {
     this.beginGame(new Game(this, { role: 'offline', sim, localId: 'me', mapId }));
   }
 
+  // ---------------- play / campaign / raid / ranked ----------------
+  modeArt(id) { try { return renderSplash(HERO_MAP[id], 300, 440); } catch (e) { return this.portraits[id] || ''; } }
+  openPlay() {
+    this.setScreen('play'); $('back-label').textContent = '홈';
+    this.stage.setHero(HERO_MAP[this.profile.d.assistant] || HERO_MAP.valok, false);
+    for (const b of qsa('.mode', $('modes'))) { const a = b.querySelector('.mode__art'); if (!a.style.backgroundImage) a.style.backgroundImage = `url(${this.modeArt(b.dataset.art)})`; }
+    const total = CHAPTERS.reduce((a, c) => a + c.stages.length * 3, 0), got = CHAPTERS.reduce((a, c) => a + this.profile.campStars(c), 0);
+    const next = CHAPTERS.flatMap(c => c.stages).find(st => !this.profile.stars(st.id));
+    $('rec-campaign').textContent = `별 ${got} / ${total}` + (next ? ` · 다음 ${next.id}` : ' · 완료');
+    const R = this.profile.rankState(); $('rec-ranked').textContent = `${TIERS[tierOf(R.pts)].name} · ${R.pts}점`;
+    const rc = this.profile.d.raid.clears; $('rec-raid').textContent = ['보통', '어려움', '악몽'].map((n, i) => rc[i] ? `${n} ✓` : null).filter(Boolean).join(' · ') || '아직 처치하지 못했어요';
+    $('horde-sub').textContent = this.profile.d.hordeBest ? `최고 ${this.profile.d.hordeBest}웨이브` : '';
+  }
+  chapterOpen(i) { if (i === 0) return true; const prev = CHAPTERS[i - 1]; return this.profile.stars(prev.stages[prev.stages.length - 1].id) > 0; }
+  stageOpen(st) { const all = CHAPTERS.flatMap(c => c.stages); const i = all.findIndex(x => x.id === st.id); return i === 0 || this.profile.stars(all[i - 1].id) > 0; }
+  openCampaign(ch) {
+    if (ch === undefined) ch = this.campCh ?? Math.max(0, CHAPTERS.findIndex((c, i) => this.chapterOpen(i) && c.stages.some(st => !this.profile.stars(st.id))));
+    if (ch < 0) ch = 0;
+    this.campCh = ch;
+    this.setScreen('campaign'); $('back-label').textContent = '출정';
+    const C = CHAPTERS[ch];
+    $('camp-chapters').innerHTML = CHAPTERS.map((c, i) => `<button data-ch="${i}" class="${i === ch ? 'is-on' : ''}" ${this.chapterOpen(i) ? '' : 'disabled'}><small>${c.sub}</small><b>${c.name}</b><span>${this.chapterOpen(i) ? `별 ${this.profile.campStars(c)} / ${c.stages.length * 3}` : '이전 장을 끝내면 열려요'}</span></button>`).join('');
+    $('camp-sub').textContent = C.sub; $('camp-title').textContent = C.name; $('camp-story').textContent = C.story;
+    // stages laid out along a winding road
+    const pts = C.stages.map((st, i) => ({ x: 8 + i * (84 / (C.stages.length - 1)), y: 50 + Math.sin(i * 1.3 + ch) * 26 }));
+    const path = pts.map((p, i) => (i ? 'L' : 'M') + p.x + ' ' + p.y).join(' ');
+    $('camp-map').innerHTML = `<svg class="camp__road" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="${path}"/></svg>` + C.stages.map((st, i) => {
+      const n = this.profile.stars(st.id), open = this.stageOpen(st);
+      return `<button class="node node--${st.type}${n ? ' is-clear' : ''}${this.curStage === st.id ? ' is-sel' : ''}" data-st="${st.id}" style="left:${pts[i].x}%;top:${pts[i].y}%" ${open ? '' : 'disabled'}><span class="node__dot"></span><span class="node__id">${st.id}</span><span class="node__name">${st.name}</span><span class="node__stars">${[0, 1, 2].map(k => `<i class="${k < n ? 'on' : ''}"></i>`).join('')}</span></button>`;
+    }).join('');
+    const sel = C.stages.find(st => st.id === this.curStage);
+    if (sel) this.showStage(sel.id); else $('stage-panel').hidden = true;
+    this.stage.setHero(HERO_MAP[C.stages[C.stages.length - 1].boss] || HERO_MAP.valok, false);
+  }
+  showStage(id) {
+    const st = STAGE_MAP[id]; this.curStage = id;
+    qsa('.node', $('camp-map')).forEach(n => n.classList.toggle('is-sel', n.dataset.st === id));
+    const n = this.profile.stars(id);
+    const rw = (o) => Object.entries(o || {}).map(([k, v]) => `<span>${{ crystals: '결정', permits: '허가증', essence: '잿빛 정수', seal: '승급 인장', tome: '기술서' }[k]} ${v}</span>`).join('');
+    const foes = st.enemies.map(e => `<img src="${this.portraits[e] || ''}" title="${HERO_MAP[e].name}">`).join('');
+    $('stage-panel').innerHTML = `<button class="stage__x" id="btn-stage-close" aria-label="닫기">✕</button>
+      <p class="stage__type">${STAGE_TYPES[st.type]}${st.type === 'skirmish' && st.rounds > 1 ? ` · 먼저 ${st.rounds}라운드` : ''}${st.type === 'survive' ? ` · ${st.waves}웨이브` : ''}</p>
+      <h3>${st.id} ${st.name}</h3><p class="stage__desc">${st.desc}</p>
+      <div class="stage__foes">${foes}</div>
+      <ul class="stage__stars"><li class="${n >= 1 ? 'on' : ''}">승리</li><li class="${n >= 2 ? 'on' : ''}">한 번도 쓰러지지 않기</li><li class="${n >= 3 ? 'on' : ''}">${st.time}초 안에 끝내기</li></ul>
+      <div class="stage__rw"><b>${n ? '반복 보상' : '첫 클리어'}</b>${rw(n ? st.again : { ...st.first, ...Object.fromEntries(Object.entries(st.again).map(([k, v]) => [k, (st.first[k] || 0) + v])) })}${st.perfect && n < 3 ? `<b>별 세 개</b>${rw(st.perfect)}` : ''}</div>
+      <p class="stage__lv">권장 육성: 레벨 ${Math.round((st.lv - 0.75) * 60)} 이상</p>
+      <button class="btn btn--ember" id="btn-stage-go"><span class="btn__k">출전 준비</span></button>`;
+    $('stage-panel').hidden = false;
+  }
+  openRaid() {
+    this.setScreen('raid'); $('back-label').textContent = '출정';
+    const d = this.raidDiff || 0, P = this.profile.d.raid;
+    $('raid-art').style.backgroundImage = `url(${this.modeArt('ashlord')})`;
+    $('raid-title').textContent = RAID.title; $('raid-name').textContent = RAID.name; $('raid-desc').textContent = RAID.desc;
+    const rws = [{ crystals: 400, seal: 2, essence: 30, tome: 1 }, { crystals: 700, seal: 4, essence: 50, tome: 2 }, { crystals: 1100, seal: 6, essence: 80, tome: 3 }];
+    $('raid-diffs').innerHTML = RAID.diffs.map((x, i) => `<button data-d="${i}" class="${i === d ? 'is-on' : ''}"><b>${x.name}</b><small>${x.desc}</small><span>${P.clears[i] ? `처치 ${P.clears[i]}회 · 최고 ${Math.floor(P.best[i] / 60)}분 ${P.best[i] % 60}초` : '첫 처치 시 허가증 ' + (i + 1)}</span><em>결정 ${rws[i].crystals} · 인장 ${rws[i].seal} · 정수 ${rws[i].essence} · 기술서 ${rws[i].tome}</em></button>`).join('');
+    $('raid-go-sub').textContent = `${RAID.diffs[d].name} 난이도`;
+    this.stage.setHero(HERO_MAP.ashlord, false);
+  }
+  openRanked() {
+    this.setScreen('ranked'); $('back-label').textContent = '출정';
+    const R = this.profile.rankState(), t = tierOf(R.pts), T = TIERS[t], N = TIERS[t + 1];
+    $('rank-crest').innerHTML = `<svg viewBox="0 0 120 140"><path d="M60 6 L110 26 L104 86 Q96 116 60 134 Q24 116 16 86 L10 26Z" fill="#141114" stroke="${T.color}" stroke-width="3"/><path d="M60 22 L94 36 L90 82 Q84 104 60 118 Q36 104 30 82 L26 36Z" fill="none" stroke="${T.color}" stroke-opacity=".45"/>${Array.from({ length: t + 1 }, (_, i) => `<path d="M${60 - t * 7 + i * 14} 58 l6 10 -6 10 -6 -10z" fill="${T.color}"/>`).join('')}</svg>`;
+    $('rank-season').textContent = `${R.season.replace('-', '년 ')}월 시즌 · 최고 ${TIERS[tierOf(R.best)].name} ${R.best}점`;
+    $('rank-tier').textContent = T.name; $('rank-tier').style.color = T.color;
+    $('rank-bar').style.width = N ? ((R.pts - T.pts) / (N.pts - T.pts) * 100) + '%' : '100%';
+    $('rank-pts').textContent = N ? `${R.pts}점 · ${N.name}까지 ${N.pts - R.pts}점` : `${R.pts}점 · 최고 등급`;
+    $('rank-ladder').innerHTML = TIERS.map((x, i) => `<li class="${i === t ? 'is-on' : ''}${R.reached[i] || i <= t ? ' is-past' : ''}" style="--c:${x.color}"><b>${x.name}</b><span>${x.pts}점</span><em>${i ? `처음 도달 시 결정 ${300 * i}${i >= 3 ? ' · 허가증 1' : ''}` : ''}</em></li>`).join('');
+    const L = this.profile.d.rank.last;
+    $('rank-season-rw').innerHTML = L && !L.claimed ? `<p>지난 시즌(${L.season}) 최고 ${TIERS[tierOf(L.best)].name}</p><button class="btn btn--ghost btn--sm"><span class="btn__k">시즌 보상 받기</span></button>` : `<p>시즌은 매달 1일에 바뀌어요. 바뀌면 점수가 절반이 되고, 최고 등급에 따라 보상을 받아요.</p>`;
+    this.stage.setHero(HERO_MAP.hyeon, false);
+  }
+  openGrowth(id) {
+    this.grHero = id; const P = this.profile, g = P.gr(id), h = HERO_MAP[id], m = P.growthMul(id), M = P.d.mats;
+    const lc = P.lvCost(id), pc = P.promoteCost(id), sc = P.skillCost(id), cap = P.lvCap(id);
+    const cost = (c) => c ? Object.entries(c).map(([k, v]) => `<span class="${(k === 'crystals' ? P.d.crystals : M[k]) >= v ? '' : 'is-short'}">${{ crystals: '결정', essence: '정수', seal: '인장', tome: '기술서' }[k]} ${v}</span>`).join('') : '<span>최대</span>';
+    $('gr-title').textContent = `${h.name} 육성`;
+    $('gr-body').innerHTML = `
+      <div class="gr__mats"><span>잿빛 정수 <b>${M.essence}</b></span><span>승급 인장 <b>${M.seal}</b></span><span>기술서 <b>${M.tome}</b></span><span>결정 <b>${P.d.crystals}</b></span></div>
+      <div class="gr__stats"><div><small>레벨</small><b>${g.lv}<i> / ${cap}</i></b></div><div><small>정예화</small><b>${['없음', '1단계', '2단계'][g.elite]}</b></div><div><small>기술 레벨</small><b>${g.sk}<i> / 7</i></b></div><div><small>체력·피해</small><b>+${Math.round((m.hp - 1) * 100)}%</b></div><div><small>기술 대기시간</small><b>-${Math.round((1 - m.cd) * 100)}%</b></div></div>
+      <div class="gr__row"><div><b>레벨 올리기</b><p>체력과 피해가 레벨마다 1.2% 오른다.</p><div class="gr__cost">${g.lv < cap ? cost(lc) : '<span>정예화가 필요해요</span>'}</div></div><div class="gr__btns"><button class="btn btn--ember btn--sm" data-act="lv1" ${g.lv < cap ? '' : 'disabled'}><span class="btn__k">+1</span></button><button class="btn btn--ghost btn--sm" data-act="lv10" ${g.lv < cap ? '' : 'disabled'}><span class="btn__k">+10</span></button></div></div>
+      <div class="gr__row"><div><b>정예화</b><p>최대 레벨이 오르고 체력과 피해가 6% 더 오른다. 현재 최대 레벨이어야 해요.</p><div class="gr__cost">${cost(pc)}</div></div><div class="gr__btns"><button class="btn btn--ember btn--sm" data-act="promote" ${pc && g.lv >= cap ? '' : 'disabled'}><span class="btn__k">정예화</span></button></div></div>
+      <div class="gr__row"><div><b>기술 수련</b><p>Q·E 재사용 대기시간이 단계마다 3% 줄어든다.</p><div class="gr__cost">${cost(sc)}</div></div><div class="gr__btns"><button class="btn btn--ember btn--sm" data-act="skill" ${sc ? '' : 'disabled'}><span class="btn__k">수련</span></button></div></div>
+      <p class="gr__note">육성은 캠페인, 레이드, 랭크전, AI 대전, 심연 토벌에 적용돼요. 온라인 대전은 모두 같은 조건으로 싸워요. 재료는 캠페인과 레이드에서 얻어요.</p>`;
+    $('growth').hidden = false;
+  }
+  growthFor(id) { return this.profile.owns(id) ? this.profile.growthMul(id) : null; }
+  baseSim(o) { this.leaveOnline(true); const mapId = pickMap(o.map || this.settings.map); this.buildArena(mapId); return { sim: new Sim({ ...o, mapId }), mapId }; }
+  pickBotsFor(sim, team, n, used, mul = null) { const pool = HEROES.map(h => h.id).filter(id => !used.has(id)); for (let k = 0; k < n; k++) { const id = pool.splice((Math.random() * pool.length) | 0, 1)[0]; used.add(id); sim.addPlayer({ id: `b${team}${k}`, name: HERO_MAP[id].name, team, hero: id, isBot: true, mul }); } }
+  startStage() {
+    const st = this.ctx.st; const used = new Set([this.selHero, ...st.enemies]);
+    const lv = st.lv, emul = { hp: lv, dmg: Math.pow(lv, 0.8), cd: 1 };
+    const raidBoss = st.boss === 'ashlord';
+    const { sim, mapId } = this.baseSim({ mode: raidBoss ? 'raid' : st.type === 'survive' ? 'horde' : 'match', difficulty: Math.min(2, Math.max(0, Math.round((lv - 0.8) * 4))), roundsToWin: st.rounds || 1, winWaves: st.waves || 0, map: st.map });
+    sim.addPlayer({ id: 'me', name: this.settings.name || '나', team: 0, hero: this.selHero, mul: this.growthFor(this.selHero) });
+    this.pickBotsFor(sim, 0, st.allies, used);
+    if (st.type !== 'survive') st.enemies.forEach((id, k) => sim.addPlayer({ id: `e${k}`, name: (id === st.boss ? (raidBoss ? '' : '우두머리 ') : '') + HERO_MAP[id].name, team: 1, hero: id, isBot: true, mul: id === st.boss && !raidBoss ? { hp: emul.hp * 2.4, dmg: emul.dmg * 1.15, cd: 0.85 } : emul }));
+    sim.startMatch();
+    if (st.type === 'survive') for (const p of sim.players.values()) if (p.team === 1) { p.hpMul = (p.hpMul || 1) * lv; }
+    if (st.boss && !raidBoss) for (const p of sim.players.values()) if (p.hero === st.boss && p.team === 1) { p.st.giant = { t: 9999, v: 0 }; p.boss = true; }
+    this.beginGame(new Game(this, { role: 'offline', sim, localId: 'me', mapId, horde: st.type === 'survive' }));
+  }
+  startRaid() {
+    const D = RAID.diffs[this.ctx.diff || 0];
+    const { sim, mapId } = this.baseSim({ mode: 'raid', difficulty: Math.min(2, this.ctx.diff + 1), map: 'forge' });
+    sim.addPlayer({ id: 'me', name: this.settings.name || '나', team: 0, hero: this.selHero, mul: this.growthFor(this.selHero) });
+    this.pickBotsFor(sim, 0, 2, new Set([this.selHero]));
+    sim.addPlayer({ id: 'boss', name: RAID.name, team: 1, hero: RAID.boss, isBot: true, mul: { hp: D.mul, dmg: D.dmg, cd: 1 } });
+    sim.startMatch();
+    this.beginGame(new Game(this, { role: 'offline', sim, localId: 'me', mapId }));
+  }
+  startRanked() {
+    const R = this.profile.rankState(), t = tierOf(R.pts);
+    const { sim, mapId } = this.baseSim({ mode: 'match', difficulty: Math.min(2, Math.floor(t / 2)), roundsToWin: 2, map: 'random' });
+    sim.addPlayer({ id: 'me', name: this.settings.name || '나', team: 0, hero: this.selHero, mul: this.growthFor(this.selHero) });
+    const used = new Set([this.selHero]);
+    this.pickBotsFor(sim, 0, 2, used);
+    const em = 0.92 + 0.07 * t; this.pickBotsFor(sim, 1, 3, used, { hp: em, dmg: em, cd: 1 });
+    sim.startMatch();
+    this.beginGame(new Game(this, { role: 'offline', sim, localId: 'me', mapId }));
+  }
+
   startHorde() {
     this.leaveOnline(true);
     const mapId = pickMap(this.settings.map);
     this.buildArena(mapId);
     const sim = new Sim({ mode: 'horde', difficulty: this.settings.diff, mapId });
-    sim.addPlayer({ id: 'me', name: this.settings.name || '나', team: 0, hero: this.selHero });
+    sim.addPlayer({ id: 'me', name: this.settings.name || '나', team: 0, hero: this.selHero, mul: this.growthFor(this.selHero) });
     const pool = HEROES.map(h => h.id).filter(id => id !== this.selHero);
     for (let k = 0; k < 2; k++) { const id = pool.splice((Math.random() * pool.length) | 0, 1)[0]; sim.addPlayer({ id: 'b0' + k, name: HERO_MAP[id].name, team: 0, hero: id, isBot: true }); }
     sim.startMatch();
@@ -646,15 +804,32 @@ class App {
     const my = game.myTeam();
     $('hud').classList.remove('is-on');
     const horde = !!extra.horde;
-    $('res-title').textContent = horde ? '심연 토벌 종료' : win ? '승리' : '패배';
+    const ctx = this.net ? null : this.ctx;
+    const kind = ctx?.type || null;
+    $('res-title').textContent = kind === 'raid' ? (win ? '토벌 성공' : '시간 초과') : kind === 'stage' && horde ? (win ? '방어 성공' : '방어 실패') : horde ? '심연 토벌 종료' : win ? '승리' : '패배';
     $('res-title').className = 'results__title ' + (win || horde ? 'is-win' : 'is-lose');
     $('res-score').textContent = horde ? `${score[0]}웨이브 돌파${score[0] > this.profile.d.hordeBest ? ' · 최고 기록!' : ''}` : `${score[my]} : ${score[1 - my]}`;
     $('res-body').innerHTML = game.scoreboardRows();
     const me = game.view.get(game.localId);
     const ls = game.localStats || {};
-    const rw = this.profile.reward({ win, kills: me?.stats?.k || 0, mode: horde ? 'horde' : this.net ? 'online' : 'ai', diff: this.settings.diff, rounds: score[my], waves: horde ? score[0] : 0, stats: { skill: ls.skill, ult: ls.ult, heal: me?.stats?.heal, dmg: me?.stats?.dmg } });
+    const rw = this.profile.reward({ win, kills: me?.stats?.k || 0, mode: kind === 'stage' ? 'stage' : kind === 'raid' ? 'raid' : kind === 'ranked' ? 'ranked' : horde ? 'horde' : this.net ? 'online' : 'ai', diff: this.settings.diff, rounds: score[my], waves: horde ? score[0] : 0, stats: { skill: ls.skill, ult: ls.ult, heal: me?.stats?.heal, dmg: me?.stats?.dmg } });
     const qn = this.profile.claimable();
-    $('res-reward').innerHTML = `<span><i class="cur__ico cur__ico--crystal"></i>잿빛 결정 +${rw.crystals}</span><span>경험치 +${rw.xp}</span>${qn ? `<span class="lvup">받을 수 있는 임무 보상 ${qn}개</span>` : ''}${rw.ups.length ? `<span class="lvup">레벨 ${rw.ups[rw.ups.length - 1]} 달성 · 결정 +${200 * rw.ups.length}${rw.ups.some(l => l % 5 === 0) ? ' · 허가증 +1' : ''}</span>` : ''}`;
+    let extraHtml = '';
+    const rwTxt = (r) => [r.crystals ? `결정 +${r.crystals}` : '', r.permits ? `허가증 +${r.permits}` : '', r.essence ? `정수 +${r.essence}` : '', r.seal ? `인장 +${r.seal}` : '', r.tome ? `기술서 +${r.tome}` : ''].filter(Boolean).join(' · ');
+    if (kind === 'stage') {
+      const st = ctx.st, t = extra.time || 999;
+      const starsGot = win ? 1 + ((me?.stats?.d || 0) === 0 ? 1 : 0) + (t <= st.time ? 1 : 0) : 0;
+      $('res-score').innerHTML = `${st.id} ${st.name}<span class="res-stars">${[0, 1, 2].map(k => `<i class="${k < starsGot ? 'on' : ''}">★</i>`).join('')}</span>`;
+      if (win) { const r = this.profile.clearStage(st, starsGot); extraHtml = `<span class="lvup">${r.first ? '첫 클리어 · ' : ''}${rwTxt(r)}</span>`; }
+    } else if (kind === 'raid') {
+      const t = extra.raidTime || extra.time || 0;
+      $('res-score').textContent = win ? `${RAID.diffs[ctx.diff].name} · ${Math.floor(t / 60)}분 ${Math.round(t % 60)}초` : `${RAID.diffs[ctx.diff].name} · 4분 안에 쓰러뜨리지 못했어요`;
+      if (win) { const r = this.profile.raidClear(ctx.diff, t); extraHtml = `<span class="lvup">${rwTxt(r)}</span>`; }
+    } else if (kind === 'ranked') {
+      const r = this.profile.rankResult(win), R = this.profile.d.rank;
+      extraHtml = `<span class="lvup">${TIERS[r.tier].name} ${R.pts}점 (${win ? '+30' : '-18'})${r.up ? ' · 승급!' : ''}${r.crystals ? ' · ' + rwTxt(r) : ''}</span>`;
+    }
+    $('res-reward').innerHTML = extraHtml + (rw.crystals ? `<span><i class="cur__ico cur__ico--crystal"></i>잿빛 결정 +${rw.crystals}</span>` : '') + `<span>경험치 +${rw.xp}</span>${qn ? `<span class="lvup">받을 수 있는 임무 보상 ${qn}개</span>` : ''}${rw.ups.length ? `<span class="lvup">레벨 ${rw.ups[rw.ups.length - 1]} 달성 · 결정 +${300 * rw.ups.length}${rw.ups.some(l => l % 5 === 0) ? ' · 허가증 +1' : ''}</span>` : ''}`;
     this.refreshTop();
     const online = !!this.net;
     $('btn-again').hidden = online && !this.net.isHost;
@@ -664,7 +839,7 @@ class App {
     this.audio.play(win ? 'win' : 'lose');
   }
 
-  again() { $('results').hidden = true; if (this.net) { this.backToLobby(true); return; } const h = this.game?.horde; this.game?.dispose(); this.game = null; this.openSelect(h ? 'horde' : 'ai'); }
+  again() { $('results').hidden = true; if (this.net) { this.backToLobby(true); return; } const h = this.game?.horde; this.game?.dispose(); this.game = null; const k = this.ctx?.type; if (k === 'stage') { this.openCampaign(); return; } if (k === 'raid') { this.openRaid(); return; } if (k === 'ranked') { this.openSelect('ranked'); return; } this.openSelect(h ? 'horde' : 'ai'); }
 
   // ---------------- online ----------------
   async hostRoom() {

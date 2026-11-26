@@ -23,7 +23,8 @@ let nextEnt = 1;
 const LOOK_COLORS = { drain: '#ff2a4a', holy: '#ffe08a', flame: '#ff7a2a', frost: '#8fd8ff', void: '#9a5cff', lightning: '#9fb0ff', vine: '#8acd32' };
 
 export class Sim {
-  constructor({ mode = 'match', difficulty = 1, mapId = 'sanctum' } = {}) {
+  constructor({ mode = 'match', difficulty = 1, mapId = 'sanctum', roundsToWin = ROUNDS_TO_WIN, winWaves = 0 } = {}) {
+    this.roundsToWin = roundsToWin; this.winWaves = winWaves; this.raidLimit = 240;
     this.mapId = mapId; setMap(mapId);
     this.mode = mode; // 'match' | 'training'
     this.difficulty = difficulty;
@@ -41,7 +42,7 @@ export class Sim {
   }
 
   // ---------- players ----------
-  addPlayer({ id, name, team, hero, isBot = false, isDummy = false }) {
+  addPlayer({ id, name, team, hero, isBot = false, isDummy = false, mul = null }) {
     const def = HERO_MAP[hero] || HERO_MAP.valok;
     const p = {
       id, name, team, hero: def.id, def, isBot, isDummy,
@@ -49,7 +50,7 @@ export class Sim {
       dashT: 0, dashV: [0, 0, 0], glideUntil: 0,
       hp: def.hp, maxHp: def.hp, alive: true, shield: 0, shieldT: 0,
       cds: { lmb: 0, q: 0, e: 0 }, ult: 0, st: {}, ammo: def.abilities.lmb.ammo || 0, reloadT: 0, combo: 0, lastAtk: -9,
-      stats: { k: 0, d: 0, dmg: 0, heal: 0 },
+      stats: { k: 0, d: 0, dmg: 0, heal: 0 }, gMul: mul,
       lastHurtBy: null, lastHurtAt: -99, dashHit: null, leap: null, traps: [], deadAt: 0,
       slot: 0,
     };
@@ -131,7 +132,7 @@ export class Sim {
     p.hist = []; p.tpLock = 0; p.form = null; p.fm = ''; p.channel = null; p.flurry = null; p.marks = {}; p.rs = p.pas?.res?.start || 0; p.pasT = {};
     const s = SPAWNS[p.team][idx % 6];
     p.pos = [...s]; p.vel = [0, 0, 0]; p.yaw = SPAWN_YAW[p.team]; p.pitch = 0;
-    p.maxHp = Math.round(p.def.hp * (p.hpMul || 1) * (p.reso === 'frost' ? 1.08 : 1));
+    p.maxHp = Math.round(p.def.hp * (p.hpMul || 1) * (p.gMul?.hp || 1) * (p.reso === 'frost' ? 1.08 : 1));
     p.hp = p.maxHp; p.alive = true; p.st = {}; p.shield = 0; p.dashT = 0; p.glideUntil = 0; p.tether = null; p.doom = null;
     if (p.reso === 'storm') p.st.resoSpd = { t: 9999, v: 0.06 };
     p.pas?.spawn?.(this, p);
@@ -157,7 +158,7 @@ export class Sim {
     if (w >= 0) this.score[w]++;
     this.phase = 'post'; this.phaseT = POST_T;
     this.ev({ t: 'roundEnd', w, score: [...this.score] });
-    if (w >= 0 && this.score[w] >= ROUNDS_TO_WIN) {
+    if (w >= 0 && this.score[w] >= this.roundsToWin) {
       this.winner = w;
     }
   }
@@ -173,6 +174,7 @@ export class Sim {
     p._moved = Math.hypot(ox - p.pos[0], oz - p.pos[2]);
   }
 
+  sz(o) { return (o.def.scale || 1) * (o.st.giant ? 1.4 : 1); }
   canAct(p) { return p.alive && (this.phase === 'live' || this.phase === 'train') && !p.st.stun && !p.st.sleep && !p.flurry; }
   gain(p, n) { const R = p.pas?.res; if (!R) return; p.rs = Math.max(0, Math.min(R.max, p.rs + n)); }
   lmbOf(p) { return effLmb(p.def, p.fm, p.sn); }
@@ -196,6 +198,7 @@ export class Sim {
       if (p.cds[slot] > tol) return false;
       let cd = def.cd;
       if (slot === 'lmb' && p.st.atkSpd) cd /= (1 + p.st.atkSpd.v);
+      if (slot !== 'lmb' && p.gMul?.cd) cd *= p.gMul.cd;
       if (slot === 'lmb' && def.rsHaste && p.pas?.res) cd *= 1 - def.rsHaste * p.rs / p.pas.res.max;
       p.cds[slot] = cd;
       if (slot === 'lmb' && def.ammo && !p.st.infAmmo) { p.ammo--; if (p.ammo <= 0) this.reload(id); }
@@ -303,7 +306,7 @@ export class Sim {
     let best = wall, target = null;
     for (const o of this.players.values()) {
       if (!o.alive || o.team === team || o === exclude) continue;
-      const t = rayPlayer(from, dir, o.pos, best, 0.6, P_HEIGHT * (o.st.giant ? 1.4 : 1));
+      const t = rayPlayer(from, dir, o.pos, best, 0.6, P_HEIGHT * this.sz(o));
       if (t >= 0 && t < best) { best = t; target = o; }
     }
     return { t: best, target };
@@ -321,7 +324,7 @@ export class Sim {
       const end = [eye[0] + d[0] * wall, eye[1] + d[1] * wall, eye[2] + d[2] * wall];
       this.ev({ t: 'fx', fx: 'beam', look: def.look, id: p.id, from: [eye[0], eye[1] - 0.2, eye[2]], to: end, color: p.def.color });
       for (const o of this.enemiesOf(p)) {
-        const tt = rayPlayer(eye, d, o.pos, wall, 0.6, P_HEIGHT * (o.st.giant ? 1.4 : 1));
+        const tt = rayPlayer(eye, d, o.pos, wall, 0.6, P_HEIGHT * this.sz(o));
         if (tt >= 0) this.damage(p, o, dmg, { from: eye, onHit: def.onHit });
       }
       return;
@@ -552,6 +555,7 @@ export class Sim {
       if (src.st.giant && !src.st.dmgUp) dmg *= 1.15;
       if (src.reso === 'fire') dmg *= 1.06;
       if (src.hordeMul) dmg *= src.hordeMul;
+      if (src.gMul?.dmg) dmg *= src.gMul.dmg;
       if (src.def.el === 'shadow' && tgt.hp / tgt.maxHp < 0.35) dmg *= 1.15;
     }
     if (tgt.st.vuln) dmg *= 1 + tgt.st.vuln.v;
@@ -807,15 +811,22 @@ export class Sim {
   step(dt) {
     this.now += dt;
     // phase
-    if (this.phase === 'pre') { this.phaseT -= dt; if (this.phaseT <= 0) { this.phase = 'live'; this.phaseT = LIVE_T; this.ev({ t: 'fight' }); } }
+    if (this.phase === 'pre') { this.phaseT -= dt; if (this.phaseT <= 0) { this.liveStart = this.liveStart || this.now; this.phase = 'live'; this.phaseT = this.mode === 'raid' ? this.raidLimit : (this.liveT || LIVE_T); this.ev({ t: 'fight' }); } }
     else if (this.phase === 'live') {
       this.phaseT -= dt;
       const alive = [0, 0];
       for (const p of this.players.values()) if (p.alive) alive[p.team]++;
-      if (this.mode === 'horde') {
+      if (this.mode === 'raid') {
+        // allies come back after 7 s; the fight is lost when time runs out or everyone is down at once
+        let idx = 0;
+        for (const p of this.players.values()) if (p.team === 0 && !p.alive && this.now - p.deadAt > 7) { this.spawn(p, idx++); this.addSt(p, 'invuln', 2); this.ev({ t: 'respawn', id: p.id }); this.ev({ t: 'tp', id: p.id, pos: [...p.pos], yaw: p.yaw }); }
+        if (alive[1] === 0) { this.score[0] = 1; this.endRound(0); this.winner = 0; this.raidTime = this.raidLimit - this.phaseT; }
+        else if (this.phaseT <= 0) { this.score[1] = 1; this.endRound(1); this.winner = 1; }
+      }
+      else if (this.mode === 'horde') {
         this.phaseT = LIVE_T;
         if (alive[0] === 0) { this.winner = 1; this.phase = 'post'; this.phaseT = POST_T; this.ev({ t: 'roundEnd', w: 1, score: [...this.score], horde: true }); }
-        else if (alive[1] === 0) { this.score[0]++; this.phase = 'post'; this.phaseT = 3; this.ev({ t: 'roundEnd', w: 0, score: [...this.score], horde: true, wave: this.wave }); }
+        else if (alive[1] === 0) { this.score[0]++; this.phase = 'post'; this.phaseT = 3; if (this.winWaves && this.score[0] >= this.winWaves) this.winner = 0; this.ev({ t: 'roundEnd', w: 0, score: [...this.score], horde: true, wave: this.wave }); }
       }
       else if (alive[0] === 0 || alive[1] === 0) this.endRound(alive[0] === 0 && alive[1] === 0 ? -1 : (alive[0] === 0 ? 1 : 0));
       else if (this.phaseT <= 0) {
@@ -827,7 +838,7 @@ export class Sim {
     } else if (this.phase === 'post') {
       this.phaseT -= dt;
       if (this.phaseT <= 0) {
-        if (this.winner >= 0) { this.phase = 'end'; this.ev({ t: 'matchEnd', w: this.winner, score: [...this.score], horde: this.mode === 'horde', wave: this.wave }); }
+        if (this.winner >= 0) { this.phase = 'end'; this.ev({ t: 'matchEnd', w: this.winner, score: [...this.score], horde: this.mode === 'horde', wave: this.wave, raidTime: this.raidTime, time: this.now - (this.liveStart || 0) }); }
         else if (this.mode === 'horde') this.startWave();
         else this.startRound();
       }
@@ -981,10 +992,10 @@ export class Sim {
           const pt = [prev[0] + seg[0] * s / steps, prev[1] + seg[1] * s / steps, prev[2] + seg[2] * s / steps];
           for (const o of this.players.values()) {
             if (!o.alive || o.id === pr.owner || pr.hit.has(o.id)) continue;
-            const h = P_HEIGHT * (o.st.giant ? 1.4 : 1);
+            const h = P_HEIGHT * this.sz(o);
             const y = clamp(pt[1], o.pos[1] + 0.35, o.pos[1] + h - 0.35);
             const d = Math.hypot(pt[0] - o.pos[0], pt[1] - y, pt[2] - o.pos[2]);
-            if (d > def.r + 0.45 * (o.st.giant ? 1.4 : 1)) continue;
+            if (d > def.r + 0.45 * this.sz(o)) continue;
             const src = this.players.get(pr.owner);
             if (o.team !== pr.team && o.st.reflect && !def.noReflect) {
               pr.owner = o.id; pr.team = o.team; pr.vel = pr.vel.map(x => -x * 1.15); pr.hit = new Set([o.id]); pr.life = Math.max(pr.life, 1); pr.pos = [...pt];

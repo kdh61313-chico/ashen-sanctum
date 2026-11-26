@@ -1102,7 +1102,7 @@ export function animateHero(P, s, dt) {
   // death: topple
   P.body.rotation.x = -A.dead * 1.45;
   P.body.position.y = -A.dead * 0.25;
-  const gs = s.giant ? 1.4 : 1;
+  const gs = (P.def?.scale || 1) * (s.giant ? 1.4 : 1);
   const cur = P.root.scale.x;
   P.root.scale.setScalar(cur + (gs - cur) * Math.min(1, dt * 6));
 }

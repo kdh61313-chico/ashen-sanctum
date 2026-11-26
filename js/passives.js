@@ -297,4 +297,22 @@ export const PASSIVES = {
     name: '불씨 수호', desc: '근처에서 아군이 쓰러지면 궁극기가 40% 찬다.',
     anyDeath(S, p, v) { if (v.team === p.team && dist(p, v) < 20) p.ult = Math.min(100, p.ult + 40); },
   },
+  // ---------------- bosses ----------------
+  ashlord: {
+    name: '용광로의 핵', desc: '등 뒤의 핵을 맞으면 피해 +40%. 체력 2/3, 1/3에서 잿빛 망령을 부르고, 30% 아래에서는 격노한다.',
+    spawn(S, p) { p.pasT.phase = 0; },
+    inc(S, p, src, dmg) { return src && behind(src, p) ? dmg * 1.4 : dmg; },
+    tick(S, p, dt) {
+      const f = p.hp / p.maxHp;
+      const want = f < 0.34 ? 2 : f < 0.67 ? 1 : 0;
+      if (want > p.pasT.phase) {
+        p.pasT.phase = want;
+        S.ev({ t: 'fx', fx: 'bossPhase', id: p.id, n: want, pos: [...p.pos] });
+        for (let i = 0; i < 3 + want; i++) { const a = i / (3 + want) * Math.PI * 2; S.spawnZone(p, { r: 2.2, dur: 14, dps: 22, chase: 5.5, look: 'ghost', st: { slow: [0.5, 0.25] } }, [p.pos[0] + Math.cos(a) * 6, p.pos[1], p.pos[2] + Math.sin(a) * 6]); }
+        S.aoeAt(p, p.pos, 9, 40, { knock: 16, noLos: true });
+      }
+      if (f < 0.3 && !p.st.enrage) { p.st.enrage = { t: 999, v: 1 }; S.addSt(p, 'dmgUp', 999, 0.3); S.addSt(p, 'haste', 999, 0.25); S.ev({ t: 'fx', fx: 'bossPhase', id: p.id, n: 3, pos: [...p.pos] }); }
+      p.ult = Math.min(100, p.ult + dt * 1.5);
+    },
+  },
 };

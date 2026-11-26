@@ -150,7 +150,7 @@ export class Game {
     // score
     if (!this.training) {
       const mine = this.score[myTeam], theirs = this.score[1 - myTeam];
-      const pips = (el, n) => { el.innerHTML = ''; for (let i = 0; i < ROUNDS_TO_WIN; i++) { const p = document.createElement('i'); if (i < n) p.className = 'on'; el.appendChild(p); } };
+      const pips = (el, n) => { el.innerHTML = ''; for (let i = 0; i < (this.sim?.roundsToWin || this.roundsToWin || ROUNDS_TO_WIN); i++) { const p = document.createElement('i'); if (i < n) p.className = 'on'; el.appendChild(p); } };
       const sig = mine + ':' + theirs;
       if (this.pipSig !== sig) { this.pipSig = sig; pips($('pips-a'), mine); pips($('pips-b'), theirs); $('pips-a').style.visibility = $('pips-b').style.visibility = this.horde ? 'hidden' : ''; }
       let t = this.phase === 'pre' ? Math.ceil(this.phaseT) : this.phase === 'live' ? Math.max(0, Math.ceil(this.phaseT)) : 0;
@@ -158,6 +158,9 @@ export class Game {
       $('hud-timer').textContent = tm;
       $('hud-timer').classList.toggle('is-low', this.phase === 'live' && t <= 15);
       $('hud-round').textContent = this.horde ? `${this.round}웨이브` : `${this.round}라운드`;
+      { let boss = null; for (const v of this.view.values()) if (v.alive !== undefined && HERO_MAP[v.hero]?.boss) boss = v;
+        const bb = $('bossbar'); bb.hidden = !boss;
+        if (boss) { const f = Math.max(0, boss.hp / (boss.maxHp || 1)); bb.querySelector('i').style.width = (f * 100) + '%'; const t = `${HERO_MAP[boss.hero].name}  ${Math.ceil(boss.hp)} / ${boss.maxHp}`; const b2 = bb.querySelector('b'); if (b2.textContent !== t) b2.textContent = t; bb.classList.toggle('is-enrage', f < 0.3); } }
       if (this.horde) { $('hud-timer').textContent = `${this.score[0]}`; $('hud-timer').classList.remove('is-low'); }
       // heads
       const heads = (el, team) => {
@@ -442,7 +445,7 @@ export class Game {
         break;
       }
       case 'matchEnd':
-        setTimeout(() => this.app.showResults(e.w === this.myTeam(), e.score, this, { horde: !!e.horde }), 1200);
+        setTimeout(() => this.app.showResults(e.w === this.myTeam(), e.score, this, { horde: !!e.horde, time: e.time, raidTime: e.raidTime }), 1200);
         this.ended = true;
         break;
       case 'respawn':

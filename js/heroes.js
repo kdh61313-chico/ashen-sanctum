@@ -16,6 +16,7 @@ import { NEW_HEROES, RARITY, STARTERS } from './heroes2.js';
 import { THIRD_HEROES, THIRD_RARITY } from './heroes3.js';
 import { HERO_EL } from './elements.js';
 import { KITS } from './kits.js';
+import { BOSSES } from './bosses.js';
 import { PASSIVES } from './passives.js';
 Object.assign(RARITY, THIRD_RARITY);
 export { RARITY, STARTERS };
@@ -282,7 +283,8 @@ export const DUMMY = {
   ai: { range: 2, style: 'melee' },
   abilities: { lmb: { kind: 'melee', cd: 1, range: 2, arc: 60, dmg: 0 }, q: { kind: 'buff', target: 'self', cd: 99 }, e: { kind: 'buff', target: 'self', cd: 99 }, x: { kind: 'buff', target: 'self' } },
 };
-export const HERO_MAP = Object.fromEntries([...HEROES, DUMMY].map(h => [h.id, h]));
+for (const b of BOSSES) { b.rarity = 6; b.passive = PASSIVES[b.id] ? { name: PASSIVES[b.id].name, desc: PASSIVES[b.id].desc, res: null } : null; }
+export const HERO_MAP = Object.fromEntries([...HEROES, DUMMY, ...BOSSES].map(h => [h.id, h]));
 export const SLOTS = ['lmb', 'q', 'e', 'x'];
 export const SLOT_KEYS = { lmb: '좌클릭', q: 'Q', e: 'E', x: 'X' };
 export const ULT_COST = 100;
