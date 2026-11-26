@@ -482,3 +482,8 @@ body.is-touch .quest__main { flex-basis: 100%; }
 .btn:disabled { opacity: .45; filter: grayscale(.4); }
 body.is-touch .roster { max-height: none; overflow: visible; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); }
 .rv__meta .role-chip, .rv__meta .el-chip { white-space: nowrap; }
+.elbox { margin: 4px 0 10px; padding: 6px 8px; gap: 8px; align-items: center; }
+.elbox img { width: 26px; height: 26px; }
+.elbox p { margin: 0; font-size: 12px; line-height: 1.4; }
+.elbox small { font-size: 11px; }
+#select .dossier { scrollbar-width: thin; scrollbar-color: rgba(201,164,92,.35) transparent; -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent); padding-bottom: 20px; }
