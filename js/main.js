@@ -124,7 +124,7 @@ class App {
     this.renderer.setSize(w, h, false);
     this.composer.setSize(w, h);
     this.camera.aspect = w / h; this.camera.fov = this.settings.fov; this.camera.updateProjectionMatrix();
-    this.vmCam.aspect = w / h; this.vmCam.fov = w / h < 1.4 ? 72 : 64; this.vmCam.updateProjectionMatrix();
+    this.vmCam.aspect = w / h; this.vmCam.fov = w / h < 1.4 ? 80 : 72; this.vmCam.updateProjectionMatrix();
     this.stage.resize(w, h, this.pr || 1);
     this.fx?.setScale(h * (this.pr || 1), this.settings.fov);
     $('rotate').hidden = !(IS_TOUCH && h > w && this.state === 'game');

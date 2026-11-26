@@ -270,8 +270,8 @@ class Streaks {
 
 // Ribbon trail that follows a weapon's blade (base → tip) for a short time.
 export class Trail {
-  constructor(scene, color, n = 14) {
-    this.n = n; this.pts = []; this.scene = scene;
+  constructor(scene, color, n = 14, alpha = 1) {
+    this.n = n; this.pts = []; this.scene = scene; this.alpha = alpha;
     const g = new THREE.BufferGeometry();
     this.pos = new Float32Array(n * 2 * 3); this.col = new Float32Array(n * 2 * 4);
     g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage));
@@ -292,7 +292,7 @@ export class Trail {
     for (let i = 0; i < this.n; i++) {
       const p = this.pts[Math.min(i, L - 1)] || [0, -99, 0, 0, -99, 0];
       this.pos.set(p, i * 6);
-      const a = L ? Math.max(0, 1 - i / Math.max(1, L - 1)) * this.fade : 0;
+      const a = L ? Math.max(0, 1 - i / Math.max(1, L - 1)) * this.fade * this.alpha : 0;
       for (const k of [0, 1]) { const o = (i * 2 + k) * 4; this.col[o] = this.c.r; this.col[o + 1] = this.c.g; this.col[o + 2] = this.c.b; this.col[o + 3] = a * (k ? 0.95 : 0.15); }
     }
     this.geo.attributes.position.needsUpdate = true; this.geo.attributes.color.needsUpdate = true;

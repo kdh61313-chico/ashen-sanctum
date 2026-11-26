@@ -142,19 +142,19 @@ function layoutFor(pose, len, minY, hero, wid = 0) {
   switch (pose) {
     case 'twohand': {
       const pole = minY < -0.4;
-      return { kind: 'heavyMelee', scale: Math.min(0.82, 1.45 / Math.max(1, len)), rest: P([0.22, -0.31, -0.4], [0.12, 0.35, -0.5]), gripR: V(0, 0.13, 0), gripL: V(0, pole ? -0.3 : -0.04, 0), dur: 0.46 };
+      return { kind: 'heavyMelee', scale: Math.min(0.72, 1.25 / Math.max(1, len)), rest: P([0.24, -0.33, -0.42], [0.28, 0.4, -0.85]), gripR: V(0, 0.13, 0), gripL: V(0, pole ? -0.3 : -0.04, 0), dur: 0.46 };
     }
     case 'onehand':
       if (len > 2.0) return { kind: 'polearm', scale: 0.72, rest: P([0.2, -0.3, -0.44], [-1.3, 0.2, 0.14]), gripR: V(0, 0, 0), gripL: V(0, 0.42, 0), dur: 0.4 };
       if (len < 0.5) return { kind: 'knife', scale: wid > 0.17 ? 0.62 : 1.1, rest: P([0.23, -0.26, wid > 0.17 ? -0.48 : -0.4], [-1.05, 0.3, 0.25]), gripR: V(0, 0.02, 0), dur: 0.3 };
-      return { kind: 'sword', scale: Math.min(0.9, 1.05 / Math.max(0.8, len)), rest: P([0.24, -0.28, -0.42], [-0.35, 0.45, -0.28]), gripR: V(0, 0.02, 0), dur: 0.38 };
+      return { kind: 'sword', scale: Math.min(0.8, 0.95 / Math.max(0.8, len)), rest: P([0.25, -0.3, -0.44], [-0.2, 0.45, -0.5]), gripR: V(0, 0.02, 0), dur: 0.38 };
     case 'dual': return len > 0.6 ? { kind: 'dual', scale: 0.6, rest: P([0.27, -0.3, -0.42], [-0.75, 0.5, -0.2]), gripR: V(0, 0.05, 0), dur: 0.27 } : { kind: 'dual', scale: wid > 0.3 ? 0.6 : 1.05, rest: P([0.25, -0.27, -0.44], [-1.05, 0.25, 0.28]), gripR: V(0, 0.02, 0), dur: 0.27 };
     case 'claws': return { kind: 'claws', gauntlet: wid > 0.2, scale: wid > 0.2 ? 0.42 : 1.15, rest: P([0.22, -0.27, -0.38], [-1.4, 0.2, 0.2]), gripR: V(0, 0, 0), dur: 0.25 };
     case 'staff': return { kind: 'staff', scale: 0.8, rest: P([0.27, -0.34, -0.5], [-0.26, 0.25, 0.14]), gripR: V(0, 0.42, 0), dur: 0.34 };
     case 'bow': return { kind: 'bow', scale: 0.62, dur: 0.3 };
     case 'cast': return { kind: 'cast', dur: 0.32 };
-    case 'pistol': return { kind: 'pistol', scale: 1.25, rest: P([0.17, -0.21, -0.42], gunQ(-0.2, 0.34, 0)), gripR: V(0, -0.02, -0.06), gripL: V(-0.045, -0.035, -0.085), barAxis: V(0, 0.32, 1), kick: 1.25, dur: 0.16 };
-    case 'dualgun': return { kind: 'dualgun', scale: 1.15, rest: P([0.21, -0.21, -0.44], gunQ(-0.2, 0.3, -0.1)), gripR: V(0, -0.02, -0.06), barAxis: V(0, 0.32, 1), kick: 1, dur: 0.16 };
+    case 'pistol': return { kind: 'pistol', scale: 1.05, rest: P([0.18, -0.22, -0.44], gunQ(-0.16, 0.42, 0)), gripR: V(0, -0.02, -0.06), gripL: V(-0.045, -0.035, -0.085), barAxis: V(0, 0.32, 1), kick: 1.25, dur: 0.16 };
+    case 'dualgun': return { kind: 'dualgun', scale: 0.98, rest: P([0.23, -0.22, -0.46], gunQ(-0.16, 0.38, -0.1)), gripR: V(0, -0.02, -0.06), barAxis: V(0, 0.32, 1), kick: 1, dur: 0.16 };
     case 'rifle': return { kind: 'rifle', scale: 0.74, rest: P([0.165, -0.225, -0.42], gunQ(-0.04, 0.08, 0)), gripR: V(0, -0.03, -0.07), gripL: V(0, 0.45, -0.05), barAxis: V(0, 0.3, 1), barAxisL: V(0, 1, 0), kick: hero.gun === 'long' ? 1.6 : 0.7, dur: 0.16 };
     case 'heavy': return { kind: 'heavy', scale: 0.7, rest: P([0.22, -0.27, -0.44], gunQ(0.0, 0.1, 0)), gripR: V(0, -0.12, -0.07), gripL: V(0, 0.32, -0.06), barAxis: V(0, 0.3, 1), barAxisL: V(0, 1, 0), kick: 0.45, dur: 0.16 };
     case 'armcannon': return { kind: 'armcannon', scale: 0.8, rest: P([0.21, -0.25, -0.3], gunQ(0.04, 0.06, 0)), gripR: V(0, -0.09, 0), barAxis: V(0, 0, 1), kick: 1.1, dur: 0.18 };
@@ -279,33 +279,9 @@ export class ViewModel {
     if ((Lk === 'dual' || Lk === 'claws' || Lk === 'dualgun') && wL) { this.W2 = new THREE.Group(); this.root.add(this.W2); this.W2.add(wL); wL.scale.setScalar(this.L.scale || 1); }
     else if (wL && (Lk === 'sword' || Lk === 'knife') && wL.getObjectByName('tip') == null) {
       // off-hand item (shield / lantern / orb) rides on the left fist
-      this.shield = wL; this.armL.hand.add(wL); wL.scale.setScalar(0.62); wL.position.set(-0.06, 0, -0.08); wL.rotation.set(0, Math.PI / 2, 0);
+      this.shield = wL; this.armL.hand.add(wL); wL.scale.setScalar(0.46); wL.position.set(-0.05, 0, -0.06); wL.rotation.set(0, Math.PI / 2, 0);
     }
     this.wR = Lk === 'bow' ? null : wR; this.wL = wL;
-    // first-person only: give small sidearms a readable slide + sights
-    if (Lk === 'pistol' || Lk === 'dualgun') for (const w of [wR, Lk === 'dualgun' ? wL : null]) {
-      if (!w) continue;
-      const gm = M(c.metal || '#5a5a60', { m: 0.85, r: 0.3 });
-      const sl = new THREE.Mesh(new THREE.BoxGeometry(0.058, 0.36, 0.05), gm); sl.position.set(0, 0.2, 0.045); w.add(sl);
-      const rs = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.02, 0.025), M('#1a1a1e')); rs.position.set(0, 0.04, 0.08); w.add(rs);
-      const fs = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.015, 0.02), M(def.color, { e: def.color, ei: 2 })); fs.position.set(0, 0.36, 0.078); w.add(fs);
-      const st = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.2, 0.004), M(def.color, { e: def.color, ei: 2.5 })); st.position.set(0.03, 0.2, 0.045); w.add(st);
-    }
-    // first-person only: rails, sights and a magazine on long guns
-    if ((Lk === 'rifle' || Lk === 'heavy') && wR) {
-      const sc = 1 / (this.L.scale || 1);
-      const top = bb.max.z, bot = bb.min.z;
-      const dark = M('#1c1c20', { m: 0.7, r: 0.4 }), gm = M(c.metal || '#5a5a60', { m: 0.85, r: 0.3 });
-      const add2 = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); wR.add(m); return m; };
-      add2(new THREE.BoxGeometry(0.034, len * 0.42, 0.016), dark, 0, bb.min.y + len * 0.34, top + 0.008);
-      for (let i = 0; i < 7; i++) add2(new THREE.BoxGeometry(0.04, 0.012, 0.01), gm, 0, bb.min.y + len * (0.15 + i * 0.055), top + 0.02);
-      add2(new THREE.BoxGeometry(0.03, 0.03, 0.03), dark, 0, bb.min.y + len * 0.2, top + 0.03);
-      add2(new THREE.BoxGeometry(0.008, 0.012, 0.03), M(def.color, { e: def.color, ei: 2.4 }), 0, bb.min.y + len * 0.2, top + 0.05);
-      add2(new THREE.BoxGeometry(0.012, 0.012, 0.035), dark, 0, bb.min.y + len * 0.78, top + 0.022);
-      add2(new THREE.BoxGeometry(0.004, 0.006, 0.012), M(def.color, { e: def.color, ei: 3 }), 0, bb.min.y + len * 0.78, top + 0.045);
-      if (Lk === 'rifle') { const mag = add2(new THREE.BoxGeometry(0.045, 0.07, 0.13), dark, 0, bb.min.y + len * 0.3, bot - 0.05); mag.rotation.x = 0.18; }
-      void sc;
-    }
     // magic orbs for casters / free hands
     const needOrb = (Lk === 'cast' || Lk === 'staff' || Lk === 'armcannon' || (Lk === 'sword' && !this.shield) || (Lk === 'knife' && !this.shield));
     const mkOrb = (arm) => {
@@ -321,6 +297,7 @@ export class ViewModel {
     else if (needOrb && Lk !== 'knife' && Lk !== 'sword') mkOrb(this.armL);
     else if (needOrb) { mkOrb(this.armL); this.orbs[0].g.visible = false; }
     // gun details
+    this.slides = [this.W.getObjectByName('slide'), this.W2?.getObjectByName('slide')].map(o => o ? { o, y: o.position.y, t: 9 } : null);
     this.muzR = this.W.getObjectByName('muzzle') || null;
     this.muzL = this.W2?.getObjectByName('muzzle') || null;
     this.barrel = this.W.getObjectByName('barrel') || null;
@@ -357,8 +334,8 @@ export class ViewModel {
     this.ultRune = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), addMat(def.color, runeTex(), 0));
     this.ultRune.visible = false; this.root.add(this.ultRune);
     // trails (drawn in view space)
-    if (this.tip) this.trail = new Trail(this.scene, def.color, 14);
-    if (this.tip2) this.trail2 = new Trail(this.scene, def.color, 12);
+    if (this.tip) this.trail = new Trail(this.scene, def.color, 12, 0.42);
+    if (this.tip2) this.trail2 = new Trail(this.scene, def.color, 10, 0.42);
     // muzzle aim convergence for guns: rotate rest so the barrel points at the crosshair 25 m out
     if (this.isGun && this.muzR) {
       this.root.updateMatrixWorld(true);
@@ -382,6 +359,7 @@ export class ViewModel {
       this.atk = 0; this.side = -this.side; this.combo = combo;
       if (this.isGun) {
         this.lastShot = 0; this.shotN++; this.inspect = 9; this.idleT = 0;
+        { const sl = this.slides?.[(this.L.kind === 'dualgun' && this.side < 0) ? 1 : 0]; if (sl) sl.t = 0; }
         const k = (this.L.kick || 1) * Math.min(1, Math.max(0.35, (this.def.abilities.lmb.cd || 0.3) / 0.35));
         this.recoil.v.add(V((Math.random() - 0.5) * 0.15 * k, 0.25 * k, 1.1 * k));
         this.recoilR.v.add(V(5.5 * k, (Math.random() - 0.5) * 1.5 * k, (Math.random() - 0.5) * 2 * k));
@@ -465,7 +443,7 @@ export class ViewModel {
     const strafe = THREE.MathUtils.clamp(s.side || 0, -1, 1);
     const eq = ease(this.equip);
     const dash = clamp01((s.speed - 9) / 6);
-    this.root.position.set(0.01 + bx + sx * 0.4, 0.085 + by + breathe + this.land.x.y * 0.05 - (1 - eq) * 0.35 + (air ? THREE.MathUtils.clamp(-(s.vy || 0) * 0.003, -0.025, 0.025) : 0) - dash * 0.03, this.jolt.x.z * 0.04 + dash * 0.05);
+    this.root.position.set(0.04 + bx + sx * 0.4, 0.06 + by + breathe + this.land.x.y * 0.05 - (1 - eq) * 0.35 + (air ? THREE.MathUtils.clamp(-(s.vy || 0) * 0.003, -0.025, 0.025) : 0) - dash * 0.03, this.jolt.x.z * 0.04 + dash * 0.05);
     this.root.rotation.set(sy * 1.2 - (1 - eq) * 0.7 + this.land.x.y * 0.04 + this.jolt.x.y * 0.05, sx * 1.4, -strafe * 0.035 + Math.sin(this.bob) * 0.012 * mv + sx * 0.5);
 
     // ----- weapon pose -----
@@ -562,6 +540,31 @@ export class ViewModel {
       const climb = Math.min(1, this.shotN * 0.12) * Math.max(0, 1 - this.lastShot / 0.6);
       if (this.lastShot > 0.6) this.shotN = 0;
       pose.q.multiply(_q.setFromEuler(new THREE.Euler(0.05 * climb, 0, 0)));
+    }
+    // slide / bolt blowback
+    if (this.slides) for (const sl of this.slides) {
+      if (!sl) continue; sl.t += dt;
+      const k = sl.t < 0.03 ? sl.t / 0.03 : Math.max(0, 1 - (sl.t - 0.03) / 0.09);
+      sl.o.position.y = sl.y - 0.045 * k * (this.reloadT > 0 ? 0 : 1);
+    }
+    // melee: idle twirl to show off the blade, and a settle after each swing
+    if (this.isMelee && rest) {
+      const idle = mv < 0.05 && s.onGround && atkK > 1.5 && this.cast > 1;
+      this.idleT = idle ? this.idleT + dt : 0;
+      if (this.idleT > 6 && this.inspect > 3) { this.inspect = 0; this.idleT = 0; }
+      if (this.inspect < 2.2) {
+        const k = this.inspect / 2.2, e = smooth(k / 0.22) * (1 - smooth((k - 0.78) / 0.22));
+        const tg = [pose]; if (poseL) tg.push(poseL);
+        for (const p of tg) {
+          const sd = p === poseL ? -1 : 1;
+          p.h.x -= sd * 0.05 * e; p.h.y += 0.03 * e; p.h.z -= 0.02 * e;
+          p.q.multiply(_q.setFromEuler(new THREE.Euler(0.35 * e, sd * Math.sin(k * Math.PI * 2) * 0.9 * e, sd * -0.5 * e)));
+        }
+      }
+      // after-swing settle: a small wobble as the weight stops
+      if (atkK > 1 && atkK < 1.8) { const w = Math.sin((atkK - 1) * 14) * Math.exp(-(atkK - 1) * 5) * 0.04; pose.q.multiply(_q.setFromEuler(new THREE.Euler(w, 0, w * 0.6))); }
+      // running: blade rides lower and swings with the stride
+      pose.h.y -= 0.02 * mv; pose.q.multiply(_q.setFromEuler(new THREE.Euler(Math.abs(Math.cos(this.bob)) * 0.06 * mv, 0, Math.sin(this.bob) * 0.07 * mv)));
     }
     // reload
     let reloadL = 0, reloadPos = null;
@@ -687,7 +690,7 @@ export class ViewModel {
           if (this.orbs[0] && (Lk === 'sword' || Lk === 'knife')) this.orbs[0].g.visible = castW > 0.05;
         } else {
           // fist (shield arm)
-          const p = V(-0.3, -0.32 + castW * 0.1, -0.44 - castW * 0.06);
+          const p = V(-0.34, -0.37 + castW * 0.1, -0.46 - castW * 0.06);
           if (atkK < 1 && this.shield) p.x += 0.03 * Math.sin(clamp01(atkK) * Math.PI);
           this.armL.place(shL, p, V(0.25, 1, 0.1).normalize(), poleL);
         }
@@ -733,10 +736,10 @@ export class ViewModel {
     });
     // trails
     if (this.trail && this.tip) {
-      if (attackActive || this.trail.fade > 0) { this.tipBase.getWorldPosition(_a); this.tip.getWorldPosition(_b); this.trail.push(_a, _b, attackActive); }
+      if (attackActive || this.trail.fade > 0) { this.tipBase.getWorldPosition(_a); this.tip.getWorldPosition(_b); _a.lerp(_b, 0.55); this.trail.push(_a, _b, attackActive); }
     }
     if (this.trail2 && this.tip2) {
-      if (attackActive2 || this.trail2.fade > 0) { this.tipBase2.getWorldPosition(_a); this.tip2.getWorldPosition(_b); this.trail2.push(_a, _b, attackActive2); }
+      if (attackActive2 || this.trail2.fade > 0) { this.tipBase2.getWorldPosition(_a); this.tip2.getWorldPosition(_b); _a.lerp(_b, 0.55); this.trail2.push(_a, _b, attackActive2); }
     }
     for (const o of this.flick) {
       if (o.userData.flicker) o.scale.setScalar(1 + Math.sin(this.t * 13) * 0.08);

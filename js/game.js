@@ -397,8 +397,8 @@ export class Game {
       }
       case 'dmg':
         if (e.by === me && e.id !== me) {
-          this.floatNum(e.pos, e.a, (e.a >= 70 || e.eff > 0 ? 'is-big' : '') + (e.sh ? ' is-shield' : ''), e.el ? ELEMENTS[e.el]?.color : null);
-          if (e.eff && this.clock - (this._effT || -9) > 0.6) { this._effT = this.clock; this.floatNum([e.pos[0], e.pos[1] + 0.45, e.pos[2]], e.eff > 0 ? '효과가 굉장했다!' : '효과가 별로인 듯하다…', e.eff > 0 ? 'is-eff' : 'is-resist'); }
+          this.floatNum(e.pos, e.a, (e.a >= 70 ? 'is-big' : '') + (e.eff > 0 ? ' is-up' : e.eff < 0 ? ' is-down' : '') + (e.sh ? ' is-shield' : ''), e.el ? ELEMENTS[e.el]?.color : null);
+
           this.hitmark(e.a >= 70 ? 'crit' : '');
           this.audio.play('hitmark');
         }
