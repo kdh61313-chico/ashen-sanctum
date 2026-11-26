@@ -250,8 +250,6 @@ body.is-touch .sigil__stars { font-size: 12px; padding: 2px 5px 2px 4px; }
 
 /* every other portrait: plain plates */
 .team li img, .score__heads img, .kf img, .board td img, .results__table td img, .feat img { clip-path: none; border-radius: 2px; }
-.me__portrait { background: var(--stone-2); clip-path: none; padding: 1px; width: 64px; height: 64px; border-radius: 2px; }
-.me__portrait img { clip-path: none; border-radius: 1px; }
 
 /* cards in shop / recruit results: no ornament */
 .slab { clip-path: none; background: rgba(20, 18, 19, .82); border-radius: 2px; }
@@ -297,3 +295,32 @@ body.is-touch #select .btn--go { position: fixed; z-index: 40; right: max(14px, 
 body.is-touch #select .btn--go[disabled] { opacity: .55; }
 body.is-touch #select:not(.is-on) .btn--go { display: none; }
 body.is-touch .toast { top: auto; bottom: calc(90px + env(safe-area-inset-bottom)); }
+
+/* in-game player panel: portrait, name, rarity and element next to the health bar */
+.me__portrait { position: relative; }
+.me__portrait img.me__el { position: absolute; right: -8px; bottom: 0; width: 26px; height: 26px; clip-path: none; background: none; filter: drop-shadow(0 1px 3px #000); }
+.me__name .me__stars { font-family: var(--sans); font-size: 11px; letter-spacing: -1px; color: #ffd77a; }
+.me__name .me__stars.r6 { color: #ff9a4a; } .me__name .me__stars.r4 { color: #c8b0ff; }
+body.is-touch .me__portrait { display: block; width: 58px; height: 65px; }
+body.is-touch .me { gap: 10px; }
+body.is-touch .me__portrait img.me__el { width: 22px; height: 22px; }
+
+/* type matchups */
+.plate__nm { display: inline-flex; align-items: center; gap: 3px; }
+.plate__el { width: 14px; height: 14px; filter: drop-shadow(0 1px 2px #000); }
+.plate__mu { font-style: normal; font-size: 11px; margin-left: 2px; }
+.plate__mu.is-up { color: #ffd23a; } .plate__mu.is-down { color: #8a93a8; }
+.dmg.is-eff { font-family: var(--sans); font-size: 15px; font-weight: 800; color: #ffd23a; letter-spacing: -.01em; animation-duration: 1.1s; }
+.dmg.is-resist { font-family: var(--sans); font-size: 13px; font-weight: 700; color: #a9b0be; animation-duration: 1.1s; }
+.elchart { display: grid; grid-template-columns: auto repeat(6, 1fr); gap: 3px; font-size: 13px; margin-top: 10px; }
+.elchart > * { display: flex; align-items: center; justify-content: center; gap: 4px; padding: 6px 2px; background: rgba(255, 255, 255, .03); }
+.elchart .hd { background: none; color: var(--bone-dim); font-size: 12px; }
+.elchart img { width: 18px; height: 18px; }
+.elchart .up { background: rgba(255, 196, 58, .18); color: #ffd23a; font-weight: 800; }
+.elchart .dn { background: rgba(120, 130, 150, .14); color: #9aa2b4; }
+.elchart .eq { color: var(--bone-faint); }
+.el-mu { margin-top: 6px; font-size: 12.5px; color: var(--bone-dim); display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; }
+.el-mu b { color: var(--bone); font-weight: 700; }
+.el-mu img { width: 15px; height: 15px; vertical-align: -3px; }
+.el-mu button { margin-left: auto; background: none; border: 1px solid var(--hair); color: var(--bone-dim); font-size: 12px; padding: 3px 8px; }
+.el-mu button:hover { color: var(--bone); border-color: rgba(233, 226, 214, .3); }

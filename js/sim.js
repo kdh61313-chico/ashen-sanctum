@@ -6,6 +6,7 @@ import {
   dirFromAngles, fwdFromYaw, EYE, P_HEIGHT, GRAVITY, clamp,
 } from './physics.js';
 import { BotBrain } from './ai.js';
+import { matchup } from './elements.js';
 
 export const ROUNDS_TO_WIN = 3;
 const PRE_T = 4, LIVE_T = 120, POST_T = 4.5;
@@ -557,6 +558,8 @@ export class Sim {
       if (src.hordeMul) dmg *= src.hordeMul;
       if (src.gMul?.dmg) dmg *= src.gMul.dmg;
       if (src.def.el === 'shadow' && tgt.hp / tgt.maxHp < 0.35) dmg *= 1.15;
+      // type matchup
+      if (src !== tgt && !o.noElem && !o.guarded) { const m = matchup(src.def.el, tgt.def.el); if (m !== 1) { dmg *= m; o.eff = m > 1 ? 1 : -1; } }
     }
     if (tgt.st.vuln) dmg *= 1 + tgt.st.vuln.v;
     if (tgt.st.block && o.from) {
@@ -587,7 +590,7 @@ export class Sim {
       tgt.lastHurtBy = src.id; tgt.lastHurtAt = this.now;
     }
     if (o.onHit) { this.applySt(tgt, o.onHit); if (o.onHit.doom && src) tgt.doom = { at: this.now + o.onHit.doom[0], dmg: o.onHit.doom[1], src: src.id }; }
-    this.ev({ t: 'dmg', id: tgt.id, by: src?.id, a: dmg, sh: absorbed > 0, pos: this.chest(tgt), el: src && !o.dot ? src.def.el : undefined });
+    this.ev({ t: 'dmg', id: tgt.id, by: src?.id, a: dmg, sh: absorbed > 0, pos: this.chest(tgt), el: src && !o.dot ? src.def.el : undefined, eff: o.dot ? undefined : o.eff });
     if (src && src !== tgt) { src.pas?.hit?.(this, src, tgt, dmg, o); if (o.mark) this.addMark(src, tgt, o.mark); }
     tgt.pas?.hurt?.(this, tgt, src, dmg, o);
     if (tgt.st.thorns && src && src !== tgt && !o.thorn && !o.dot) this.damage(tgt, src, dmg * tgt.st.thorns.v, { thorn: true, noElem: true, slot: 'thorns' });

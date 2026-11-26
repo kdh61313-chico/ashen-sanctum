@@ -24,3 +24,19 @@ export const HERO_EL = {
   // nature
   belladonna: 'nature', onyx: 'nature', hark: 'nature', iris: 'nature', grom: 'nature', bark: 'nature', gorm: 'nature', pell: 'nature', koru: 'nature',
 };
+
+// ---- type matchups (Pokémon-style) ----
+// Four elements chase each other in a circle: 화염 → 자연 → 뇌전 → 빙결 → 화염.
+// Fire burns plants, roots ground lightning, lightning shatters ice, ice smothers fire.
+// 암흑 and 신성 are each other's bane: both hit the other hard.
+export const BEATS = { fire: ['nature'], nature: ['storm'], storm: ['frost'], frost: ['fire'], shadow: ['holy'], holy: ['shadow'] };
+export const SUPER = 1.25, RESIST = 0.8, SAME = 0.9;
+export function matchup(a, d) {
+  if (!a || !d) return 1;
+  if (BEATS[a]?.includes(d)) return SUPER;
+  if (a === d) return SAME;
+  if (BEATS[d]?.includes(a) && !BEATS[a]?.includes(d)) return RESIST;
+  return 1;
+}
+export function strongVs(el) { return BEATS[el] || []; }
+export function weakTo(el) { return Object.keys(BEATS).filter(k => BEATS[k].includes(el) && !BEATS[el]?.includes(k)); }

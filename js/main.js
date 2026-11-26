@@ -11,7 +11,7 @@ import { buildWorld } from './world.js';
 import { FX } from './fx.js';
 import { Audio } from './audio.js';
 import { Net, makeCode, cleanCode } from './net.js';
-import { ELEMENTS, EL_ORDER } from './elements.js';
+import { ELEMENTS, EL_ORDER, matchup, strongVs, weakTo } from './elements.js';
 import { GachaShow } from './gacha.js';
 import { NOTES, NOTES_VERSION } from './notes.js';
 import { CHAPTERS, STAGE_MAP, STAGE_TYPES, RAID } from './campaign.js';
@@ -67,7 +67,7 @@ class App {
     this.vmScene = new THREE.Scene();
     this.vmCam = new THREE.PerspectiveCamera(58, 1, 0.01, 8);
     this.vmPass = new RenderPass(this.vmScene, this.vmCam);
-    { const pm = new THREE.PMREMGenerator(r); this.vmScene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; this.vmScene.environmentIntensity = 0.32; pm.dispose(); }
+    { const pm = new THREE.PMREMGenerator(r); this.vmScene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; this.vmScene.environmentIntensity = 0.2; pm.dispose(); }
     this.vmPass.clear = false; this.vmPass.clearDepth = true; this.vmPass.enabled = false;
     this.composer.addPass(this.renderPass); this.composer.addPass(this.vmPass); this.composer.addPass(this.bloom); this.composer.addPass(new OutputPass());
 
@@ -255,6 +255,18 @@ class App {
     $('notes-badge').hidden = this.profile.d.lastPatch === NOTES_VERSION;
   }
 
+  openElChart() {
+    const g = $('elchart-grid');
+    const head = (k) => `<span class="hd"><img src="assets/el-${k}.svg" alt="">${ELEMENTS[k].name}</span>`;
+    let html = '<span class="hd"></span>' + EL_ORDER.map(head).join('');
+    for (const a of EL_ORDER) {
+      html += head(a);
+      for (const d of EL_ORDER) { const m = matchup(a, d); html += m > 1 ? '<span class="up">×1.25</span>' : m < 0.85 ? '<span class="dn">×0.8</span>' : m < 1 ? '<span class="dn">×0.9</span>' : '<span class="eq">—</span>'; }
+    }
+    g.innerHTML = html;
+    $('elchart').hidden = false;
+  }
+
   refreshQuestBadge() {
     const n = this.profile.claimable();
     $('quest-badge').hidden = !n; $('quest-badge').textContent = n;
@@ -399,7 +411,8 @@ class App {
     $('sel-title').textContent = h.title;
     $('sel-role').textContent = ROLES[h.role].name;
     { const E = ELEMENTS[h.el]; const ec = $('sel-el'); ec.innerHTML = `<img src="assets/el-${h.el}.svg" alt="">${E.name}`; ec.style.setProperty('--ec', E.color);
-      $('sel-elbox').innerHTML = `<img src="assets/el-${h.el}.svg" alt=""><div><b style="color:${E.color}">${E.name} 속성</b><p>${E.desc}</p><small>같은 속성 2명 이상이면 공명: ${E.reso}</small></div>`; }
+      const elTag = (k) => `<img src="assets/el-${k}.svg" alt=""><b style="color:${ELEMENTS[k].color}">${ELEMENTS[k].name}</b>`;
+      $('sel-elbox').innerHTML = `<img src="assets/el-${h.el}.svg" alt=""><div><b style="color:${E.color}">${E.name} 속성</b><p>${E.desc}</p><small>같은 속성 2명 이상이면 공명: ${E.reso}</small><div class="el-mu"><span>강함 ${strongVs(h.el).map(elTag).join(' ')}</span><span>약함 ${weakTo(h.el).map(elTag).join(' ')}</span><button type="button" data-elchart>상성표</button></div></div>`; }
     $('sel-stars').innerHTML = `${stars(h.rarity)} <b>${h.rarity}성</b>`; $('sel-stars').className = 'stars stars--' + h.rarity;
     $('select').style.setProperty('--accent', h.color);
     $('sel-quote').textContent = h.quote;
@@ -581,6 +594,9 @@ class App {
     $('btn-settings-close').addEventListener('click', () => { $('settings').hidden = true; });
     $('btn-help').addEventListener('click', () => $('help').hidden = false);
     $('btn-help-close').addEventListener('click', () => $('help').hidden = true);
+    $('btn-help-el').addEventListener('click', () => { $('help').hidden = true; this.openElChart(); });
+    $('btn-elchart-close').addEventListener('click', () => $('elchart').hidden = true);
+    $('sel-elbox').addEventListener('click', (e) => { if (e.target.closest('[data-elchart]')) this.openElChart(); });
     $('btn-resume').addEventListener('click', () => { $('pause').hidden = true; this.lock(); });
     $('btn-pause-settings').addEventListener('click', () => { $('settings').hidden = false; });
     $('btn-pause-hero').addEventListener('click', () => { $('pause').hidden = true; this.openTrainingSwap(); });

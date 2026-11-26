@@ -191,7 +191,7 @@ export const PASSIVES = {
   },
   mariette: {
     name: '꼭두각시', desc: '같은 적을 바늘로 세 번 맞히면 1초 동안 60% 둔화시킨다.',
-    hit(S, p, t, dmg, o) { if (o.slot !== 'lmb') return; S.addMark(p, t, 1, 3); if (S.markCount(p, t) >= 3) { delete t.marks[p.id]; S.addSt(t, 'slow', 1, 0.6); S.ev({ t: 'fx', fx: 'puppet', id: t.id, color: '#ff7ac0' }); } },
+    hit(S, p, t, dmg, o) { if (o.slot !== 'lmb') return; S.addMark(p, t, 1, 3); if (S.markCount(p, t) >= 3) { delete t.marks[p.id]; S.addSt(t, 'slow', 1, 0.6); S.ev({ t: 'fx', fx: 'puppet', id: t.id, pos: [...t.pos], r: 1.2, color: '#ff7ac0' }); } },
   },
   bael: {
     name: '지옥불 갑옷', desc: '4m 안에서 바엘을 때린 적은 불탄다.',

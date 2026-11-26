@@ -44,14 +44,15 @@ function lerpPose(a, b, k, out) {
 class Arm {
   constructor(parent, side, c) {
     this.side = side;
-    const sleeve = M(c.arm || c.cloth || '#3a3030');
-    const fore = M(c.fore || c.arm || c.cloth || '#3a3030');
+    const sm = (m) => { const k = m.clone(); k.flatShading = false; k.needsUpdate = true; return k; };
+    const sleeve = sm(M(c.arm || c.cloth || '#3a3030', { r: 0.85 }));
+    const fore = sm(M(c.fore || c.arm || c.cloth || '#3a3030', { r: 0.8 }));
     const glove = M(c.glove || c.hand || c.skin || '#2a2420', { r: 0.7 });
     const metal = M(c.metal || '#5a5a60', { m: 0.75, r: 0.35 });
-    const cylY = (r0, r1, seg = 9) => { const g = new THREE.CylinderGeometry(r1, r0, 1, seg, 1); g.translate(0, 0.5, 0); return g; };
+    const cylY = (r0, r1, seg = 14) => { const g = new THREE.CylinderGeometry(r1, r0, 1, seg, 1); g.translate(0, 0.5, 0); return g; };
     this.upper = new THREE.Mesh(cylY(0.056, 0.05), sleeve);
     this.fore = new THREE.Mesh(cylY(0.05, 0.038), fore);
-    this.elbow = new THREE.Mesh(new THREE.IcosahedronGeometry(0.052, 1), fore);
+    this.elbow = new THREE.Mesh(new THREE.IcosahedronGeometry(0.052, 2), fore);
     this.bracer = new THREE.Mesh(cylY(0.047, 0.044, 8), metal);
     this.bracerTrim = new THREE.Mesh(new THREE.TorusGeometry(0.046, 0.006, 4, 12), M(c.glow || '#c9a45c', { e: c.glow || '#c9a45c', ei: 0.8 }));
     for (const m of [this.upper, this.fore, this.elbow, this.bracer, this.bracerTrim]) parent.add(m);
@@ -154,8 +155,8 @@ function layoutFor(pose, len, minY, hero, wid = 0) {
     case 'cast': return { kind: 'cast', dur: 0.32 };
     case 'pistol': return { kind: 'pistol', scale: 1.25, rest: P([0.17, -0.21, -0.42], gunQ(-0.2, 0.34, 0)), gripR: V(0, -0.02, -0.06), gripL: V(-0.045, -0.035, -0.085), barAxis: V(0, 0.32, 1), kick: 1.25, dur: 0.16 };
     case 'dualgun': return { kind: 'dualgun', scale: 1.15, rest: P([0.21, -0.21, -0.44], gunQ(-0.2, 0.3, -0.1)), gripR: V(0, -0.02, -0.06), barAxis: V(0, 0.32, 1), kick: 1, dur: 0.16 };
-    case 'rifle': return { kind: 'rifle', scale: 0.82, rest: P([0.16, -0.2, -0.36], gunQ(-0.03, 0.1, 0)), gripR: V(0, -0.03, -0.07), gripL: V(0, 0.45, -0.05), barAxis: V(0, 0.3, 1), barAxisL: V(0, 1, 0), kick: hero.gun === 'long' ? 1.6 : 0.7, dur: 0.16 };
-    case 'heavy': return { kind: 'heavy', scale: 0.8, rest: P([0.21, -0.25, -0.38], gunQ(0.0, 0.12, 0)), gripR: V(0, -0.12, -0.07), gripL: V(0, 0.32, -0.06), barAxis: V(0, 0.3, 1), barAxisL: V(0, 1, 0), kick: 0.45, dur: 0.16 };
+    case 'rifle': return { kind: 'rifle', scale: 0.74, rest: P([0.165, -0.225, -0.42], gunQ(-0.04, 0.08, 0)), gripR: V(0, -0.03, -0.07), gripL: V(0, 0.45, -0.05), barAxis: V(0, 0.3, 1), barAxisL: V(0, 1, 0), kick: hero.gun === 'long' ? 1.6 : 0.7, dur: 0.16 };
+    case 'heavy': return { kind: 'heavy', scale: 0.7, rest: P([0.22, -0.27, -0.44], gunQ(0.0, 0.1, 0)), gripR: V(0, -0.12, -0.07), gripL: V(0, 0.32, -0.06), barAxis: V(0, 0.3, 1), barAxisL: V(0, 1, 0), kick: 0.45, dur: 0.16 };
     case 'armcannon': return { kind: 'armcannon', scale: 0.8, rest: P([0.21, -0.25, -0.3], gunQ(0.04, 0.06, 0)), gripR: V(0, -0.09, 0), barAxis: V(0, 0, 1), kick: 1.1, dur: 0.18 };
     default: return { kind: 'cast', dur: 0.32 };
   }
@@ -224,6 +225,7 @@ export class ViewModel {
     this.lights = new THREE.Group();
     const hemi = new THREE.HemisphereLight('#d8d0c4', '#2a2018', 0.75);
     const key = new THREE.DirectionalLight('#ffe2c0', 2.2); key.position.set(1.2, 2, 0.6);
+    this.hemi = hemi; this.key = key;
     this.rim = new THREE.DirectionalLight('#7fd8ff', 2.2); this.rim.position.set(-1.5, 0.6, -1.4);
     this.flashL = new THREE.PointLight('#ffb050', 0, 1.6, 2);
     this.lights.add(hemi, key, this.rim, this.flashL);
@@ -235,6 +237,16 @@ export class ViewModel {
     this.shells = []; this.trail = null;
     this._pose = { h: V(), q: new THREE.Quaternion() }; this._poseL = { h: V(), q: new THREE.Quaternion() };
     this.release = 9; this.charge = 0;
+    this.carry = 0; this.idleT = 0; this.inspect = 9; this.lastShot = 9; this.shotN = 0;
+  }
+
+  // light the arms like the arena around them, so the weapon sits in the scene
+  setTheme(th) {
+    if (!th) return;
+    const mixc = (a, b, k) => new THREE.Color(a).lerp(new THREE.Color(b), k);
+    this.hemi.color.copy(mixc(th.hemi[0], '#d8d0c4', 0.45)); this.hemi.groundColor.copy(mixc(th.hemi[1], '#2a2018', 0.4)); this.hemi.intensity = 0.8;
+    this.key.color.copy(mixc(th.sun[0], '#ffe2c0', 0.35)); this.key.intensity = 1.6 + Math.min(1, th.sun[1] / 3) * 0.8;
+    this.rim.color.copy(mixc(th.rim[0], this.def?.color || '#ffffff', 0.45)); this.rim.intensity = 1.2 + th.rim[1] * 0.8;
   }
 
   dispose() {
@@ -278,6 +290,21 @@ export class ViewModel {
       const rs = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.02, 0.025), M('#1a1a1e')); rs.position.set(0, 0.04, 0.08); w.add(rs);
       const fs = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.015, 0.02), M(def.color, { e: def.color, ei: 2 })); fs.position.set(0, 0.36, 0.078); w.add(fs);
       const st = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.2, 0.004), M(def.color, { e: def.color, ei: 2.5 })); st.position.set(0.03, 0.2, 0.045); w.add(st);
+    }
+    // first-person only: rails, sights and a magazine on long guns
+    if ((Lk === 'rifle' || Lk === 'heavy') && wR) {
+      const sc = 1 / (this.L.scale || 1);
+      const top = bb.max.z, bot = bb.min.z;
+      const dark = M('#1c1c20', { m: 0.7, r: 0.4 }), gm = M(c.metal || '#5a5a60', { m: 0.85, r: 0.3 });
+      const add2 = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); wR.add(m); return m; };
+      add2(new THREE.BoxGeometry(0.034, len * 0.42, 0.016), dark, 0, bb.min.y + len * 0.34, top + 0.008);
+      for (let i = 0; i < 7; i++) add2(new THREE.BoxGeometry(0.04, 0.012, 0.01), gm, 0, bb.min.y + len * (0.15 + i * 0.055), top + 0.02);
+      add2(new THREE.BoxGeometry(0.03, 0.03, 0.03), dark, 0, bb.min.y + len * 0.2, top + 0.03);
+      add2(new THREE.BoxGeometry(0.008, 0.012, 0.03), M(def.color, { e: def.color, ei: 2.4 }), 0, bb.min.y + len * 0.2, top + 0.05);
+      add2(new THREE.BoxGeometry(0.012, 0.012, 0.035), dark, 0, bb.min.y + len * 0.78, top + 0.022);
+      add2(new THREE.BoxGeometry(0.004, 0.006, 0.012), M(def.color, { e: def.color, ei: 3 }), 0, bb.min.y + len * 0.78, top + 0.045);
+      if (Lk === 'rifle') { const mag = add2(new THREE.BoxGeometry(0.045, 0.07, 0.13), dark, 0, bb.min.y + len * 0.3, bot - 0.05); mag.rotation.x = 0.18; }
+      void sc;
     }
     // magic orbs for casters / free hands
     const needOrb = (Lk === 'cast' || Lk === 'staff' || Lk === 'armcannon' || (Lk === 'sword' && !this.shield) || (Lk === 'knife' && !this.shield));
@@ -354,6 +381,7 @@ export class ViewModel {
     if (slot === 'lmb') {
       this.atk = 0; this.side = -this.side; this.combo = combo;
       if (this.isGun) {
+        this.lastShot = 0; this.shotN++; this.inspect = 9; this.idleT = 0;
         const k = (this.L.kick || 1) * Math.min(1, Math.max(0.35, (this.def.abilities.lmb.cd || 0.3) / 0.35));
         this.recoil.v.add(V((Math.random() - 0.5) * 0.15 * k, 0.25 * k, 1.1 * k));
         this.recoilR.v.add(V(5.5 * k, (Math.random() - 0.5) * 1.5 * k, (Math.random() - 0.5) * 2 * k));
@@ -413,7 +441,7 @@ export class ViewModel {
     if (!this.armR) return;
     if (this.hs > 0) this.hs -= dtRaw;
     const dt = this.hs > 0 ? dtRaw * 0.12 : dtRaw;
-    this.t += dt; this.atk += dt; this.cast += dt; this.release += dt;
+    this.t += dt; this.atk += dt; this.cast += dt; this.release += dt; this.lastShot += dt; this.inspect += dt;
     if (s.alive && !this.alive) this.equip = 0;
     this.alive = s.alive !== false;
     this.equip = Math.min(1, this.equip + dt / 0.5);
@@ -490,6 +518,50 @@ export class ViewModel {
       tgt.q.multiply(_q.setFromEuler(new THREE.Euler(rr.x * 0.03, rr.y * 0.02, rr.z * 0.02)));
       if (Lk === 'heavy') { const j = this.atk < 0.2 ? 0.004 : 0; pose.h.x += (Math.random() - 0.5) * j; pose.h.y += (Math.random() - 0.5) * j; }
       if (this.barrel) { this.barrel.userData.bspin = Math.max(0, (this.barrel.userData.bspin || 0) - dt * 30); this.barrel.rotation.y += this.barrel.userData.bspin * dt; }
+    }
+    // guns: carry, draw, inspect and fire feel
+    if (this.isGun && rest) {
+      const busy = this.reloadT > 0 || this.cast < 0.55 || this.lastShot < 0.45 || s.charge > 0;
+      // running: cant the weapon in and down (tactical carry); snaps back the moment you fire
+      const wantCarry = !busy && s.onGround && mv > 0.55 ? (mv - 0.55) / 0.45 : 0;
+      this.carry += (wantCarry - this.carry) * Math.min(1, dt * (wantCarry > this.carry ? 5 : 14));
+      const cv = smooth(this.carry);
+      const tg = [pose]; if (poseL) tg.push(poseL);
+      for (const p of tg) {
+        const sd = p === poseL ? -1 : 1;
+        p.h.x -= sd * 0.04 * cv; p.h.y -= 0.035 * cv; p.h.z += 0.01 * cv;
+        p.q.multiply(_q.setFromEuler(new THREE.Euler(0.32 * cv, sd * 0.22 * cv, sd * 0.5 * cv)));
+        // step rhythm: the gun rocks with each footfall
+        p.q.multiply(_q.setFromEuler(new THREE.Euler(Math.abs(Math.cos(this.bob)) * 0.05 * mv, 0, Math.sin(this.bob) * 0.06 * mv)));
+        // strafing leans the weapon
+        p.q.multiply(_q.setFromEuler(new THREE.Euler(0, 0, -strafe * 0.09)));
+      }
+      // draw: pistols twirl into the hand, long guns swing up from the hip
+      if (eq < 1) {
+        const r = 1 - eq;
+        for (const p of tg) {
+          const sd = p === poseL ? -1 : 1;
+          if (Lk === 'pistol' || Lk === 'dualgun') p.q.multiply(_q.setFromEuler(new THREE.Euler(-Math.PI * 2 * smooth(r), 0, sd * 0.3 * r)));
+          else { p.q.multiply(_q.setFromEuler(new THREE.Euler(0.9 * r, sd * 0.5 * r, sd * 0.9 * r))); p.h.x += sd * 0.08 * r; }
+        }
+      }
+      // idle: after a while, turn the weapon over and look at it
+      this.idleT = (!busy && mv < 0.05 && s.onGround) ? this.idleT + dt : 0;
+      if (this.idleT > 7 && this.inspect > 3) { this.inspect = 0; this.idleT = 0; }
+      if (this.inspect < 2.4) {
+        const k = this.inspect / 2.4, e = smooth(k / 0.25) * (1 - smooth((k - 0.75) / 0.25));
+        const turn = Math.sin(k * Math.PI * 2) * 0.35;
+        const long = Lk === 'rifle' || Lk === 'heavy' || Lk === 'armcannon';
+        for (const p of tg) {
+          const sd = p === poseL ? -1 : 1;
+          if (long) { p.h.x -= sd * 0.03 * e; p.h.y += 0.03 * e; p.h.z -= 0.02 * e; p.q.multiply(_q.setFromEuler(new THREE.Euler(0.12 * e, sd * turn * 0.25 * e, sd * -0.75 * e))); }
+          else { p.h.x -= sd * 0.07 * e; p.h.y += 0.04 * e; p.h.z -= 0.03 * e; p.q.multiply(_q.setFromEuler(new THREE.Euler(0.2 * e, sd * (0.35 + turn * 0.6) * e, sd * -1.0 * e))); }
+        }
+      }
+      // sustained fire walks the muzzle up a touch and settles back
+      const climb = Math.min(1, this.shotN * 0.12) * Math.max(0, 1 - this.lastShot / 0.6);
+      if (this.lastShot > 0.6) this.shotN = 0;
+      pose.q.multiply(_q.setFromEuler(new THREE.Euler(0.05 * climb, 0, 0)));
     }
     // reload
     let reloadL = 0, reloadPos = null;

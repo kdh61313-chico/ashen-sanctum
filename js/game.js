@@ -5,7 +5,7 @@ import { buildHero, animateHero, triggerAttack, triggerHurt, triggerCheer, trigg
 import { Trail } from './fx.js';
 import { ViewModel } from './viewmodel.js';
 import { icon } from './icons.js';
-import { ELEMENTS } from './elements.js';
+import { ELEMENTS, matchup } from './elements.js';
 import { effLmb } from './heroes.js';
 import { moveCharacter, applyMoveAbility, MOVE_KINDS, EYE, losClear, fwdFromYaw, dirFromAngles, raycast } from './physics.js';
 
@@ -111,6 +111,7 @@ export class Game {
   setLocalHero(heroId) {
     this.hero = HERO_MAP[heroId];
     this.vm.setHero(this.hero);
+    this.vm.setTheme?.(this.app?.world?.theme);
     this.cds = { lmb: 0, q: 0, e: 0 };
     this.ammo = this.hero.abilities.lmb.ammo || 0; this.reloadT = 0;
     this.buildHud();
@@ -122,6 +123,7 @@ export class Game {
     const h = this.hero, app = this.app;
     $('me-portrait').src = app.portraits[h.id] || '';
     $('me-name').textContent = h.name;
+    { const st = $('me-stars'); if (st) { st.textContent = '★'.repeat(h.rarity || 4); st.className = 'me__stars r' + (h.rarity || 4); } const ei = $('me-el'); if (ei) { ei.hidden = !h.el; if (h.el) ei.src = `assets/el-${h.el}.svg`; } }
     const ab = $('abilities'); ab.innerHTML = '';
     this.abEls = {};
     for (const s of SLOTS) {
@@ -382,7 +384,7 @@ export class Game {
           else if (e.hit) this.soundAt('hit');
           break;
         }
-        this.fx.handle(e, this.fxCtx);
+        try { this.fx.handle(e, this.fxCtx); } catch (err) { if (!this._fxErr) { this._fxErr = 1; console.warn('fx', e.fx, err); } }
         const p = e.pos || e.to;
         if (e.fx === 'explode') this.soundAt('boom', p);
         else if (e.fx === 'burstZone') this.soundAt(e.look === 'meteor' || e.look === 'collapse' ? 'bigboom' : (e.look === 'roots' ? 'poison' : 'boom'), p);
@@ -395,7 +397,8 @@ export class Game {
       }
       case 'dmg':
         if (e.by === me && e.id !== me) {
-          this.floatNum(e.pos, e.a, (e.a >= 70 ? 'is-big' : '') + (e.sh ? ' is-shield' : ''), e.el ? ELEMENTS[e.el]?.color : null);
+          this.floatNum(e.pos, e.a, (e.a >= 70 || e.eff > 0 ? 'is-big' : '') + (e.sh ? ' is-shield' : ''), e.el ? ELEMENTS[e.el]?.color : null);
+          if (e.eff && this.clock - (this._effT || -9) > 0.6) { this._effT = this.clock; this.floatNum([e.pos[0], e.pos[1] + 0.45, e.pos[2]], e.eff > 0 ? '효과가 굉장했다!' : '효과가 별로인 듯하다…', e.eff > 0 ? 'is-eff' : 'is-resist'); }
           this.hitmark(e.a >= 70 ? 'crit' : '');
           this.audio.play('hitmark');
         }
@@ -699,7 +702,10 @@ export class Game {
         this.scene.add(P.root);
         const plate = document.createElement('div');
         plate.className = 'plate ' + (r.team === myTeam ? 'plate--ally' : 'plate--enemy');
-        plate.innerHTML = `<div class="plate__st"></div><div>${esc(r.name)}</div><div class="plate__bar"><i></i><b></b></div>`;
+        const hel = HERO_MAP[r.hero]?.el, mine = this.hero?.el;
+        const mu = r.team !== myTeam && hel && mine ? matchup(mine, hel) : 1;
+        const tag = mu > 1 ? '<em class="plate__mu is-up" title="내 공격이 잘 들어요">▲</em>' : mu < 1 && mu !== 0.9 ? '<em class="plate__mu is-down" title="내 공격이 덜 들어요">▼</em>' : '';
+        plate.innerHTML = `<div class="plate__st"></div><div class="plate__nm">${hel ? `<img class="plate__el" src="assets/el-${hel}.svg" alt="">` : ''}${esc(r.name)}${tag}</div><div class="plate__bar"><i></i><b></b></div>`;
         this.plates.appendChild(plate);
         en = { P, plate, rpos: [...v.pos], speed: 0, vel: [0, 0, 0], snap: false, vis: true, hurt: 0, team: r.team, statusMesh: {}, trail: P.isMelee && P.weaponR?.tip ? new Trail(this.scene, HERO_MAP[r.hero]?.color || '#fff') : null };
         this.ents.set(id, en);
