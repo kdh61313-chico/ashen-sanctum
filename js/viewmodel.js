@@ -147,7 +147,7 @@ function layoutFor(pose, len, minY, hero, wid = 0) {
       if (len > 2.0) return { kind: 'polearm', scale: 0.72, rest: P([0.2, -0.3, -0.44], [-1.3, 0.2, 0.14]), gripR: V(0, 0, 0), gripL: V(0, 0.42, 0), dur: 0.4 };
       if (len < 0.5) return { kind: 'knife', scale: wid > 0.17 ? 0.62 : 1.1, rest: P([0.23, -0.26, wid > 0.17 ? -0.48 : -0.4], [-1.05, 0.3, 0.25]), gripR: V(0, 0.02, 0), dur: 0.3 };
       return { kind: 'sword', scale: Math.min(0.9, 1.05 / Math.max(0.8, len)), rest: P([0.24, -0.28, -0.42], [-0.35, 0.45, -0.28]), gripR: V(0, 0.02, 0), dur: 0.38 };
-    case 'dual': return len > 0.6 ? { kind: 'dual', scale: 0.6, rest: P([0.27, -0.3, -0.42], [-0.75, 0.5, -0.2]), gripR: V(0, 0.05, 0), dur: 0.27 } : { kind: 'dual', scale: 1.05, rest: P([0.24, -0.27, -0.42], [-1.05, 0.25, 0.28]), gripR: V(0, 0.02, 0), dur: 0.27 };
+    case 'dual': return len > 0.6 ? { kind: 'dual', scale: 0.6, rest: P([0.27, -0.3, -0.42], [-0.75, 0.5, -0.2]), gripR: V(0, 0.05, 0), dur: 0.27 } : { kind: 'dual', scale: wid > 0.3 ? 0.6 : 1.05, rest: P([0.25, -0.27, -0.44], [-1.05, 0.25, 0.28]), gripR: V(0, 0.02, 0), dur: 0.27 };
     case 'claws': return { kind: 'claws', gauntlet: wid > 0.2, scale: wid > 0.2 ? 0.42 : 1.15, rest: P([0.22, -0.27, -0.38], [-1.4, 0.2, 0.2]), gripR: V(0, 0, 0), dur: 0.25 };
     case 'staff': return { kind: 'staff', scale: 0.8, rest: P([0.27, -0.34, -0.5], [-0.26, 0.25, 0.14]), gripR: V(0, 0.42, 0), dur: 0.34 };
     case 'bow': return { kind: 'bow', scale: 0.62, dur: 0.3 };
@@ -354,7 +354,7 @@ export class ViewModel {
     if (slot === 'lmb') {
       this.atk = 0; this.side = -this.side; this.combo = combo;
       if (this.isGun) {
-        const k = this.L.kick || 1;
+        const k = (this.L.kick || 1) * Math.min(1, Math.max(0.35, (this.def.abilities.lmb.cd || 0.3) / 0.35));
         this.recoil.v.add(V((Math.random() - 0.5) * 0.15 * k, 0.25 * k, 1.1 * k));
         this.recoilR.v.add(V(5.5 * k, (Math.random() - 0.5) * 1.5 * k, (Math.random() - 0.5) * 2 * k));
         const f = this.flashes[(this.L.kind === 'dualgun' && this.side < 0 && this.flashes[1]) ? 1 : 0];
@@ -427,6 +427,7 @@ export class ViewModel {
     if (!this.wasAir && air && s.vy > 2) this.land.v.y += 0.6;
     this.wasAir = air; this.lastVy = s.vy || 0;
     this.recoil.step(dt); this.recoilR.step(dt); this.land.step(dt); this.jolt.step(dt);
+    this.recoil.x.clampScalar(-1.2, 1.2); this.recoilR.x.clampScalar(-1.4, 1.4);
     const swayK = Math.min(1, dt * 9);
     this.sway.x += (-(s.dYaw || 0) * 0.9 - this.sway.x) * swayK;
     this.sway.y += ((s.dPitch || 0) * 0.9 - this.sway.y) * swayK;
@@ -634,13 +635,13 @@ export class ViewModel {
       rr.visible = true;
       const k = clamp01(castK);
       const grow = ease(k / 0.35), fade = 1 - smooth((k - 0.55) / 0.45);
-      if (isUlt) { rr.position.set(0, -0.02, -0.75); rr.scale.setScalar(0.65 * grow); }
+      if (isUlt) { rr.position.set(0, -0.06, -0.8); rr.scale.setScalar(0.5 * grow); }
       else {
         const hp = (this.armL.mode === 'open' || Lk === 'cast') ? this.armL.hand.position : V(-0.14, -0.13, -0.42);
-        rr.position.set(hp.x + 0.02, hp.y + 0.05, hp.z - 0.12); rr.scale.setScalar(0.22 * grow);
+        rr.position.set(hp.x + 0.02, hp.y + 0.04, hp.z - 0.1); rr.scale.setScalar(0.15 * grow);
       }
       rr.rotation.set(0, 0, this.t * (isUlt ? 1.6 : 3));
-      rr.material.opacity = 0.95 * fade;
+      rr.material.opacity = (isUlt ? 0.75 : 0.7) * fade;
     } else { this.rune.visible = false; this.ultRune.visible = false; }
     for (const f of this.flashes) {
       f.t += dtRaw;

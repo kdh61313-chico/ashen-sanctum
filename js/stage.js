@@ -165,3 +165,33 @@ export function renderPortraits(heroes, size = 160) {
   r.forceContextLoss?.();
   return out;
 }
+
+// Full-body splash art for the recruit reveal (transparent background, cached).
+const splashCache = new Map();
+let splashR = null;
+export function renderSplash(def, w = 520, h = 760) {
+  if (splashCache.has(def.id)) return splashCache.get(def.id);
+  if (!splashR) { splashR = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }); splashR.toneMapping = THREE.ACESFilmicToneMapping; splashR.outputColorSpace = THREE.SRGBColorSpace; }
+  const r = splashR; r.setSize(w, h); r.setClearColor(0x000000, 0);
+  const s = new THREE.Scene();
+  s.add(new THREE.HemisphereLight('#c8c0e8', '#3a2a24', 1.5));
+  const k = new THREE.DirectionalLight('#ffe8d0', 3.2); k.position.set(2.5, 3, 4); s.add(k);
+  const rim = new THREE.DirectionalLight(def.color, 7); rim.position.set(-3, 2.5, -2.5); s.add(rim);
+  const rim2 = new THREE.DirectionalLight(def.color, 3); rim2.position.set(3, 1, -3); s.add(rim2);
+  const P = buildHero(def);
+  for (let i = 0; i < 4; i++) animateHero(P, { speed: 0, onGround: true, alive: true, t: 0.6 + i * 0.016 }, 0.016);
+  s.add(P.root);
+  P.root.rotation.y = 0.45;
+  P.root.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(P.root);
+  const c = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
+  const cam = new THREE.PerspectiveCamera(26, w / h, 0.05, 40);
+  const dist = (Math.max(size.y * 1.08, size.x * h / w) / 2) / Math.tan(13 * Math.PI / 180);
+  cam.position.set(c.x + dist * 0.12, c.y + size.y * 0.06, c.z + dist);
+  cam.lookAt(c.x, c.y, c.z);
+  r.render(s, cam);
+  const url = r.domElement.toDataURL('image/png');
+  splashCache.set(def.id, url);
+  P.root.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+  return url;
+}

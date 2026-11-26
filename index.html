@@ -51,9 +51,10 @@
     <p class="home__line" id="home-line"></p>
   </div>
   <nav class="home__menu">
-    <button class="slab slab--battle" id="tile-battle"><span class="slab__k">전투</span><span class="slab__s">AI 대전 · 온라인 팀전 · 훈련장</span></button>
+    <button class="slab slab--battle" id="tile-battle"><span class="slab__k">전투</span><span class="slab__s">AI 대전 · 심연 토벌 · 온라인 · 훈련장</span></button>
     <div class="battle-sub" id="battle-sub" hidden>
       <button class="btn btn--ember" id="btn-ai"><span class="btn__k">AI 대전</span><span class="btn__s">3대3 · 먼저 3라운드</span></button>
+      <button class="btn btn--void" id="btn-horde"><span class="btn__k">심연 토벌</span><span class="btn__s" id="horde-sub">끝없는 웨이브 생존</span></button>
       <button class="btn btn--soul" id="btn-online"><span class="btn__k">온라인 팀전</span><span class="btn__s">방 코드로 친구와 대전</span></button>
       <button class="btn btn--ghost" id="btn-training"><span class="btn__k">훈련장</span><span class="btn__s">허수아비로 스킬 연습</span></button>
     </div>
@@ -61,6 +62,10 @@
     <div class="slab-row">
       <button class="slab slab--sm" id="tile-roster"><span class="slab__k">영웅</span><span class="slab__s" id="tile-roster-sub">0 / 40</span></button>
       <button class="slab slab--sm" id="tile-shop"><span class="slab__k">상점</span><span class="slab__s">증표 교환</span></button>
+    </div>
+    <div class="slab-row">
+      <button class="slab slab--sm" id="tile-quests"><span class="slab__k">임무</span><span class="slab__s" id="tile-quests-sub">일일 · 주간 · 업적</span><b class="badge" id="quest-badge" hidden>0</b></button>
+      <button class="slab slab--sm" id="tile-notes"><span class="slab__k">소식</span><span class="slab__s">패치 노트</span><b class="badge badge--new" id="notes-badge" hidden>N</b></button>
     </div>
   </nav>
   <div class="home__assist" id="home-assist"></div>
@@ -75,11 +80,13 @@
       <span id="sel-stars" class="stars"></span>
       <span id="sel-title" class="nameplate-v__title">혈맹 기사</span>
       <span id="sel-role" class="role-chip">수호자</span>
+      <span id="sel-el" class="el-chip"></span>
     </div>
   </div>
 
   <aside class="dossier">
     <blockquote id="sel-quote" class="dossier__quote"></blockquote>
+    <div class="elbox" id="sel-elbox"></div>
     <dl class="stats" id="sel-stats"></dl>
     <ol class="skills" id="sel-skills"></ol>
   </aside>
@@ -88,6 +95,7 @@
 
   <footer class="roster-bar">
     <nav class="roles" id="role-tabs"></nav>
+    <nav class="roles roles--el" id="el-tabs"></nav>
     <div class="roster" id="roster"></div>
   </footer>
 
@@ -139,11 +147,29 @@
   </div>
 </section>
 
-<section id="pullres" class="pullres" hidden>
-  <div class="pullres__flash" id="pull-flash"></div>
-  <div class="pullres__cards" id="pull-cards"></div>
-  <button class="btn btn--ghost pullres__btn" id="btn-pull-ok"><span class="btn__k">확인</span></button>
-  <button class="pullres__skip" id="btn-pull-skip">건너뛰기</button>
+<section id="pullres" class="gacha" hidden>
+  <div class="gacha__bg"></div>
+  <div class="gacha__rays"></div>
+  <div class="gacha__seal">
+    <svg viewBox="0 0 200 200"><g fill="none" stroke="currentColor"><circle cx="100" cy="100" r="92" stroke-width="2"/><circle cx="100" cy="100" r="80" stroke-width="1" stroke-dasharray="3 5"/><path d="M100 14 L174 143 L26 143Z" stroke-width="2"/><path d="M100 186 L26 57 L174 57Z" stroke-width="2"/><circle cx="100" cy="100" r="38" stroke-width="3"/></g><path d="M100 70 L116 100 L100 130 L84 100Z" fill="currentColor"/></svg>
+    <i class="gacha__crack"></i>
+  </div>
+  <div class="gacha__flash" id="pull-flash"></div>
+  <div class="gacha__cards" id="pull-cards"></div>
+  <div class="gacha__reveal" id="pull-reveal" hidden></div>
+  <p class="gacha__hint" id="gacha-hint"></p>
+  <button class="btn btn--ghost gacha__ok" id="btn-pull-ok" hidden><span class="btn__k">확인</span></button>
+  <button class="gacha__skip" id="btn-pull-skip">건너뛰기 ››</button>
+</section>
+
+<!-- ============ QUESTS ============ -->
+<section id="quests" class="screen">
+  <div class="quests">
+    <div class="quests__head"><h2>임무</h2><p>임무를 마치고 보상을 받아 가세요. 일일 임무는 매일, 주간 임무는 매주 월요일에 바뀌어요.</p></div>
+    <nav class="qtabs" id="qtabs"><button data-t="daily" class="is-on">일일</button><button data-t="weekly">주간</button><button data-t="ach">업적</button></nav>
+    <div class="qbonus" id="qbonus"></div>
+    <ul class="qlist" id="qlist"></ul>
+  </div>
 </section>
 
 <!-- ============ SHOP ============ -->
@@ -178,7 +204,22 @@
     <label class="field field--range"><span>시야각</span><input type="range" id="set-fov" min="70" max="110" step="1"><output id="out-fov"></output></label>
     <label class="field field--range"><span>음량</span><input type="range" id="set-vol" min="0" max="1" step="0.05"><output id="out-vol"></output></label>
     <div class="field"><span>그래픽</span><div class="seg seg--sm" id="set-q"><button data-q="low">낮음</button><button data-q="medium">보통</button><button data-q="high">높음</button></div></div>
+    <div class="savebox">
+      <h3>게임 데이터</h3>
+      <p>진행 상황은 이 브라우저에 자동 저장되고, 업데이트해도 지워지지 않아요. 다른 기기로 옮기거나 혹시 모를 상황에 대비하려면 저장 코드를 복사해 두세요.</p>
+      <div class="savebox__row"><button class="btn btn--ghost btn--sm" id="btn-export"><span class="btn__k">저장 코드 복사</span></button><button class="btn btn--ghost btn--sm" id="btn-import"><span class="btn__k">저장 코드 불러오기</span></button></div>
+      <textarea id="save-code" rows="2" placeholder="ASH3. 으로 시작하는 저장 코드" hidden></textarea>
+      <p class="savebox__note" id="save-note"></p>
+    </div>
     <button class="modal__close" id="btn-settings-close" aria-label="닫기">✕</button>
+  </div>
+</section>
+
+<section id="notes" class="modal" hidden>
+  <div class="modal__card modal__card--wide notes">
+    <h2 class="modal__title">패치 노트</h2>
+    <div class="notes__body" id="notes-body"></div>
+    <button class="modal__close" id="btn-notes-close" aria-label="닫기">✕</button>
   </div>
 </section>
 

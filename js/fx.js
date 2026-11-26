@@ -72,6 +72,33 @@ export const LOOK = {
   fireground: { c: '#ff5a1a', c2: '#ffd27a' },
   icepath: { c: '#a8e8ff', c2: '#ffffff' },
   decoy: { c: '#ff9ce8', c2: '#ffffff' },
+  chakram: { c: '#ff8a3a', c2: '#fff0c8', s: 0.32, spin: true, trail: 'fire' },
+  rivet: { c: '#ffb84a', c2: '#ffffff', s: 0.06, stretch: 0.5 },
+  sunbolt: { c: '#ffd86a', c2: '#ffffff', s: 0.26, trail: 'holy' },
+  windarrow: { c: '#8fe0c8', c2: '#ffffff', s: 0.1, stretch: 1.0, trail: 'wind' },
+  markarrow: { c: '#ffe08a', c2: '#ffffff', s: 0.14, stretch: 1.3, trail: 'holy' },
+  doom: { c: '#9a5cff', c2: '#ffffff', s: 0.3, trail: 'void' },
+  bees: { c: '#ffc83a', c2: '#fff6c8', s: 0.3, trail: 'bees' },
+  water: { c: '#5ad8e8', c2: '#e8ffff', s: 0.26, trail: 'water' },
+  sunray: { c: '#ffd84a', c2: '#ffffff', s: 0.07, stretch: 0.8 },
+  bolt: { c: '#d8c8a8', c2: '#ffffff', s: 0.08, stretch: 1.1 },
+  net: { c: '#c8b890', c2: '#ffffff', s: 0.5, spin: true },
+  holyhammer: { c: '#ffe08a', c2: '#ffffff', s: 0.45, spin: true, trail: 'holy' },
+  lightningorb: { c: '#9fb0ff', c2: '#ffffff', s: 0.25, trail: 'spark' },
+  slashline: { c: '#a8c0ff', c2: '#ffffff' },
+  icespike: { c: '#bfe8ff', c2: '#ffffff' },
+  vine: { c: '#8acd32', c2: '#e0ffb0' },
+  icewall: { c: '#9fe0ff', c2: '#ffffff' },
+  turret: { c: '#ffb84a', c2: '#ffffff' },
+  sunturret: { c: '#ffd84a', c2: '#ffffff' },
+  totem: { c: '#8acd32', c2: '#e0ffb0' },
+  swamp: { c: '#6a9a20', c2: '#c8ff7a' },
+  honey: { c: '#ffb020', c2: '#fff0b0' },
+  swarm: { c: '#ffc83a', c2: '#ffffff' },
+  starmeteor: { c: '#c8b8ff', c2: '#ffffff' },
+  prison: { c: '#b07cff', c2: '#f0e0ff' },
+  nightfall: { c: '#6a3ab0', c2: '#e0c8ff' },
+  tide: { c: '#5ad8e8', c2: '#e8ffff' },
 };
 let _runeTex = null;
 export function runeTex() {
@@ -493,6 +520,10 @@ export class FX {
       case 'void': this.P.emit(p, { n: 2, c: '#3a0a8a', c2: '#c8a0ff', sp: 0.5, s: 0.4, life: 0.5 }); break;
       case 'star': this.P.emit(p, { n: 1, c: '#7a9aff', c2: '#ffffff', sp: 0.5, s: 0.14, life: 0.6 }); break;
       case 'spark': this.P.emit(p, { n: 2, c: '#5fb8ff', c2: '#ffffff', sp: 1.5, s: 0.1, life: 0.25 }); break;
+      case 'holy': this.P.emit(p, { n: 1, c: '#ffc83a', c2: '#ffffff', sp: 0.4, s: 0.16, life: 0.5 }); break;
+      case 'wind': this.P.emit(p, { n: 1, c: '#5ac0a8', c2: '#ffffff', sp: 0.8, s: 0.08, life: 0.3 }); break;
+      case 'bees': this.P.emit([p[0] + (Math.random() - 0.5) * 0.5, p[1] + (Math.random() - 0.5) * 0.5, p[2] + (Math.random() - 0.5) * 0.5], { n: 2, c: '#ffb020', c2: '#ffffff', sp: 2, s: 0.07, life: 0.35 }); break;
+      case 'water': this.P.emit(p, { n: 2, c: '#1a9ab0', c2: '#e8ffff', sp: 0.5, s: 0.14, life: 0.4, g: 4 }); break;
     }
   }
 
@@ -560,7 +591,7 @@ export class FX {
         v = { g: new THREE.Group(), look: z.look, acc: 0 };
         const col = z.look === 'trap' ? (friendly ? '#9fe8ff' : '#ff6a6a') : L.c;
         if (z.w) {
-          const box = new THREE.Mesh(new THREE.BoxGeometry(z.w, z.h || 2.5, Math.max(0.3, z.d)), addMat(col, z.look === 'runewall' ? 0.3 : 0.07));
+          const box = z.look === 'icewall' ? new THREE.Mesh(new THREE.BoxGeometry(z.w, z.h || 2.5, Math.max(0.3, z.d)), new THREE.MeshStandardMaterial({ color: '#cfefff', transparent: true, opacity: 0.75, emissive: '#5ac8ff', emissiveIntensity: 0.35, roughness: 0.1, metalness: 0.1, flatShading: true })) : new THREE.Mesh(new THREE.BoxGeometry(z.w, z.h || 2.5, Math.max(0.3, z.d)), addMat(col, z.look === 'runewall' ? 0.3 : 0.07));
           box.position.y = (z.h || 2.5) / 2; v.g.add(box); v.box = box;
           if (z.look === 'runewall') {
             const edge = new THREE.Mesh(new THREE.BoxGeometry(z.w, 0.08, z.d + 0.05), addMat('#e0f7ff', 0.9)); edge.position.y = z.h || 3; v.g.add(edge);
@@ -605,6 +636,26 @@ export class FX {
           if (look === 'icepath') {
             for (let i = 0; i < 5; i++) { const sh = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.6 + Math.random() * 0.5, 4), new THREE.MeshStandardMaterial({ color: '#cfefff', emissive: '#5ac8ff', emissiveIntensity: 0.7, transparent: true, opacity: 0.85, flatShading: true })); const a = Math.random() * 6.28, d = Math.random() * z.r * 0.8; sh.position.set(Math.cos(a) * d, 0.2, Math.sin(a) * d); sh.rotation.set((Math.random() - 0.5) * 0.8, 0, (Math.random() - 0.5) * 0.8); v.g.add(sh); }
           }
+          if (look === 'turret' || look === 'sunturret' || look === 'totem') {
+            const metal = new THREE.MeshStandardMaterial({ color: look === 'totem' ? '#4a3a22' : '#5a4a3a', metalness: look === 'totem' ? 0.1 : 0.8, roughness: 0.4 });
+            const base = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.5, 0.5, 8), metal); base.position.y = 0.25; v.g.add(base);
+            if (look === 'totem') {
+              for (let i = 0; i < 3; i++) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.42 - i * 0.06, 0.4, 0.42 - i * 0.06), metal); b.position.y = 0.7 + i * 0.4; b.rotation.y = i * 0.4; v.g.add(b); }
+              const eye = new THREE.Mesh(this.sphere, addMat(col, 1)); eye.scale.setScalar(0.1); eye.position.set(0, 1.5, 0.2); v.g.add(eye);
+              v.turretHead = null;
+            } else {
+              const head = new THREE.Group(); head.position.y = 1.0; v.g.add(head);
+              const body = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.45), metal); head.add(body);
+              const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.6, 8), metal); bar.rotation.x = Math.PI / 2; bar.position.set(0, 0.05, -0.4); head.add(bar);
+              const lens = new THREE.Mesh(this.sphere, addMat(col, 1)); lens.scale.setScalar(0.07); lens.position.set(0, 0.2, -0.1); head.add(lens);
+              const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.6, 6), metal); pole.position.y = 0.6; v.g.add(pole);
+              if (z.r > 1) head.scale.setScalar(1.5);
+              v.turretHead = head;
+            }
+          }
+          if (look === 'swarm') { v.bees = []; for (let i = 0; i < 18; i++) { const b = new THREE.Mesh(this.sphere, addMat('#ffc83a', 1)); b.scale.set(0.06, 0.05, 0.08); v.g.add(b); v.bees.push(b); } }
+          if (look === 'prison') { for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3.2, 5), new THREE.MeshStandardMaterial({ color: '#3a3440', metalness: 0.8, roughness: 0.4, emissive: '#6a3ab0', emissiveIntensity: 0.4 })); bar.position.set(Math.cos(a) * z.r, 1.6, Math.sin(a) * z.r); v.g.add(bar); } }
+          if (look === 'starmeteor') { const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(1.0, 0), new THREE.MeshStandardMaterial({ color: '#2a2440', emissive: '#c8b8ff', emissiveIntensity: 1.4, flatShading: true })); v.g.add(rock); v.rock = rock; }
           if (look === 'trap' || look === 'mine') {
             const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.5, 0.08, 8), new THREE.MeshStandardMaterial({ color: '#3a3a40', metalness: 0.8, roughness: 0.35 })); plate.position.y = 0.04; v.g.add(plate);
             const led = new THREE.Mesh(this.sphere, addMat(col, 1)); led.scale.setScalar(0.07); led.position.y = 0.12; v.g.add(led); v.led = led;
@@ -619,13 +670,15 @@ export class FX {
       if (v.ring) v.ring.rotation.z += dt * 0.6;
       if (v.dec) { v.dec.rotation.y += dt * 0.5; v.dec.material.opacity = 0.45 + Math.sin(this.time * 3 + z.id) * 0.1; }
       if (v.swirl) v.swirl.rotation.z += dt * 0.8;
+      if (v.turretHead) v.turretHead.rotation.y += ((z.yaw || 0) - v.turretHead.rotation.y) * Math.min(1, dt * 12);
+      if (v.bees) v.bees.forEach((b, i) => { const a = this.time * (2 + (i % 5) * 0.4) + i; b.position.set(Math.cos(a) * z.r * (0.3 + (i % 4) * 0.18), 0.6 + Math.sin(this.time * 4 + i) * 0.5 + (i % 3) * 0.4, Math.sin(a * 1.1) * z.r * (0.3 + (i % 4) * 0.18)); });
       if (v.blades) v.blades.forEach((bl, i) => { bl.rotation.z = this.time * 9 + i * 2.1; });
       if (v.smoke) for (const sp of v.smoke) { sp.material.opacity = Math.min(0.75, z.t * 1.5) * Math.min(1, Math.max(0, (z.dur + z.delay - z.t) * 1.2)); sp.material.rotation += sp.userData.rot * dt; sp.position.y += dt * 0.05; }
       if (v.led) v.led.material.opacity = (Math.sin(this.time * (z.look === 'mine' ? 10 : 4)) > 0 ? 1 : 0.15) * (z.t > z.delay ? 1 : 0.4);
       if (v.ghost) { v.ghost.rotation.y = z.yaw; const kk = Math.min(1, z.t / Math.max(0.01, z.delay)); v.fres.uniforms.op.value = 0.6 + Math.sin(this.time * (8 + kk * 20)) * 0.3; v.ghost.scale.set(1 + kk * 0.15, 1, 0.75 + kk * 0.1); }
       if (v.glow) v.glow.material.opacity = (z.look === 'icepath' ? 0.4 : 0.6) * Math.min(1, Math.max(0, (z.dur + z.delay - z.t) * 1.5));
       if (v.beam) v.beam.material.opacity = 0.2 + Math.sin(this.time * 4) * 0.08;
-      if (v.rock) { const kk = Math.min(1, z.t / Math.max(0.01, z.delay)); v.rock.visible = z.t < z.delay; v.rock.position.set(6 * (1 - kk), 22 * (1 - kk) + 0.5, -3 * (1 - kk)); v.rock.rotation.x += dt * 3; v.rock.rotation.z += dt * 2; if (v.rock.visible) this.P.emit([z.pos[0] + v.rock.position.x, z.pos[1] + v.rock.position.y, z.pos[2] + v.rock.position.z], { n: 3, c: '#ff3a0a', c2: '#ffd27a', sp: 0.8, s: 0.9, s1: 0.2, life: 0.5 }); }
+      if (v.rock) { const kk = Math.min(1, z.t / Math.max(0.01, z.delay)); v.rock.visible = z.t < z.delay; v.rock.position.set(6 * (1 - kk), 22 * (1 - kk) + 0.5, -3 * (1 - kk)); v.rock.rotation.x += dt * 3; v.rock.rotation.z += dt * 2; if (v.rock.visible) this.P.emit([z.pos[0] + v.rock.position.x, z.pos[1] + v.rock.position.y, z.pos[2] + v.rock.position.z], { n: 3, c: z.look === 'starmeteor' ? '#7a6aff' : '#ff3a0a', c2: z.look === 'starmeteor' ? '#ffffff' : '#ffd27a', sp: 0.8, s: 0.9, s1: 0.2, life: 0.5 }); }
       const active = z.t >= z.delay;
       if (v.tel) { const k = Math.min(1, z.t / Math.max(0.01, z.delay)); v.tel.scale.setScalar(z.r * k); v.tel.visible = !active; }
       this.zoneParticles(z, v, dt, L, active);
@@ -667,6 +720,12 @@ export class FX {
         case 'sparkpath': if (Math.random() < 0.25) { const a1 = rp(), a2 = rp(); a1[1] += 0.2; a2[1] += 0.4; this.bolt(a1, a2, '#8fd8ff', 0.02, 0.08, 0.3); } break;
         case 'petals': if (Math.random() < 0.6) { const q = rp(); q[1] += Math.random() * 1.4; const a = this.time * 3; this.P.emit(q, { c: '#ff6ab0', c2: '#ffe0f0', sp: 0.4, v: [Math.cos(a) * 1.5, 0.5, Math.sin(a) * 1.5], s: 0.14, life: 0.9, drag: 0.4, g: 0.6 }); } break;
         case 'icepath': if (Math.random() < 0.15) this.P.emit(rp(), { c: '#9fe8ff', c2: '#ffffff', sp: 0.2, up: 0.8, s: 0.1, life: 0.8 }); break;
+        case 'swamp': if (Math.random() < 0.6) { const q = rp(); this.P.emit(q, { c: '#3a5a10', c2: '#a8e85a', sp: 0.2, up: 0.8, s: 0.35, s1: 0.6, life: 0.9, a: 0.5 }); } break;
+        case 'honey': if (Math.random() < 0.2) this.P.emit(rp(), { c: '#ffb020', c2: '#fff0b0', sp: 0.1, up: 0.4, s: 0.18, life: 0.8 }); break;
+        case 'tide': if (Math.random() < 0.7) { const a = Math.random() * Math.PI * 2; this.P.emit([p[0] + Math.cos(a) * r, p[1] + 0.2, p[2] + Math.sin(a) * r], { c: '#1a9ab0', c2: '#e8ffff', sp: 0.2, v: [-Math.sin(a) * 3, 1, Math.cos(a) * 3], s: 0.25, life: 0.6 }); } break;
+        case 'nightfall': if (Math.random() < 0.6) { const q = rp(); q[1] += Math.random() * 3; this.P.emit(q, { c: '#1a0a3a', c2: '#9a5cff', sp: 0.3, s: 0.5, s1: 0.9, life: 1.2, a: 0.6 }); } break;
+        case 'prison': if (Math.random() < 0.3) { const a = Math.random() * Math.PI * 2; this.P.emit([p[0] + Math.cos(a) * r, p[1] + Math.random() * 3, p[2] + Math.sin(a) * r], { c: '#6a3ab0', c2: '#f0e0ff', sp: 0.2, s: 0.12, life: 0.5 }); } break;
+        case 'totem': if (Math.random() < 0.25) this.P.emit(rp(), { c: '#5aa020', c2: '#e0ffb0', sp: 0.1, up: 1.5, s: 0.14, life: 1.0 }); break;
         case 'decoy': if (Math.random() < 0.4) this.P.emit([p[0] + (Math.random() - 0.5) * 0.6, p[1] + Math.random() * 1.8, p[2] + (Math.random() - 0.5) * 0.6], { c: '#ff9ce8', c2: '#ffffff', sp: 0.3, up: 0.6, s: 0.1, life: 0.5 }); break;
       }
     }
@@ -780,6 +839,11 @@ export class FX {
           P.emit([e.pos[0], e.pos[1] + 0.5, e.pos[2]], { n: 40, c: '#2a2020', c2: '#5a4a40', sp: e.r * 2, up: 5, s: 1.6, s1: 2.5, life: 1.5, a: 0.4, drag: 1.5 });
           this.flash(e.pos, '#ff6a1a', 120, 0.6, 26);
           ctx?.shake?.(e.pos, 1.0);
+        } else if (e.look === 'starmeteor') {
+          this.sphereFlash([e.pos[0], e.pos[1] + 1, e.pos[2]], e.r * 1.1, '#c8b8ff', 0.6); this.runeDecal(e.pos, e.r, '#c8b8ff', 0.9, 2); this.dust(e.pos, e.r * 0.6, 30, '#5a5070');
+          this.burstSparks([e.pos[0], e.pos[1] + 0.5, e.pos[2]], '#ffffff', 40, e.r * 4, 0.05, 2);
+          P.emit([e.pos[0], e.pos[1] + 0.5, e.pos[2]], { n: 120, c: '#7a6aff', c2: '#ffffff', sp: e.r * 3.2, up: 2, s: 0.5, s1: 0.1, life: 0.9, drag: 2.2 });
+          this.flash(e.pos, '#c8b8ff', 110, 0.6, 26); ctx?.shake?.(e.pos, 0.9);
         } else if (e.look === 'collapse') {
           this.sphereFlash([e.pos[0], e.pos[1] + 1, e.pos[2]], e.r, '#7a3aff', 0.5);
           P.emit([e.pos[0], e.pos[1] + 1, e.pos[2]], { n: 120, c: '#3a0a8a', c2: '#ffffff', sp: e.r * 3, s: 0.5, life: 0.8, drag: 2 });
@@ -803,6 +867,15 @@ export class FX {
         }
         break;
       }
+      case 'freeze': {
+        for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2; const sp = new THREE.Mesh(new THREE.ConeGeometry(0.12, 1.1, 4), new THREE.MeshStandardMaterial({ color: '#cfefff', emissive: '#5ac8ff', emissiveIntensity: 0.8, transparent: true, opacity: 0.85, flatShading: true })); sp.position.set(e.pos[0] + Math.cos(a) * 0.45, e.pos[1] + 0.45, e.pos[2] + Math.sin(a) * 0.45); sp.rotation.set(Math.sin(a) * 0.4, 0, -Math.cos(a) * 0.4); this.temp(sp, 0.9, (k) => { sp.scale.set(1, k < 0.12 ? k / 0.12 : (k > 0.75 ? (1 - k) / 0.25 : 1), 1); }); }
+        P.emit([e.pos[0], e.pos[1] + 1, e.pos[2]], { n: 24, c: '#7fd8ff', c2: '#ffffff', sp: 3, s: 0.14, life: 0.5 });
+        break;
+      }
+      case 'reflect': this.sphereFlash(e.pos, 0.8, e.color || '#a8c0ff', 0.25); this.burstSparks(e.pos, e.color || '#ffffff', 14, 8); this.ring(e.pos, 1.2, '#ffffff', 0.3, 0); break;
+      case 'revive': this.pillar(e.pos, e.color || '#ffe08a', 1.0, 18, 1.4); this.runeDecal(e.pos, 2.6, e.color || '#ffe08a', 1.4, 2); this.ring(e.pos, 4, '#ffffff', 0.8); P.emit([e.pos[0], e.pos[1] + 0.5, e.pos[2]], { n: 70, c: e.color || '#ffe08a', c2: '#ffffff', sp: 2, up: 4, s: 0.2, life: 1.2, drag: 1 }); this.flash(e.pos, e.color || '#ffe08a', 80, 0.8, 20); break;
+      case 'tether': this.S.seg(e.from, e.to, { c: e.color || '#c8b890', w: 0.06, life: 0.13 }); this.S.seg(e.from, e.to, { c: '#ffffff', w: 0.02, life: 0.11 }); break;
+      case 'turretShot': this.muzzle(e.pos, e.dir, (LOOK[e.look] || LOOK.rivet).c, false); break;
       case 'trapSnap': P.emit([e.pos[0], e.pos[1] + 0.3, e.pos[2]], { n: 40, c: '#5fc8ff', c2: '#ffffff', sp: 4, up: 2, s: 0.22, life: 0.5, g: 6 }); this.ring(e.pos, 1.8, '#9fe8ff', 0.4); break;
       case 'spark': P.emit(e.pos, { n: 12, c: e.color || '#4fc3f7', c2: '#ffffff', sp: 4, s: 0.15, life: 0.3 }); break;
     }

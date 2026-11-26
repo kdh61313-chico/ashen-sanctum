@@ -13,6 +13,9 @@ export const ROLES = {
 };
 
 import { NEW_HEROES, RARITY, STARTERS } from './heroes2.js';
+import { THIRD_HEROES, THIRD_RARITY } from './heroes3.js';
+import { HERO_EL } from './elements.js';
+Object.assign(RARITY, THIRD_RARITY);
 export { RARITY, STARTERS };
 
 const BASE = [
@@ -258,8 +261,8 @@ const BASE = [
   },
 ];
 
-export const HEROES = [...BASE, ...NEW_HEROES];
-for (const h of HEROES) { h.rarity = RARITY[h.id] || 4; h.starter = STARTERS.includes(h.id); }
+export const HEROES = [...BASE, ...NEW_HEROES, ...THIRD_HEROES];
+for (const h of HEROES) { h.rarity = RARITY[h.id] || 4; h.starter = STARTERS.includes(h.id); h.el = HERO_EL[h.id] || 'fire'; }
 
 export const DUMMY = {
   id: 'dummy', name: '허수아비', title: '훈련용', role: 'tank', hp: 750, speed: 3, diff: 1, color: '#c9a45c', quote: '', model: 'dummy',

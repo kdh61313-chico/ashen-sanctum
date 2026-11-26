@@ -173,6 +173,11 @@ export class BotBrain {
         const r = ai.r || 10;
         return this.sim.alliesOf(p).some(o => o.hp / o.maxHp < 0.7 && Math.hypot(o.pos[0] - p.pos[0], o.pos[2] - p.pos[2]) < r);
       }
+      case 'revive': {
+        const deadAlly = [...this.sim.players.values()].some(o => !o.alive && o.team === p.team && !o.isDummy);
+        const hurt = this.sim.alliesOf(p).filter(o => o.hp / o.maxHp < 0.45).length;
+        return deadAlly || hurt >= 2;
+      }
       case 'save': {
         const r = ai.r || 10;
         const hurt = this.sim.alliesOf(p).filter(o => o.hp / o.maxHp < 0.5 && Math.hypot(o.pos[0] - p.pos[0], o.pos[2] - p.pos[2]) < r);

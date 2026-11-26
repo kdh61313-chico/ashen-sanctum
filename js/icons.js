@@ -26,6 +26,11 @@ const star = (g, r, n = 5, inner = 0.45, fill = true) => { const pts = []; for (
 const flame = (g, s = 1, y = 0) => { g.beginPath(); g.moveTo(0, -20 * s + y); g.bezierCurveTo(14 * s, -6 * s + y, 14 * s, 10 * s + y, 0, 18 * s + y); g.bezierCurveTo(-14 * s, 10 * s + y, -14 * s, -2 * s + y, -4 * s, -8 * s + y); g.bezierCurveTo(-2 * s, -2 * s + y, 2 * s, -4 * s + y, 0, -20 * s + y); g.fill(); };
 
 const GLYPH = {
+  chakram(g) { C(g, 18); C(g, 9); for (let i = 0; i < 6; i++) { g.save(); g.rotate(i * Math.PI / 3); P(g, [[0, -18], [5, -26], [-2, -20]], true, true); g.restore(); } },
+  turret(g) { P(g, [[-16, 22], [16, 22], [10, 8], [-10, 8]], true); g.fillRect(-10, -6, 20, 14); P(g, [[4, -1], [24, -1]]); P(g, [[4, 4], [24, 4]]); C(g, 3, true, -3, 1); },
+  mark(g) { C(g, 18); C(g, 8); P(g, [[0, -26], [0, -12]]); P(g, [[0, 12], [0, 26]]); P(g, [[-26, 0], [-12, 0]]); P(g, [[12, 0], [26, 0]]); C(g, 2.5, true); },
+  reflect(g) { P(g, [[-14, -22], [-14, 22]]); g.lineWidth = 5; P(g, [[-14, -18], [-14, 18]]); g.lineWidth = 3; P(g, [[22, -14], [-6, 0], [22, 14]]); arrowHead(g, 22, 14, Math.PI * 0.85, 8); },
+  bee(g) { g.save(); g.scale(1, 0.8); C(g, 12, true, 0, 4); g.restore(); g.globalCompositeOperation = 'destination-out'; g.fillRect(-14, 0, 28, 3); g.fillRect(-14, 7, 28, 3); g.globalCompositeOperation = 'source-over'; C(g, 7, false, -9, -10); C(g, 7, false, 9, -10); P(g, [[0, 14], [0, 22]]); },
   slash(g) { blade(g, 0, 12, 34, 4.5, 0.6); g.globalAlpha = 0.6; C(g, 22, false, -6, 6, -1.9, -0.6); },
   dash(g) { P(g, [[-20, -10], [-4, -10]]); P(g, [[-24, 0], [0, 0]]); P(g, [[-20, 10], [-4, 10]]); arrowHead(g, 12, 0, Math.PI / 2, 12); },
   shield(g) { P(g, [[0, -22], [18, -14], [16, 6], [0, 22], [-16, 6], [-18, -14]], true); P(g, [[0, -14], [0, 14]]); P(g, [[-9, -3], [9, -3]]); },

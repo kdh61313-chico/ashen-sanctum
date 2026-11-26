@@ -12,10 +12,10 @@
 .lv__bar i { display: block; height: 100%; width: 0; background: var(--gold); }
 .cur { display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 6px; background: rgba(10,8,12,.55); border: 1px solid rgba(201,164,92,.22); border-radius: 14px; }
 .cur b { font-size: 13px; font-variant-numeric: tabular-nums; }
-.cur__ico { width: 16px; height: 16px; display: inline-block; }
-.cur__ico--crystal { background: linear-gradient(135deg, #e8f4ff, #7ab0ff 55%, #3a4a9a); clip-path: polygon(50% 0, 100% 40%, 50% 100%, 0 40%); }
-.cur__ico--permit { background: linear-gradient(135deg, #ffe8a8, #c9a45c); clip-path: polygon(0 15%, 100% 15%, 100% 85%, 0 85%); border-radius: 2px; box-shadow: inset 0 0 0 2px rgba(0,0,0,.2); }
-.cur__ico--token { background: radial-gradient(circle at 40% 35%, #ffcf8a, #ff6a2a 60%, #7a1a10); border-radius: 50%; }
+.cur__ico { width: 20px; height: 20px; display: inline-block; vertical-align: middle; filter: drop-shadow(0 1px 2px rgba(0,0,0,.6)); }
+.cur__ico--crystal { background: url(../assets/cur-crystal.svg) center/contain no-repeat; }
+.cur__ico--permit { background: url(../assets/cur-permit.svg) center/contain no-repeat; }
+.cur__ico--token { background: url(../assets/cur-token.svg) center/contain no-repeat; }
 
 /* ---------- home ---------- */
 #home::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to right, rgba(10,8,12,.85) 0%, rgba(10,8,12,.25) 32%, transparent 55%), linear-gradient(to left, rgba(10,8,12,.8) 0%, transparent 38%); }
@@ -325,3 +325,160 @@ body.is-touch .lobby__opts .seg button { white-space: nowrap; }
 @keyframes ultflash { 0% { opacity: 0; } 12% { opacity: 1; } 100% { opacity: 0; } }
 body.is-touch .ult-banner { top: 46px; transform: translate(-50%, -14px) scale(.82); }
 body.is-touch .ult-banner.is-on { transform: translate(-50%, 0) scale(.82); }
+
+/* ---- elements ---- */
+.el-chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px 2px 3px; border: 1px solid var(--ec, #888); color: var(--ec, #ddd); font-size: 12px; letter-spacing: .02em; background: color-mix(in srgb, var(--ec, #888) 12%, transparent); }
+.el-chip img { width: 18px; height: 18px; }
+.elbox { display: flex; gap: 10px; align-items: flex-start; margin: 10px 0 12px; padding: 9px 10px; background: rgba(255,255,255,.03); border-left: 2px solid rgba(255,255,255,.12); }
+.elbox img { width: 34px; height: 34px; flex: none; }
+.elbox b { font-size: 13px; }
+.elbox p { margin: 2px 0 3px; font-size: 12.5px; line-height: 1.5; color: #cfc4b2; }
+.elbox small { font-size: 11.5px; color: #8f8576; }
+.roles--el { margin-top: 4px; }
+.roles--el button { display: inline-flex; align-items: center; gap: 4px; }
+.roles--el button img { width: 16px; height: 16px; }
+.sigil__el { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; z-index: 3; filter: drop-shadow(0 1px 2px #000); }
+
+/* ================= recruitment show ================= */
+.gacha { position: fixed; inset: 0; z-index: 70; overflow: hidden; display: flex; align-items: center; justify-content: center; --c1: #a98aff; --c2: #fff; user-select: none; }
+.gacha__bg { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 55%, #1c1520 0%, #060408 70%); }
+.gacha__bg::after { content: ''; position: absolute; inset: 0; background-image: radial-gradient(1.5px 1.5px at 20% 30%, rgba(255,200,150,.6), transparent), radial-gradient(1px 1px at 70% 20%, rgba(255,255,255,.5), transparent), radial-gradient(1.5px 1.5px at 40% 80%, rgba(255,140,80,.5), transparent), radial-gradient(1px 1px at 85% 65%, rgba(255,255,255,.4), transparent), radial-gradient(1px 1px at 10% 70%, rgba(255,180,120,.5), transparent); background-size: 300px 300px; animation: gdrift 14s linear infinite; opacity: .7; }
+@keyframes gdrift { to { background-position: 0 -300px, 0 -300px, 0 -300px, 0 -300px, 0 -300px; } }
+.gacha__rays { position: absolute; left: 50%; top: 50%; width: 180vmax; height: 180vmax; margin: -90vmax; background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--c1) 28%, transparent) 0 6deg, transparent 6deg 18deg); mask-image: radial-gradient(circle, #000 0%, transparent 55%); -webkit-mask-image: radial-gradient(circle, #000 0%, transparent 55%); opacity: 0; transform: scale(.4); transition: opacity .5s, transform 1.2s cubic-bezier(.2,.8,.2,1); animation: gspin 30s linear infinite; pointer-events: none; }
+@keyframes gspin { to { rotate: 360deg; } }
+.gacha.is-crack .gacha__rays, .gacha.is-cards[data-top="6"] .gacha__rays, .gacha.is-cards[data-top="5"] .gacha__rays { opacity: 1; transform: scale(1); }
+.gacha.is-cards .gacha__rays { opacity: .35 !important; }
+/* seal */
+.gacha__seal { position: absolute; left: 50%; top: 50%; width: min(38vmin, 300px); aspect-ratio: 1; margin-left: calc(min(38vmin, 300px) / -2); margin-top: calc(min(38vmin, 300px) / -2); color: #c9a45c; opacity: 0; pointer-events: none; }
+.gacha__seal svg { width: 100%; height: 100%; filter: drop-shadow(0 0 12px currentColor); }
+.gacha.is-drop .gacha__seal { animation: sealDrop 1.1s cubic-bezier(.3,1.3,.5,1) forwards, sealSpin 6s linear infinite; }
+@keyframes sealDrop { 0% { opacity: 0; transform: translateY(-70vh) scale(.6) rotate(-120deg); } 60% { opacity: 1; } 100% { opacity: 1; transform: none; } }
+@keyframes sealSpin { to { rotate: 360deg; } }
+.gacha.is-drop .gacha__seal { color: #c9a45c; transition: color .4s .7s; }
+.gacha.is-drop[data-top="6"] .gacha__seal, .gacha.is-drop[data-top="5"] .gacha__seal { color: var(--c1); }
+.gacha__crack { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle, var(--c2) 0%, var(--c1) 30%, transparent 62%); opacity: 0; }
+.gacha.is-crack .gacha__seal { animation: sealBurst .9s ease-out forwards; }
+.gacha.is-crack .gacha__crack { animation: crack .9s ease-out forwards; }
+@keyframes sealBurst { 0% { opacity: 1; transform: scale(1); } 30% { transform: scale(1.15); } 100% { opacity: 0; transform: scale(2.6); } }
+@keyframes crack { 0% { opacity: 0; } 25% { opacity: 1; } 100% { opacity: 0; transform: scale(2); } }
+.gacha__flash { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(circle, var(--c2), color-mix(in srgb, var(--c1) 60%, transparent) 35%, transparent 70%); }
+.gacha.is-crack .gacha__flash { animation: pflash .9s ease-out forwards; }
+/* cards */
+.gacha__cards { position: relative; display: flex; gap: 10px; align-items: center; justify-content: center; opacity: 0; pointer-events: none; }
+.gacha.is-cards .gacha__cards { opacity: 1; pointer-events: auto; }
+.gcard { position: relative; width: min(8.6vw, 110px); height: min(56vh, 400px); perspective: 900px; transform: translateX(80vw) skewX(-8deg); opacity: 0; }
+.gacha.is-cards .gcard { animation: gslide .55s cubic-bezier(.2,.9,.25,1) forwards; animation-delay: calc(var(--i) * 70ms); }
+@keyframes gslide { to { transform: skewX(-8deg); opacity: 1; } }
+.gacha__cards.is-one .gcard { width: min(34vmin, 240px); height: min(60vh, 420px); }
+.gcard__in { position: absolute; inset: 0; transform-style: preserve-3d; transform: rotateY(180deg); transition: transform .55s cubic-bezier(.2,.8,.2,1); }
+.gcard.is-open .gcard__in { transform: rotateY(0); }
+.gcard__face, .gcard__back { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; border: 1px solid rgba(255,255,255,.12); }
+.gcard__back { transform: rotateY(180deg); background: linear-gradient(to top, color-mix(in srgb, var(--rc) 70%, transparent) 0, transparent 22%), repeating-linear-gradient(135deg, #1e1822 0 7px, #151018 7px 14px); }
+.gcard__back::after { content: ''; position: absolute; left: 50%; top: 44%; width: 34%; aspect-ratio: 1; transform: translate(-50%, -50%) rotate(45deg); border: 1px solid var(--rc); box-shadow: 0 0 14px var(--rc); }
+.gcard[data-r="6"] { --rc: #ff9a3a; } .gcard[data-r="5"] { --rc: #ffd76a; } .gcard[data-r="4"] { --rc: #a98aff; } .gcard[data-r="3"] { --rc: #6a6058; }
+.gcard__face { background: #18131c center 18%/cover no-repeat; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; text-align: center; padding: 10px 6px 12px; box-shadow: inset 0 -60px 50px -20px rgba(6,4,8,.95), inset 0 0 0 2px var(--rc); }
+.gcard__face b { font-family: var(--serif); font-size: 16px; letter-spacing: .02em; transform: skewX(8deg); }
+.gcard__face small { font-size: 10.5px; color: var(--bone-dim); transform: skewX(8deg); }
+.gcard__stars { color: var(--rc); font-size: 12px; letter-spacing: -1px; text-shadow: 0 0 8px var(--rc); transform: skewX(8deg); }
+.gcard__el { position: absolute; top: 8px; right: 8px; width: 22px; transform: skewX(8deg); }
+.gcard__new { position: absolute; top: 8px; left: 6px; font-size: 10px; font-weight: 800; padding: 2px 5px; background: var(--blood); color: #fff; }
+.gcard__face--ember { background: radial-gradient(circle at 50% 42%, #ffb04a 0, #b3401a 16%, #2a1210 42%, #120c10 70%); }
+.gcard[data-r="6"].is-open .gcard__face { animation: g6 2s ease-in-out infinite; }
+.gcard[data-r="6"].is-open .gcard__face::after, .gcard[data-r="5"].is-open .gcard__face::after { content: ''; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 35%, rgba(255,255,255,.35) 50%, transparent 65%); background-size: 260% 100%; animation: shine 2.4s ease-in-out infinite; }
+@keyframes g6 { 50% { box-shadow: inset 0 -60px 50px -20px rgba(6,4,8,.95), inset 0 0 0 2px #ffcf8a, 0 0 28px rgba(255,140,40,.7); } }
+@keyframes shine { 0% { background-position: 130% 0; } 60%, 100% { background-position: -30% 0; } }
+.gacha__ok { position: absolute; bottom: 7vh; left: 50%; transform: translateX(-50%); min-width: 200px; align-items: center; }
+.gacha__skip { position: absolute; top: 18px; right: 22px; z-index: 5; background: none; border: 1px solid rgba(255,255,255,.15); padding: 6px 12px; color: var(--bone-dim); font-size: 13px; }
+.gacha.is-sum .gacha__skip { display: none; }
+.gacha__hint { position: absolute; bottom: 3vh; font-size: 12px; color: var(--bone-faint); }
+/* full-screen reveal */
+.gacha__reveal { position: absolute; inset: 0; z-index: 4; overflow: hidden; --c1: #ffd76a; --hc: #fff; }
+.rv__bg { position: absolute; inset: 0; background: linear-gradient(100deg, #08060a 0%, #08060a 30%, color-mix(in srgb, var(--hc) 35%, #08060a) 75%, color-mix(in srgb, var(--c1) 40%, #08060a) 100%); }
+.rv__bg::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 34%; transform: translateY(-50%) skewY(-6deg); background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--c1) 22%, transparent) 40%, transparent); }
+.rv__rays { position: absolute; right: 18%; top: 50%; width: 160vmax; height: 160vmax; margin: -80vmax -80vmax 0 0; background: repeating-conic-gradient(color-mix(in srgb, var(--c1) 30%, transparent) 0 4deg, transparent 4deg 14deg); mask-image: radial-gradient(circle, #000, transparent 50%); -webkit-mask-image: radial-gradient(circle, #000, transparent 50%); animation: gspin 40s linear infinite; }
+.gacha__reveal[data-r="4"] .rv__rays { opacity: .4; }
+.rv__art { position: absolute; right: 6%; bottom: -4%; height: 104%; max-width: 62%; object-fit: contain; filter: brightness(0) drop-shadow(0 0 30px var(--c1)); transform: translateX(30%); opacity: 0; }
+.gacha__reveal.is-go .rv__art { animation: artIn .9s cubic-bezier(.2,.9,.25,1) forwards, artColor .5s .55s forwards; }
+@keyframes artIn { to { transform: none; opacity: 1; } }
+@keyframes artColor { to { filter: brightness(1) drop-shadow(0 0 30px color-mix(in srgb, var(--hc) 60%, transparent)); } }
+.rv__text { position: absolute; left: 8vw; top: 50%; transform: translateY(-50%); max-width: 46vw; }
+.rv__stars i { display: inline-block; font-style: normal; font-size: clamp(20px, 3vw, 34px); color: var(--c1); text-shadow: 0 0 14px var(--c1); opacity: 0; transform: scale(2.4); }
+.gacha__reveal.is-go .rv__stars i { animation: starPop .35s var(--d) cubic-bezier(.3,1.6,.5,1) forwards; }
+@keyframes starPop { to { opacity: 1; transform: none; } }
+.rv__title { font-size: clamp(13px, 1.4vw, 17px); color: var(--bone-dim); letter-spacing: .08em; margin: 10px 0 2px; opacity: 0; }
+.rv__name { font-family: var(--serif); font-weight: 800; font-size: clamp(48px, 8vw, 110px); line-height: 1; color: #fff; text-shadow: 0 0 30px color-mix(in srgb, var(--hc) 60%, transparent); opacity: 0; transform: translateX(-40px); letter-spacing: -.01em; }
+.rv__meta { display: flex; gap: 8px; align-items: center; margin-top: 16px; opacity: 0; }
+.rv__new { font-size: 11px; font-weight: 800; padding: 3px 7px; background: var(--blood); color: #fff; }
+.rv__dup { font-size: 12px; color: var(--bone-dim); }
+.rv__quote { margin-top: 18px; font-family: var(--serif); font-size: clamp(14px, 1.5vw, 18px); color: #e8dcc8; opacity: 0; max-width: 34em; }
+.gacha__reveal.is-go .rv__title { animation: fadeUp .5s .3s forwards; }
+.gacha__reveal.is-go .rv__name { animation: nameIn .6s .4s cubic-bezier(.2,.9,.25,1) forwards; }
+.gacha__reveal.is-go .rv__meta { animation: fadeUp .5s .9s forwards; }
+.gacha__reveal.is-go .rv__quote { animation: fadeUp .7s 1.2s forwards; }
+@keyframes nameIn { to { opacity: 1; transform: none; } }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.rv__tap { position: absolute; bottom: 4vh; left: 8vw; font-size: 12px; color: var(--bone-faint); animation: blink 1.6s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: .3; } }
+body.is-touch .gacha__cards { flex-wrap: wrap; max-width: 96vw; gap: 6px; }
+body.is-touch .gcard { width: 17vw; height: 36vh; }
+body.is-touch .gacha__cards.is-one .gcard { width: 40vw; height: 60vh; }
+@media (max-aspect-ratio: 1/1) { .rv__text { left: 6vw; right: 6vw; top: auto; bottom: 8vh; transform: none; max-width: none; } .rv__art { left: 0; right: 0; margin: 0 auto; max-width: 92%; height: 66%; bottom: 30%; } }
+
+/* ================= quests / notes / save ================= */
+.btn--void { background: linear-gradient(100deg, #1e0e3a, #3a1a6a 60%, #5a2a9a); border-color: rgba(176,124,255,.7); }
+.btn--void:hover { border-color: #d8b8ff; }
+.btn--void .btn__s { color: #d8c8f0; }
+.slab { position: relative; }
+.badge { position: absolute; top: 8px; right: 10px; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--blood); color: #fff; font-size: 12px; line-height: 20px; text-align: center; font-weight: 800; box-shadow: 0 0 10px rgba(208,48,58,.7); }
+.badge--new { background: var(--ember); }
+#quests { overflow-y: auto; }
+.quests { max-width: 860px; margin: 0 auto; padding: 84px 28px 40px; }
+.quests__head h2 { font-family: var(--serif); font-size: 34px; }
+.quests__head p { color: var(--bone-dim); font-size: 13.5px; margin: 4px 0 18px; }
+.qtabs { display: flex; gap: 26px; border-bottom: 1px solid rgba(255,255,255,.08); margin-bottom: 14px; }
+.qtabs button { position: relative; background: none; border: 0; padding: 8px 2px; color: var(--bone-faint); font-size: 15px; border-bottom: 2px solid transparent; }
+.qtabs button.is-on { color: var(--bone); border-bottom-color: var(--gold); }
+.qtabs button[data-n]:not([data-n=""])::after { content: attr(data-n); position: absolute; top: 2px; right: -16px; font-size: 10px; min-width: 15px; height: 15px; line-height: 15px; border-radius: 8px; background: var(--blood); color: #fff; text-align: center; }
+.qbonus__in { display: flex; align-items: center; gap: 16px; padding: 12px 16px; margin-bottom: 12px; border: 1px solid rgba(201,164,92,.3); background: linear-gradient(90deg, rgba(201,164,92,.1), transparent); }
+.qbonus__in > div:first-child { flex: 1; } .qbonus__in b { display: block; font-size: 14px; } .qbonus__in small { color: var(--bone-faint); font-size: 12px; }
+.qbonus__in.is-ready { border-color: var(--gold); box-shadow: 0 0 18px rgba(201,164,92,.25); }
+.qbonus__in.is-got { opacity: .5; }
+.qlist { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.quest { display: flex; align-items: center; gap: 16px; padding: 12px 16px; background: rgba(20,16,24,.75); border: 1px solid rgba(255,255,255,.06); border-left: 3px solid rgba(255,255,255,.12); }
+.quest.is-done { border-left-color: var(--gold); background: linear-gradient(90deg, rgba(201,164,92,.12), rgba(20,16,24,.75) 40%); }
+.quest.is-claimed { opacity: .45; }
+.quest__main { flex: 1; min-width: 0; }
+.quest__main b { font-size: 15px; } .quest__main p { margin: 1px 0 6px; font-size: 12.5px; color: var(--bone-dim); }
+.quest__bar { height: 4px; background: rgba(255,255,255,.08); } .quest__bar i { display: block; height: 100%; background: linear-gradient(90deg, #b3262e, #c9a45c); }
+.quest__main small { font-size: 11px; color: var(--bone-faint); }
+.quest__rw { display: flex; gap: 10px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.quest__rw span { display: inline-flex; align-items: center; gap: 4px; }
+.quest__btn { min-width: 92px; align-items: center; }
+.btn--sm { padding: 7px 14px; min-height: 0; }
+.notes { max-height: 86vh; display: flex; flex-direction: column; }
+.notes__body { overflow-y: auto; padding-right: 8px; }
+.note { padding: 4px 0 18px; border-bottom: 1px solid rgba(255,255,255,.07); margin-bottom: 14px; }
+.note header { display: flex; align-items: baseline; gap: 10px; }
+.note header b { font-size: 12px; padding: 2px 7px; border: 1px solid var(--gold); color: var(--gold); }
+.note.is-new header b { background: var(--gold); color: #1a1410; }
+.note h3 { font-family: var(--serif); font-size: 20px; flex: 1; }
+.note time { font-size: 12px; color: var(--bone-faint); }
+.note h4 { margin: 12px 0 4px; font-size: 13.5px; color: var(--gold); }
+.note ul { margin: 0; padding-left: 18px; } .note li { font-size: 13px; line-height: 1.6; color: #d8cfc0; }
+.savebox { margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.08); }
+.savebox h3 { font-size: 14px; margin-bottom: 4px; } .savebox p { font-size: 12px; color: var(--bone-dim); line-height: 1.5; }
+.savebox__row { display: flex; gap: 8px; margin: 8px 0; flex-wrap: wrap; }
+.savebox textarea { width: 100%; font: 11px/1.3 monospace; background: #0e0b10; color: var(--bone); border: 1px solid rgba(255,255,255,.15); padding: 6px; resize: vertical; }
+.savebox__note { min-height: 1em; color: var(--gold) !important; }
+body.is-touch .quests { padding: 64px 14px 40px; }
+body.is-touch .quest { flex-wrap: wrap; }
+body.is-touch .quest__main { flex-basis: 100%; }
+@media (max-width: 720px) { .quest { flex-wrap: wrap; } .quest__main { flex-basis: 100%; } }
+/* 60 heroes: denser, scrollable roster */
+.roster { grid-template-columns: repeat(auto-fill, 50px); max-height: 31vh; overflow-y: auto; overflow-x: hidden; padding: 2px 4px 2px 2px; scrollbar-width: thin; scrollbar-color: rgba(201,164,92,.4) transparent; }
+.sigil { --s: 50px; }
+#quests::before { content: ''; position: fixed; inset: 0; background: linear-gradient(90deg, rgba(8,6,10,.55), rgba(8,6,10,.88) 25%, rgba(8,6,10,.88) 75%, rgba(8,6,10,.55)); pointer-events: none; }
+.quests { position: relative; }
+.btn:disabled { opacity: .45; filter: grayscale(.4); }
+body.is-touch .roster { max-height: none; overflow: visible; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); }
+.rv__meta .role-chip, .rv__meta .el-chip { white-space: nowrap; }

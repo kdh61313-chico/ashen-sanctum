@@ -5,6 +5,7 @@ import { buildHero, animateHero, triggerAttack, ownMaterials, setOpacity, attack
 import { Trail } from './fx.js';
 import { ViewModel } from './viewmodel.js';
 import { icon } from './icons.js';
+import { ELEMENTS } from './elements.js';
 import { moveCharacter, applyMoveAbility, MOVE_KINDS, EYE, losClear, fwdFromYaw, dirFromAngles, raycast } from './physics.js';
 
 const $ = (id) => document.getElementById(id);
@@ -45,6 +46,7 @@ export class Game {
       blockFx: (e) => { const v = this.view.get(e.id); if (v) { const [fx, fz] = fwdFromYaw(v.yaw); this.fx.P.emit([v.pos[0] + fx * 0.8, v.pos[1] + 1.2, v.pos[2] + fz * 0.8], { n: 12, c: '#ff3b3b', c2: '#ffffff', sp: 3, s: 0.15, life: 0.3 }); } },
     };
     this.vm = new ViewModel(app.vmScene, app.vmCam, this.camera);
+    this.horde = !!o.horde; this.localStats = { skill: 0, ult: 0 };
     this.ammo = 0; this.reloadT = 0; this.combo = 0; this.lastAtk = -9; this.lastShot = -9;
     this._v3 = new THREE.Vector3(); this._v3b = new THREE.Vector3();
     this.plates = $('plates');
@@ -147,12 +149,13 @@ export class Game {
       const mine = this.score[myTeam], theirs = this.score[1 - myTeam];
       const pips = (el, n) => { el.innerHTML = ''; for (let i = 0; i < ROUNDS_TO_WIN; i++) { const p = document.createElement('i'); if (i < n) p.className = 'on'; el.appendChild(p); } };
       const sig = mine + ':' + theirs;
-      if (this.pipSig !== sig) { this.pipSig = sig; pips($('pips-a'), mine); pips($('pips-b'), theirs); }
+      if (this.pipSig !== sig) { this.pipSig = sig; pips($('pips-a'), mine); pips($('pips-b'), theirs); $('pips-a').style.visibility = $('pips-b').style.visibility = this.horde ? 'hidden' : ''; }
       let t = this.phase === 'pre' ? Math.ceil(this.phaseT) : this.phase === 'live' ? Math.max(0, Math.ceil(this.phaseT)) : 0;
       const tm = this.phase === 'pre' ? `0:0${Math.max(0, t)}` : this.phase === 'live' ? `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}` : '—';
       $('hud-timer').textContent = tm;
       $('hud-timer').classList.toggle('is-low', this.phase === 'live' && t <= 15);
-      $('hud-round').textContent = `${this.round}라운드`;
+      $('hud-round').textContent = this.horde ? `${this.round}웨이브` : `${this.round}라운드`;
+      if (this.horde) { $('hud-timer').textContent = `${this.score[0]}`; $('hud-timer').classList.remove('is-low'); }
       // heads
       const heads = (el, team) => {
         const list = [...this.roster.values()].filter(r => r.team === team);
@@ -255,12 +258,13 @@ export class Game {
     setTimeout(() => row.remove(), 6000);
   }
 
-  floatNum(pos, text, cls) {
+  floatNum(pos, text, cls, color = null) {
     const v = new THREE.Vector3(pos[0], pos[1] + 0.6, pos[2]).project(this.camera);
     if (v.z > 1) return;
     const el = document.createElement('div');
     el.className = 'dmg ' + (cls || '');
     el.textContent = text;
+    if (color) el.style.color = color;
     el.style.left = ((v.x * 0.5 + 0.5) * innerWidth + (Math.random() - 0.5) * 30) + 'px';
     el.style.top = ((-v.y * 0.5 + 0.5) * innerHeight) + 'px';
     this.dmgLayer.appendChild(el);
@@ -374,7 +378,7 @@ export class Game {
       }
       case 'dmg':
         if (e.by === me && e.id !== me) {
-          this.floatNum(e.pos, e.a, (e.a >= 70 ? 'is-big' : '') + (e.sh ? ' is-shield' : ''));
+          this.floatNum(e.pos, e.a, (e.a >= 70 ? 'is-big' : '') + (e.sh ? ' is-shield' : ''), e.el ? ELEMENTS[e.el]?.color : null);
           this.hitmark(e.a >= 70 ? 'crit' : '');
           this.audio.play('hitmark');
         }
@@ -403,21 +407,28 @@ export class Game {
       }
       case 'round':
         this.fx.clear();
-        this.announce(`${e.n}라운드`, '준비', 'rgba(201,164,92,.6)', 3);
+        if (e.horde) this.announce(e.boss ? `${e.n}웨이브 · 우두머리` : `${e.n}웨이브`, '심연이 몰려온다', e.boss ? 'rgba(179,38,46,.85)' : 'rgba(154,92,255,.7)', 3);
+        else this.announce(`${e.n}라운드`, '준비', 'rgba(201,164,92,.6)', 3);
         this.audio.play('bell');
         this.cds = { lmb: 0, q: 0, e: 0 };
         this.hudHeadsDirty = true;
         break;
+      case 'reso': {
+        const mine = (e.list || []).filter(r => r.team === this.myTeam());
+        if (mine.length) setTimeout(() => this.app.toast('속성 공명 · ' + mine.map(r => `${ELEMENTS[r.el].name} ${r.n}명: ${ELEMENTS[r.el].reso}`).join(' / '), 3500), 900);
+        break;
+      }
       case 'fight': this.announce('전투 개시', '', 'rgba(179,38,46,.8)', 1.4); this.audio.play('select'); break;
       case 'roundEnd': {
         const my = this.myTeam();
+        if (e.horde) { if (e.w === 0) { this.announce('웨이브 돌파', `${e.score[0]}웨이브 클리어`, 'rgba(79,224,208,.7)', 2.5); this.audio.play('win'); } else { this.announce('전멸', `${e.score[0]}웨이브 돌파`, 'rgba(179,38,46,.8)', 3); this.audio.play('lose'); } break; }
         if (e.w < 0) this.announce('무승부', '라운드', 'rgba(201,164,92,.6)', 3);
         else if (e.w === my) { this.announce('라운드 승리', `${e.score[my]} : ${e.score[1 - my]}`, 'rgba(79,224,208,.7)', 3); this.audio.play('win'); }
         else { this.announce('라운드 패배', `${e.score[my]} : ${e.score[1 - my]}`, 'rgba(179,38,46,.8)', 3); this.audio.play('lose'); }
         break;
       }
       case 'matchEnd':
-        setTimeout(() => this.app.showResults(e.w === this.myTeam(), e.score, this), 1200);
+        setTimeout(() => this.app.showResults(e.w === this.myTeam(), e.score, this, { horde: !!e.horde }), 1200);
         this.ended = true;
         break;
       case 'respawn':
@@ -461,6 +472,7 @@ export class Game {
     const pre = this.body.pos.map(v => +v.toFixed(2));
     if (MOVE_KINDS.has(def.kind)) applyMoveAbility(this.body, def, this.yaw, this.pitch, this.clock);
     this.vm.attack(slot, this.combo);
+    if (slot === 'q' || slot === 'e') this.localStats.skill++; else if (slot === 'x') this.localStats.ult++;
     this.castSound(this.hero.id, slot, null);
     if (slot === 'lmb' && this.hero.gun) { const mp = this.vm.muzzleWorld(); if (mp) this.fx.muzzle(mp, dirFromAngles(this.yaw, this.pitch), this.hero.color, this.hero.gun === 'long' || this.hero.gun === 'arm'); }
     if (def.look === 'flame') { const mp = this.vm.muzzleWorld() || [this.camera.position.x, this.camera.position.y - 0.3, this.camera.position.z]; this.fx.flameCone(mp, dirFromAngles(this.yaw, this.pitch)); }
