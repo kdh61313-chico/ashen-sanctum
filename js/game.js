@@ -6,10 +6,11 @@ import { Trail } from './fx.js';
 import { ViewModel } from './viewmodel.js';
 import { icon } from './icons.js';
 import { ELEMENTS } from './elements.js';
+import { effLmb } from './heroes.js';
 import { moveCharacter, applyMoveAbility, MOVE_KINDS, EYE, losClear, fwdFromYaw, dirFromAngles, raycast } from './physics.js';
 
 const $ = (id) => document.getElementById(id);
-const ST_NAMES = { stun: '기절', root: '속박', slow: '둔화', poison: '중독', burn: '화상', invis: '은신', undying: '불사', giant: '거대화', haste: '가속', dr: '피해 감소', block: '방벽', invuln: '무적', dmgUp: '강화', atkSpd: '광폭', steal: '흡혈' };
+const ST_NAMES = { silence: '침묵', sleep: '수면', vuln: '취약', thorns: '가시', guard: '수호', empower: '강화 대기', reflect: '반사', wither: '치유 감소', stun: '기절', root: '속박', slow: '둔화', poison: '중독', burn: '화상', invis: '은신', undying: '불사', giant: '거대화', haste: '가속', dr: '피해 감소', block: '방벽', invuln: '무적', dmgUp: '강화', atkSpd: '광폭', steal: '흡혈' };
 const NEG = new Set(['stun', 'root', 'slow', 'poison', 'burn']);
 
 export class Game {
@@ -41,6 +42,7 @@ export class Game {
     this.ended = false;
     this.losT = 0;
     this.fxCtx = {
+      view: this.view,
       shake: (pos, amt) => { const d = Math.hypot(pos[0] - this.camera.position.x, pos[2] - this.camera.position.z); this.shakeAmt = Math.max(this.shakeAmt, amt * Math.max(0, 1 - d / 30)); },
       buffFx: (e) => { const v = this.view.get(e.id); if (v) this.fx.P.emit([v.pos[0], v.pos[1] + 1, v.pos[2]], { n: 26, c: e.color, c2: '#ffffff', sp: 1.2, up: 2.2, s: 0.18, life: 0.9, spread: [0.4, 0.8, 0.4] }); },
       blockFx: (e) => { const v = this.view.get(e.id); if (v) { const [fx, fz] = fwdFromYaw(v.yaw); this.fx.P.emit([v.pos[0] + fx * 0.8, v.pos[1] + 1.2, v.pos[2] + fz * 0.8], { n: 12, c: '#ff3b3b', c2: '#ffffff', sp: 3, s: 0.15, life: 0.3 }); } },
@@ -95,7 +97,7 @@ export class Game {
       v.pos = [a[1], a[2], a[3]]; v.yaw = a[4]; v.pitch = a[5]; v.hp = a[6]; v.alive = !!a[7]; v.ult = a[8]; v.shield = a[9];
       const st = {}; for (const k in a[10]) st[k] = { t: a[10][k][0], v: a[10][k][1] }; v.st = st;
       v.cds = { lmb: a[11], q: a[12], e: a[13] }; v.vel = [a[14], 0, a[15]]; v.onGround = !!a[16];
-      v.stats = { k: a[17], d: a[18], dmg: a[19], heal: a[20] }; v.maxHp = a[21]; v.ammo = a[22]; v.reloadT = a[23];
+      v.stats = { k: a[17], d: a[18], dmg: a[19], heal: a[20] }; v.maxHp = a[21]; v.ammo = a[22]; v.reloadT = a[23]; v.rs = a[24]; v.fm = a[25]; v.sn = a[26]; v.channel = a[27];
       const r = this.roster.get(id); if (r) { v.team = r.team; v.hero = r.hero; v.name = r.name; v.isBot = r.isBot; }
     }
     const now = this.clock;
@@ -138,6 +140,7 @@ export class Game {
   }
 
   myTeam() { return this.roster.get(this.localId)?.team ?? 0; }
+  lmbDef() { const me = this.view.get(this.localId); return effLmb(this.hero, me?.fm, me?.sn); }
 
   updateHud(dt) {
     const me = this.view.get(this.localId);
@@ -208,7 +211,18 @@ export class Game {
       ue.el.classList.toggle('is-ready', ready);
     }
     // ammo
-    const lmbd = h.abilities.lmb;
+    // transformations / stances swap the left-click ability
+    const key = (me.fm || '') + '|' + (me.sn || '');
+    if (key !== this._lmbKey) {
+      const prevKey = this._lmbKey; this._lmbKey = key;
+      const ld = this.lmbDef(), e = this.abEls.lmb;
+      if (e) { e.el.querySelector('img').src = icon(ld.icon, me.fm || me.sn ? '#ffcf8a' : '#efe0c0'); e.el.title = ld.name; e.el.classList.toggle('is-alt', !!(me.fm || me.sn)); }
+      if (prevKey !== undefined) { this.ammo = ld.ammo || 0; this.reloadT = 0; this.cds.lmb = 0; }
+      $('crosshair').classList.toggle('is-melee', ld.kind === 'melee');
+    }
+    { const R = h.passive?.res, el = $('me-res');
+      if (el) { el.hidden = !R; if (R) { el.style.setProperty('--c', R.color); el.querySelector('i').style.width = Math.min(100, (me.rs || 0) / R.max * 100) + '%'; const t = `${R.name} ${R.max <= 10 ? Math.floor(me.rs || 0) + '/' + R.max : Math.floor(me.rs || 0)}`; const b = el.querySelector('b'); if (b.textContent !== t) b.textContent = t; } } }
+    const lmbd = this.lmbDef();
     const am = $('ammo');
     am.hidden = !lmbd.ammo;
     if (lmbd.ammo) {
@@ -390,7 +404,7 @@ export class Game {
           let dir = [0, 0.4, 0];
           if (att) { const d = [e.pos[0] - att.pos[0], e.pos[1] - att.pos[1] - 1.2, e.pos[2] - att.pos[2]]; const l = Math.hypot(...d) || 1; dir = d.map(x => x / l); }
           this.fx.hitSpark(e.pos, dir, col, e.a >= 45);
-          if (e.by === me && e.id !== me && this.hero.abilities.lmb.kind === 'melee' && e.a >= 10) { this.vm.hitstop(e.a >= 45 ? 0.08 : 0.05); this.kick = Math.min(0.05, (this.kick || 0) + 0.02); }
+          if (e.by === me && e.id !== me && this.lmbDef().kind === 'melee' && e.a >= 10) { this.vm.hitstop(e.a >= 45 ? 0.08 : 0.05); this.kick = Math.min(0.05, (this.kick || 0) + 0.02); }
         }
         break;
       case 'heal':
@@ -439,7 +453,7 @@ export class Game {
 
   // ---------- local input / casting ----------
   tryReload(auto = false) {
-    const d = this.hero.abilities.lmb;
+    const d = this.lmbDef();
     if (!d.ammo || this.reloadT > 0 || this.ammo >= d.ammo) return;
     const me = this.view.get(this.localId); if (!me || !me.alive) return;
     this.reloadT = d.reload;
@@ -450,8 +464,10 @@ export class Game {
 
   tryCast(slot, charge = 0) {
     const me = this.view.get(this.localId);
-    const def = this.hero.abilities[slot];
+    const def = slot === 'lmb' ? this.lmbDef() : this.hero.abilities[slot];
     if (!me || !me.alive) return false;
+    if (slot !== 'lmb' && me.st?.silence) { this.deny(slot); return false; }
+    if (def.cost && (me.rs || 0) < def.cost) { this.deny(slot); return false; }
     if (this.phase !== 'live' && this.phase !== 'train') return false;
     if (me.st?.stun) { this.deny(slot); return false; }
     if (slot === 'x') { if ((me.ult || 0) < ULT_COST - 0.5) { this.deny(slot); return false; } }
@@ -466,6 +482,7 @@ export class Game {
     if (slot !== 'x') {
       let cd = def.cd;
       if (slot === 'lmb' && me.st?.atkSpd) cd /= (1 + me.st.atkSpd.v);
+      if (slot === 'lmb' && def.rsHaste && this.hero.passive?.res) cd *= 1 - def.rsHaste * (me.rs || 0) / this.hero.passive.res.max;
       this.cds[slot] = cd;
       this.lastCast = this.lastCast || {}; this.lastCast[slot] = this.clock;
     }
@@ -547,7 +564,7 @@ export class Game {
       }
       // abilities
       if (input.locked && !this.ended) {
-        const lmb = this.hero.abilities.lmb;
+        const lmb = this.lmbDef();
         if (lmb.charge) {
           if (input.mouse[0] && this.cds.lmb <= 0.02 && (this.phase === 'live' || this.phase === 'train') && !st.stun) {
             this.charging = true; this.charge = Math.min(1, this.charge + dt / lmb.charge.time);
@@ -567,7 +584,7 @@ export class Game {
       if (input.locked && input.pressedMouse) this.spectIdx++;
     }
     for (const k of ['lmb', 'q', 'e']) if (this.cds[k] > 0) this.cds[k] = Math.max(0, this.cds[k] - dt);
-    if (this.reloadT > 0) { this.reloadT -= dt; if (this.reloadT <= 0) { this.reloadT = 0; this.ammo = this.hero.abilities.lmb.ammo || 0; } }
+    if (this.reloadT > 0) { this.reloadT -= dt; if (this.reloadT <= 0) { this.reloadT = 0; this.ammo = this.lmbDef().ammo || 0; } }
     if (me && this.clock - this.lastShot > 0.6 && this.reloadT <= 0 && me.ammo !== undefined && me.reloadT !== undefined) {
       if (me.reloadT > 0.15 && this.reloadT <= 0) this.reloadT = me.reloadT;
       else if (me.reloadT <= 0 && Math.abs(me.ammo - this.ammo) >= 2) this.ammo = me.ammo;

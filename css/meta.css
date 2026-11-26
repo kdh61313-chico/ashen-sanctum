@@ -487,3 +487,11 @@ body.is-touch .roster { max-height: none; overflow: visible; grid-template-colum
 .elbox p { margin: 0; font-size: 12px; line-height: 1.4; }
 .elbox small { font-size: 11px; }
 #select .dossier { scrollbar-width: thin; scrollbar-color: rgba(201,164,92,.35) transparent; -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent); padding-bottom: 20px; }
+.me__res { position: relative; height: 14px; margin-top: 5px; width: 100%; max-width: 300px; background: rgba(0,0,0,.45); border: 1px solid rgba(255,255,255,.1); }
+.me__res i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, color-mix(in srgb, var(--c) 55%, #000), var(--c)); box-shadow: 0 0 10px var(--c); transition: width .12s; }
+.me__res b { position: relative; display: block; font-size: 10px; line-height: 14px; padding-left: 6px; color: #fff; text-shadow: 0 1px 2px #000; font-weight: 700; letter-spacing: .03em; }
+.ab.is-alt .ab__gem { box-shadow: 0 0 0 2px #ffcf8a, 0 0 18px rgba(255,160,60,.6); }
+.skill--passive { border-left: 2px solid var(--gold); background: linear-gradient(90deg, rgba(201,164,92,.08), transparent 60%); }
+.rune--passive { background: transparent !important; }
+.rune--passive img { width: 70%; }
+.skill__alt { color: #e8c890; font-style: normal; font-size: .95em; }

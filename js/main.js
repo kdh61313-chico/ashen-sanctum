@@ -405,8 +405,10 @@ class App {
     $('sel-skills').innerHTML = SLOTS.map(s => {
       const d = h.abilities[s];
       const cd = s === 'x' ? '궁극기' : (s === 'lmb' ? (d.ammo ? `${d.ammo}발 · 재장전 ${d.reload}초` : '') : `${d.cd}초`);
-      return `<li class="skill${s === 'x' ? ' skill--ult' : ''}"><div class="rune"><img src="${icon(d.icon, s === 'x' ? '#ffb08a' : '#efe0c0')}" alt=""><span class="rune__key">${SLOT_KEYS[s]}</span></div><div><div class="skill__name">${d.name}<span class="skill__cd">${cd}</span></div><div class="skill__desc">${d.desc}</div></div></li>`;
+      const alt = d.form?.lmb || d.alt;
+      return `<li class="skill${s === 'x' ? ' skill--ult' : ''}"><div class="rune"><img src="${icon(d.icon, s === 'x' ? '#ffb08a' : '#efe0c0')}" alt=""><span class="rune__key">${SLOT_KEYS[s]}</span></div><div><div class="skill__name">${d.name}<span class="skill__cd">${cd}</span></div><div class="skill__desc">${d.desc}${alt ? `<br><i class="skill__alt">→ 좌클릭: ${alt.name}. ${alt.desc}</i>` : ''}</div></div></li>`;
     }).join('');
+    if (h.passive) $('sel-skills').insertAdjacentHTML('afterbegin', `<li class="skill skill--passive"><div class="rune rune--passive"><img src="assets/el-${h.el}.svg" alt=""><span class="rune__key">패시브</span></div><div><div class="skill__name">${h.passive.name}${h.passive.res ? `<span class="skill__cd" style="color:${h.passive.res.color}">${h.passive.res.name}</span>` : ''}</div><div class="skill__desc">${h.passive.desc}</div></div></li>`);
     this.stage.setHero(h, sound);
     if (sound) this.audio.play('select');
     if (this.state === 'select') this.updateSelectActions();

@@ -198,7 +198,7 @@ export class BotBrain {
 
     const tgt = this.target && this.target.alive ? this.target : null;
     const hdef = p.def;
-    const lmb = hdef.abilities.lmb;
+    const lmb = this.sim.lmbOf ? this.sim.lmbOf(p) : hdef.abilities.lmb;
     let moveGoal = null;
     let dist = 99;
 
@@ -276,7 +276,7 @@ export class BotBrain {
     } else {
       this.charging = false;
       this.seeT = 0;
-      if (p.def.abilities.lmb.ammo && p.ammo < p.def.abilities.lmb.ammo) this.sim.reload(p.id);
+      { const L = this.sim.lmbOf(p); if (L.ammo && p.ammo < L.ammo) this.sim.reload(p.id); }
       // heal/support usage without target
       if (hdef.abilities.e.ai?.use === 'heal' && this.ready('e') && this.wantAbility('e', hdef.abilities.e, null, 0)) this.cast('e', { yaw: p.yaw, pitch: -0.3 });
       // hunt: last seen, else nearest enemy (bots get a rough sense of the fight)

@@ -99,6 +99,32 @@ export const LOOK = {
   prison: { c: '#b07cff', c2: '#f0e0ff' },
   nightfall: { c: '#6a3ab0', c2: '#e0c8ff' },
   tide: { c: '#5ad8e8', c2: '#e8ffff' },
+  meteorlet: { c: '#ff6a1a', c2: '#ffd27a', s: 0.3, trail: 'fire' },
+  iceshard: { c: '#9fe0ff', c2: '#ffffff', s: 0.12, stretch: 0.6 },
+  icearrow: { c: '#9fe0ff', c2: '#ffffff', s: 0.16, stretch: 1.3, trail: 'frost' },
+  soul: { c: '#8a5cff', c2: '#e0d0ff', s: 0.26, trail: 'void' },
+  mirror: { c: '#ff9ce8', c2: '#ffffff', s: 0.12, stretch: 0.8 },
+  crow: { c: '#3a2a4a', c2: '#b07cff', s: 0.3, trail: 'void' },
+  runehammer: { c: '#7fd8ff', c2: '#ffffff', s: 0.6, spin: true, trail: 'frost' },
+  hook: { c: '#b8b0a0', c2: '#ffffff', s: 0.2 },
+  ember: { c: '#ff7a2a', c2: '#ffd27a', s: 0.08, stretch: 0.6 },
+  acid: { c: '#9aff3a', c2: '#eaffc8', s: 0.3, trail: 'poison' },
+  antidote: { c: '#5aff9a', c2: '#e8fff0', s: 0.3, trail: 'poison' },
+  shadowstar: { c: '#9a5cff', c2: '#ffffff', s: 0.22, spin: true },
+  cannon: { c: '#9fb0ff', c2: '#ffffff', s: 0.2 },
+  abyss: { c: '#3a1a6a', c2: '#9a5cff', s: 0.5, trail: 'void' },
+  gravity: { c: '#5a2aaa', c2: '#d0b0ff', s: 0.8, trail: 'void' },
+  dragonfire: { c: '#ff4a0a', c2: '#ffd27a', s: 0.5, trail: 'fire' },
+  firewave: { c: '#ff5a1a', c2: '#ffe0a0', s: 0.8, stretch: 0.4, trail: 'fire' },
+  bigbomb: { c: '#ff7a2a', c2: '#ffffff', s: 0.9 },
+  petalwave: { c: '#ff7ac0', c2: '#fff0f8', s: 0.8, stretch: 0.4, trail: 'petal' },
+  bullet: { c: '#ffd27a', c2: '#ffffff', s: 0.06, stretch: 0.8 },
+  drain: { c: '#ff2a4a', c2: '#ffb0c0' },
+  flame: { c: '#ff7a2a', c2: '#ffe0a0' },
+  ghost: { c: '#8a5cff', c2: '#e0d0ff' }, wolf: { c: '#9fe0ff', c2: '#ffffff' }, owl: { c: '#cfefff', c2: '#ffffff' }, wisp: { c: '#ff7a2a', c2: '#ffd27a' },
+  crowstorm: { c: '#6a3ab0', c2: '#e0c8ff' }, hands: { c: '#7a5aa0', c2: '#e0d0ff' }, tomb: { c: '#9a9488', c2: '#ffffff' }, grave: { c: '#8a7a5a', c2: '#e8d8b8' },
+  mirrordome: { c: '#ff9ce8', c2: '#ffffff' }, flower: { c: '#ff8ac8', c2: '#fff0f8' }, bloom: { c: '#7bd36a', c2: '#ffd0f0' },
+  sleep: { c: '#b8c8ff', c2: '#ffffff' }, guillotine: { c: '#c8c8d8', c2: '#ffffff' }, feathers: { c: '#fff0d0', c2: '#ffffff' },
 };
 let _runeTex = null;
 export function runeTex() {
@@ -159,7 +185,7 @@ function fresnelMat(color, power = 2.2, base = 0.05) {
     uniforms: { color: { value: new THREE.Color(color) }, op: { value: 1 }, power: { value: power }, base: { value: base }, time: { value: 0 } },
     vertexShader: `varying vec3 vN; varying vec3 vV; varying vec3 vW; void main(){ vec4 w = modelMatrix*vec4(position,1.); vW = w.xyz; vN = normalize(mat3(modelMatrix)*normal); vV = normalize(cameraPosition - w.xyz); gl_Position = projectionMatrix*viewMatrix*w; }`,
     fragmentShader: `uniform vec3 color; uniform float op; uniform float power; uniform float base; uniform float time; varying vec3 vN; varying vec3 vV; varying vec3 vW;
-      void main(){ float f = pow(1.0 - abs(dot(normalize(vN), vV)), power); float bands = 0.75 + 0.25*sin(vW.y*14.0 - time*6.0); gl_FragColor = vec4(color*(1.2+f*1.5), (base + f)*op*bands); }`,
+      void main(){ float f = pow(1.0 - abs(dot(normalize(vN), vV)), power); float bands = 0.75 + 0.25*sin(vW.y*14.0 - time*6.0); float near = smoothstep(0.6, 3.0, distance(cameraPosition, vW)); gl_FragColor = vec4(color*(1.2+f*1.5), (base + f)*op*bands*near); }`,
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
   });
 }
@@ -523,6 +549,9 @@ export class FX {
       case 'holy': this.P.emit(p, { n: 1, c: '#ffc83a', c2: '#ffffff', sp: 0.4, s: 0.16, life: 0.5 }); break;
       case 'wind': this.P.emit(p, { n: 1, c: '#5ac0a8', c2: '#ffffff', sp: 0.8, s: 0.08, life: 0.3 }); break;
       case 'bees': this.P.emit([p[0] + (Math.random() - 0.5) * 0.5, p[1] + (Math.random() - 0.5) * 0.5, p[2] + (Math.random() - 0.5) * 0.5], { n: 2, c: '#ffb020', c2: '#ffffff', sp: 2, s: 0.07, life: 0.35 }); break;
+      case 'frost': this.P.emit(p, { n: 1, c: '#7fd8ff', c2: '#ffffff', sp: 0.4, s: 0.1, life: 0.4 }); break;
+      case 'poison': this.P.emit(p, { n: 1, c: '#5a9a20', c2: '#d0ff8a', sp: 0.4, s: 0.14, life: 0.5 }); break;
+      case 'petal': this.P.emit(p, { n: 2, c: '#ff6ab0', c2: '#ffe0f0', sp: 1.2, s: 0.1, life: 0.5, g: 0.5 }); break;
       case 'water': this.P.emit(p, { n: 2, c: '#1a9ab0', c2: '#e8ffff', sp: 0.5, s: 0.14, life: 0.4, g: 4 }); break;
     }
   }
@@ -591,14 +620,14 @@ export class FX {
         v = { g: new THREE.Group(), look: z.look, acc: 0 };
         const col = z.look === 'trap' ? (friendly ? '#9fe8ff' : '#ff6a6a') : L.c;
         if (z.w) {
-          const box = z.look === 'icewall' ? new THREE.Mesh(new THREE.BoxGeometry(z.w, z.h || 2.5, Math.max(0.3, z.d)), new THREE.MeshStandardMaterial({ color: '#cfefff', transparent: true, opacity: 0.75, emissive: '#5ac8ff', emissiveIntensity: 0.35, roughness: 0.1, metalness: 0.1, flatShading: true })) : new THREE.Mesh(new THREE.BoxGeometry(z.w, z.h || 2.5, Math.max(0.3, z.d)), addMat(col, z.look === 'runewall' ? 0.3 : 0.07));
+          const box = z.look === 'tomb' ? new THREE.Mesh(new THREE.BoxGeometry(z.w, z.h || 2.5, Math.max(0.3, z.d)), new THREE.MeshStandardMaterial({ color: '#7a7468', roughness: 0.9, flatShading: true })) : z.look === 'icewall' ? new THREE.Mesh(new THREE.BoxGeometry(z.w, z.h || 2.5, Math.max(0.3, z.d)), new THREE.MeshStandardMaterial({ color: '#cfefff', transparent: true, opacity: 0.75, emissive: '#5ac8ff', emissiveIntensity: 0.35, roughness: 0.1, metalness: 0.1, flatShading: true })) : new THREE.Mesh(new THREE.BoxGeometry(z.w, z.h || 2.5, Math.max(0.3, z.d)), addMat(col, z.look === 'runewall' ? 0.3 : 0.07));
           box.position.y = (z.h || 2.5) / 2; v.g.add(box); v.box = box;
           if (z.look === 'runewall') {
             const edge = new THREE.Mesh(new THREE.BoxGeometry(z.w, 0.08, z.d + 0.05), addMat('#e0f7ff', 0.9)); edge.position.y = z.h || 3; v.g.add(edge);
           }
         } else {
           const look = z.look;
-          const trailLook = ['sparkpath', 'bloodmist', 'fireground', 'icepath', 'petals', 'smoke', 'decoy'].includes(look);
+          const trailLook = ['sparkpath', 'bloodmist', 'fireground', 'icepath', 'petals', 'smoke', 'decoy', 'ghost', 'wolf', 'owl', 'wisp', 'crowstorm', 'feathers', 'void', 'grenade'].includes(look);
           const ring = new THREE.Mesh(this.ringGeo, addMat(col, trailLook ? 0.0 : 0.85)); ring.rotation.x = -Math.PI / 2; ring.scale.setScalar(z.r); v.g.add(ring); v.ring = ring;
           if (!trailLook && look !== 'trap' && look !== 'mine') {
             const dec = new THREE.Mesh(this.decalGeo, addMat(col, 0.55)); dec.material.map = runeTex(); dec.scale.setScalar(z.r); dec.position.y = 0.02; dec.renderOrder = 4; v.g.add(dec); v.dec = dec;
@@ -653,6 +682,34 @@ export class FX {
               v.turretHead = head;
             }
           }
+          if (['ghost', 'wolf', 'owl', 'wisp', 'crowstorm'].includes(look)) {
+            const sp = new THREE.Group(); sp.position.y = look === 'owl' || look === 'crowstorm' ? 1.8 : 0.7; v.g.add(sp); v.spirit = sp;
+            v.fres = fresnelMat(col, 1.5, 0.2);
+            if (look === 'wolf') {
+              const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.28, 0.8, 3, 8), v.fres); body.rotation.x = Math.PI / 2; sp.add(body);
+              const head = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.5, 6), v.fres); head.rotation.x = -Math.PI / 2; head.position.set(0, 0.2, -0.65); sp.add(head);
+              for (const sx of [-1, 1]) { const ear = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.2, 4), v.fres); ear.position.set(sx * 0.1, 0.4, -0.5); sp.add(ear); }
+              for (let i = 0; i < 4; i++) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.04, 0.5, 5), v.fres); leg.position.set(i % 2 ? 0.16 : -0.16, -0.35, i < 2 ? -0.3 : 0.3); sp.add(leg); }
+              const tail = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.5, 5), v.fres); tail.rotation.x = 1.1; tail.position.set(0, 0.15, 0.6); sp.add(tail);
+            } else if (look === 'owl') {
+              const body = new THREE.Mesh(new THREE.SphereGeometry(0.3, 10, 8), v.fres); body.scale.set(1, 1.2, 0.9); sp.add(body);
+              for (const sx of [-1, 1]) { const w = new THREE.Mesh(new THREE.ConeGeometry(0.25, 0.9, 3), v.fres); w.rotation.z = sx * Math.PI / 2; w.scale.z = 0.2; w.position.x = sx * 0.55; sp.add(w); (v.wings = v.wings || []).push(w); }
+              for (const sx of [-1, 1]) { const eye = new THREE.Mesh(this.sphere, addMat('#ffffff', 1)); eye.scale.setScalar(0.06); eye.position.set(sx * 0.1, 0.1, -0.26); sp.add(eye); }
+            } else if (look === 'crowstorm') {
+              v.crows = [];
+              for (let i = 0; i < 12; i++) { const c = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.4, 3), new THREE.MeshBasicMaterial({ color: '#120a1a' })); c.rotation.x = Math.PI / 2; sp.add(c); v.crows.push(c); }
+              const core = new THREE.Mesh(new THREE.SphereGeometry(z.r * 0.6, 14, 10), v.fres); sp.add(core);
+            } else {
+              const body = new THREE.Mesh(new THREE.SphereGeometry(look === 'wisp' ? 0.35 : 0.42, 12, 10), v.fres); body.scale.y = look === 'ghost' ? 1.5 : 1; sp.add(body);
+              const core = new THREE.Mesh(this.sphere, addMat(look === 'wisp' ? '#fff0c0' : '#ffffff', 1)); core.scale.setScalar(look === 'wisp' ? 0.16 : 0.1); if (look === 'ghost') { core.position.set(0, 0.15, -0.3); } sp.add(core);
+              if (look === 'ghost') { const tail = new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.9, 8), v.fres); tail.rotation.x = Math.PI; tail.position.y = -0.7; sp.add(tail); }
+            }
+          }
+          if (look === 'tomb') { /* drawn by the wall branch */ }
+          if (look === 'guillotine') { const blade = new THREE.Mesh(new THREE.BoxGeometry(z.r * 1.8, 1.4, 0.12), new THREE.MeshStandardMaterial({ color: '#c8c8d8', metalness: 0.95, roughness: 0.15 })); blade.position.y = 14; v.g.add(blade); v.blade = blade; }
+          if (look === 'hands' || look === 'grave' || look === 'sleep') { v.fill = new THREE.Mesh(this.discGeo, addMat(col, 0.25)); v.fill.rotation.x = -Math.PI / 2; v.fill.position.y = 0.05; v.g.add(v.fill); }
+          if (look === 'mirrordome') { v.fres = v.fres || fresnelMat(col, 2.4, 0.04); const dome = new THREE.Mesh(this.domeGeo, v.fres); dome.scale.set(z.r, z.r * 0.75, z.r); v.g.add(dome); }
+          if (look === 'mirror') { v.mirrors = []; for (let i = 0; i < 4; i++) { const m = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 1.6), new THREE.MeshStandardMaterial({ color: '#e8f0ff', metalness: 1, roughness: 0.05, emissive: '#ff9ce8', emissiveIntensity: 0.4, side: THREE.DoubleSide })); const a = i / 4 * Math.PI * 2; m.position.set(Math.cos(a) * z.r * 0.8, 1.6, Math.sin(a) * z.r * 0.8); m.rotation.y = -a + Math.PI / 2; v.g.add(m); v.mirrors.push(m); } }
           if (look === 'swarm') { v.bees = []; for (let i = 0; i < 18; i++) { const b = new THREE.Mesh(this.sphere, addMat('#ffc83a', 1)); b.scale.set(0.06, 0.05, 0.08); v.g.add(b); v.bees.push(b); } }
           if (look === 'prison') { for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3.2, 5), new THREE.MeshStandardMaterial({ color: '#3a3440', metalness: 0.8, roughness: 0.4, emissive: '#6a3ab0', emissiveIntensity: 0.4 })); bar.position.set(Math.cos(a) * z.r, 1.6, Math.sin(a) * z.r); v.g.add(bar); } }
           if (look === 'starmeteor') { const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(1.0, 0), new THREE.MeshStandardMaterial({ color: '#2a2440', emissive: '#c8b8ff', emissiveIntensity: 1.4, flatShading: true })); v.g.add(rock); v.rock = rock; }
@@ -670,6 +727,12 @@ export class FX {
       if (v.ring) v.ring.rotation.z += dt * 0.6;
       if (v.dec) { v.dec.rotation.y += dt * 0.5; v.dec.material.opacity = 0.45 + Math.sin(this.time * 3 + z.id) * 0.1; }
       if (v.swirl) v.swirl.rotation.z += dt * 0.8;
+      if (v.spirit) { v.spirit.rotation.y = (z.yaw || 0); v.spirit.position.y = (z.look === 'owl' || z.look === 'crowstorm' ? 1.8 : 0.7) + Math.sin(this.time * 4 + z.id) * 0.12; if (v.fres) v.fres.uniforms.op.value = Math.min(1, z.t * 3) * Math.min(1, Math.max(0, (z.dur + z.delay - z.t) * 2)); }
+      if (v.wings) v.wings.forEach((w, i) => { w.rotation.x = Math.sin(this.time * 10) * 0.5; });
+      if (v.crows) v.crows.forEach((c, i) => { const a = this.time * (3 + (i % 3)) + i; c.position.set(Math.cos(a) * z.r * 0.8, Math.sin(this.time * 5 + i) * 0.6, Math.sin(a) * z.r * 0.8); c.rotation.y = -a; });
+      if (v.blade) { const k = Math.min(1, z.t / Math.max(0.01, z.delay)); v.blade.position.y = 14 * (1 - k * k) + 0.7; v.blade.visible = z.t < z.delay + 0.15; }
+      if (v.fill) { const k = Math.min(1, z.t / Math.max(0.01, z.delay)); v.fill.scale.setScalar(z.r * k); }
+      if (v.mirrors) v.mirrors.forEach((m, i) => { m.position.y = 1.6 + Math.sin(this.time * 2 + i) * 0.15; });
       if (v.turretHead) v.turretHead.rotation.y += ((z.yaw || 0) - v.turretHead.rotation.y) * Math.min(1, dt * 12);
       if (v.bees) v.bees.forEach((b, i) => { const a = this.time * (2 + (i % 5) * 0.4) + i; b.position.set(Math.cos(a) * z.r * (0.3 + (i % 4) * 0.18), 0.6 + Math.sin(this.time * 4 + i) * 0.5 + (i % 3) * 0.4, Math.sin(a * 1.1) * z.r * (0.3 + (i % 4) * 0.18)); });
       if (v.blades) v.blades.forEach((bl, i) => { bl.rotation.z = this.time * 9 + i * 2.1; });
@@ -720,6 +783,12 @@ export class FX {
         case 'sparkpath': if (Math.random() < 0.25) { const a1 = rp(), a2 = rp(); a1[1] += 0.2; a2[1] += 0.4; this.bolt(a1, a2, '#8fd8ff', 0.02, 0.08, 0.3); } break;
         case 'petals': if (Math.random() < 0.6) { const q = rp(); q[1] += Math.random() * 1.4; const a = this.time * 3; this.P.emit(q, { c: '#ff6ab0', c2: '#ffe0f0', sp: 0.4, v: [Math.cos(a) * 1.5, 0.5, Math.sin(a) * 1.5], s: 0.14, life: 0.9, drag: 0.4, g: 0.6 }); } break;
         case 'icepath': if (Math.random() < 0.15) this.P.emit(rp(), { c: '#9fe8ff', c2: '#ffffff', sp: 0.2, up: 0.8, s: 0.1, life: 0.8 }); break;
+        case 'ghost': case 'wisp': if (Math.random() < 0.6) this.P.emit([p[0], p[1] + 0.7, p[2]], { c: z.look === 'wisp' ? '#ff6a1a' : '#6a3ab0', c2: z.look === 'wisp' ? '#ffd27a' : '#e0d0ff', sp: 0.4, up: 0.6, s: 0.22, s1: 0.05, life: 0.5 }); break;
+        case 'wolf': if (Math.random() < 0.4) this.P.emit([p[0], p[1] + 0.3, p[2]], { c: '#7fd8ff', c2: '#ffffff', sp: 0.3, s: 0.15, life: 0.5 }); break;
+        case 'owl': if (Math.random() < 0.3) this.P.emit([p[0], p[1] + 1.8, p[2]], { c: '#cfefff', c2: '#ffffff', sp: 0.3, s: 0.1, life: 0.6, g: 1 }); break;
+        case 'flower': case 'bloom': if (Math.random() < 0.5) { const q = rp(); this.P.emit(q, { c: '#ff8ac8', c2: '#fff0f8', sp: 0.2, up: 0.9, s: 0.14, life: 1 }); } break;
+        case 'sleep': if (Math.random() < 0.3) { const q = rp(); q[1] += 1.5; this.P.emit(q, { c: '#b8c8ff', c2: '#ffffff', sp: 0.1, up: 0.6, s: 0.2, life: 1.2 }); } break;
+        case 'feathers': if (Math.random() < 0.5) { const q = rp(); q[1] += 4; this.P.emit(q, { c: '#fff0d0', c2: '#ffffff', sp: 0.3, v: [0, -3, 0], s: 0.14, life: 1.2 }); } break;
         case 'swamp': if (Math.random() < 0.6) { const q = rp(); this.P.emit(q, { c: '#3a5a10', c2: '#a8e85a', sp: 0.2, up: 0.8, s: 0.35, s1: 0.6, life: 0.9, a: 0.5 }); } break;
         case 'honey': if (Math.random() < 0.2) this.P.emit(rp(), { c: '#ffb020', c2: '#fff0b0', sp: 0.1, up: 0.4, s: 0.18, life: 0.8 }); break;
         case 'tide': if (Math.random() < 0.7) { const a = Math.random() * Math.PI * 2; this.P.emit([p[0] + Math.cos(a) * r, p[1] + 0.2, p[2] + Math.sin(a) * r], { c: '#1a9ab0', c2: '#e8ffff', sp: 0.2, v: [-Math.sin(a) * 3, 1, Math.cos(a) * 3], s: 0.25, life: 0.6 }); } break;
@@ -867,6 +936,25 @@ export class FX {
         }
         break;
       }
+      case 'stance': { const v = ctx?.view?.get?.(e.id); if (v) { const c = [v.pos[0], v.pos[1] + 1, v.pos[2]]; this.sphereFlash(c, 1.2, e.on ? '#6a2aaa' : (e.color || '#ffe08a'), 0.35); this.runeDecal(v.pos, 1.6, e.on ? '#6a2aaa' : (e.color || '#ffe08a'), 0.6, 4); } break; }
+      case 'formEnd': { const v = ctx?.view?.get?.(e.id); if (v) P.emit([v.pos[0], v.pos[1] + 1, v.pos[2]], { n: 30, c: e.color || '#fff', c2: '#ffffff', sp: 3, s: 0.2, life: 0.5 }); break; }
+      case 'mark': { const v = ctx?.view?.get?.(e.id); if (v) { const c = [v.pos[0], v.pos[1] + 2.25, v.pos[2]]; this.ring(c, 0.25 + e.n * 0.08, e.color || '#b07cff', 0.35, 0); P.emit(c, { n: 3 + e.n, c: e.color || '#b07cff', c2: '#ffffff', sp: 1, s: 0.1, life: 0.3 }); } break; }
+      case 'cleanse': this.pillar(e.pos, '#e8fff0', 0.5, 4, 0.5); P.emit([e.pos[0], e.pos[1] + 1, e.pos[2]], { n: 16, c: '#c8ffe0', c2: '#ffffff', sp: 2, up: 2, s: 0.12, life: 0.6 }); break;
+      case 'cone': {
+        const L = LOOK[e.look] || LOOK.flame;
+        for (let i = 0; i < 6; i++) {
+          const a = (Math.random() - 0.5) * (e.ang || 50) * Math.PI / 180, b = (Math.random() - 0.5) * 0.3;
+          const ca = Math.cos(a), sa = Math.sin(a), d = e.dir;
+          const v = [d[0] * ca - d[2] * sa, d[1] + b, d[0] * sa + d[2] * ca];
+          const sp = 10 + Math.random() * 8;
+          P.emit([e.from[0] + d[0] * 0.8, e.from[1] - 0.3 + d[1] * 0.8, e.from[2] + d[2] * 0.8], { c: L.c, c2: L.c2, sp: 0.3, v: v.map(x => x * sp), s: 0.25, s1: 0.9, life: (e.r || 7) / sp, drag: 0.5 });
+        }
+        break;
+      }
+      case 'slashLine': this.S.seg(e.from, e.to, { c: e.color || '#fff', w: 0.18, life: 0.3 }); this.S.seg(e.from, e.to, { c: '#ffffff', w: 0.06, life: 0.25 }); this.burstSparks(e.to, e.color || '#fff', 14, 9); this.ghost([e.from[0], e.from[1] - 1, e.from[2]], 0, e.color || '#fff', 0.35, 0.7); break;
+      case 'bones': P.emit([e.pos[0], e.pos[1] + 1, e.pos[2]], { n: 30, c: '#e8e0c8', c2: '#ffffff', sp: 4, up: 2, s: 0.16, life: 0.7, g: 8 }); this.runeDecal(e.pos, 2, '#7bd36a', 0.9, 3); break;
+      case 'rune': this.ring(e.pos, 0.6, e.color || '#7fd8ff', 0.4, 0); P.emit(e.pos, { n: 10, c: e.color || '#7fd8ff', c2: '#ffffff', sp: 2, s: 0.12, life: 0.4 }); break;
+      case 'puppet': { const v = ctx?.view?.get?.(e.id); if (v) { for (let i = 0; i < 4; i++) this.S.seg([v.pos[0] + (i - 1.5) * 0.2, v.pos[1] + 6, v.pos[2]], [v.pos[0] + (i - 1.5) * 0.25, v.pos[1] + 1.3, v.pos[2]], { c: e.color || '#ff7ac0', w: 0.02, life: 1 }); } break; }
       case 'freeze': {
         for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2; const sp = new THREE.Mesh(new THREE.ConeGeometry(0.12, 1.1, 4), new THREE.MeshStandardMaterial({ color: '#cfefff', emissive: '#5ac8ff', emissiveIntensity: 0.8, transparent: true, opacity: 0.85, flatShading: true })); sp.position.set(e.pos[0] + Math.cos(a) * 0.45, e.pos[1] + 0.45, e.pos[2] + Math.sin(a) * 0.45); sp.rotation.set(Math.sin(a) * 0.4, 0, -Math.cos(a) * 0.4); this.temp(sp, 0.9, (k) => { sp.scale.set(1, k < 0.12 ? k / 0.12 : (k > 0.75 ? (1 - k) / 0.25 : 1), 1); }); }
         P.emit([e.pos[0], e.pos[1] + 1, e.pos[2]], { n: 24, c: '#7fd8ff', c2: '#ffffff', sp: 3, s: 0.14, life: 0.5 });

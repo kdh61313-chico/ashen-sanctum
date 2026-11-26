@@ -15,6 +15,8 @@ export const ROLES = {
 import { NEW_HEROES, RARITY, STARTERS } from './heroes2.js';
 import { THIRD_HEROES, THIRD_RARITY } from './heroes3.js';
 import { HERO_EL } from './elements.js';
+import { KITS } from './kits.js';
+import { PASSIVES } from './passives.js';
 Object.assign(RARITY, THIRD_RARITY);
 export { RARITY, STARTERS };
 
@@ -261,8 +263,19 @@ const BASE = [
   },
 ];
 
+// balance patch v1.5: multipliers on top of the base data
+export const BALANCE = {
+  grom: { hp: 1.08, dmg: 1.1 }, mariette: { dmg: 1.12 }, maren: { hp: 1.08, dmg: 1.08 }, koru: { dmg: 1.1 }, bark: { dmg: 1.08 },
+  jack: { dmg: 1.1 }, sien: { hp: 1.1 }, zephyr: { hp: 1.06, dmg: 1.08 }, azrak: { hp: 1.05 }, brann: { dmg: 1.1 }, helga: { hp: 1.06, dmg: 1.06 },
+  luna: { dmg: 1.08 }, moloch: { hp: 1.05, dmg: 1.15 }, pell: { hp: 1.08 }, sira: { dmg: 1.1 }, frey: { hp: 1.05 }, iris: { dmg: 1.06 }, surtr: { dmg: 0.94 }, orin: { dmg: 0.95 },
+  valok: { hp: 0.9, dmg: 0.9 }, lumen: { hp: 0.95, dmg: 0.95 }, igna: { dmg: 0.96 }, mor: { hp: 0.94 }, selene: { dmg: 0.94 }, zeno: { dmg: 0.95 },
+};
 export const HEROES = [...BASE, ...NEW_HEROES, ...THIRD_HEROES];
-for (const h of HEROES) { h.rarity = RARITY[h.id] || 4; h.starter = STARTERS.includes(h.id); h.el = HERO_EL[h.id] || 'fire'; }
+for (const h of HEROES) { h.rarity = RARITY[h.id] || 4; h.starter = STARTERS.includes(h.id); h.el = HERO_EL[h.id] || 'fire';
+  if (KITS[h.id]) h.abilities = { ...h.abilities, ...KITS[h.id] };
+  const B = BALANCE[h.id];
+  if (B) { if (B.hp) h.hp = Math.round(h.hp * B.hp); if (B.dmg) for (const a of Object.values(h.abilities)) { if (a.dmg) a.dmg = Math.round(a.dmg * B.dmg); if (a.splash?.dmg) a.splash = { ...a.splash, dmg: Math.round(a.splash.dmg * B.dmg) }; if (a.dps) a.dps = Math.round(a.dps * B.dmg); } }
+  const P = PASSIVES[h.id]; h.passive = P ? { name: P.name, desc: P.desc, res: P.res || null } : null; }
 
 export const DUMMY = {
   id: 'dummy', name: '허수아비', title: '훈련용', role: 'tank', hp: 750, speed: 3, diff: 1, color: '#c9a45c', quote: '', model: 'dummy',
@@ -273,3 +286,10 @@ export const HERO_MAP = Object.fromEntries([...HEROES, DUMMY].map(h => [h.id, h]
 export const SLOTS = ['lmb', 'q', 'e', 'x'];
 export const SLOT_KEYS = { lmb: '좌클릭', q: 'Q', e: 'E', x: 'X' };
 export const ULT_COST = 100;
+
+// the left-click ability actually in use (a transformation or stance can replace it)
+export function effLmb(h, fm, sn) {
+  if (fm && h.abilities[fm]?.form?.lmb) return h.abilities[fm].form.lmb;
+  if (sn && h.abilities[sn]?.alt) return h.abilities[sn].alt;
+  return h.abilities.lmb;
+}
