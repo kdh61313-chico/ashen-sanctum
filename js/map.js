@@ -165,6 +165,94 @@ const DEFS = {
     },
     dummies: [[-12, 0, 0], [-10, 0, 6], [-6, 0, -8], [-14, 2, -8], [-4, 0, 4], [-18, 0, 6]],
   },
+  // ------------------------------------------------------------------
+  archive: {
+    name: '불타는 서고', desc: '불길이 번지는 대서고. 책장 사이의 좁은 통로와 위층 회랑을 오가며 싸워요.',
+    theme: {
+      sky: ['#0c0a14', '#2a1a2e', '#6a3424'], fog: ['#2a1c20', 0.017], hemi: ['#e0b080', '#2a1a18', 1.5], amb: ['#3a2a2c', 1.15],
+      sun: ['#ffcf9a', 1.6, [-30, 50, 22]], rim: ['#ff9a4a', 1.1], floor: 'parquet', floorTint: '#c0a48c', wallTint: '#8a7466',
+      accent: '#ffb347', particles: 'pages', moon: [-0.6, 0.25, 0.4], clouds: 0.6, cloudC: '#5a3436', mist: '#3a2424',
+    },
+    build(m) {
+      const { B, P, steps, outer } = m;
+      outer('wall');
+      B(0, 0, 7, 7, 0.5, 0, 'dais', false); B(0, 0, 4.2, 4.2, 0.5, 0.5, 'dais', false);
+      B(0, 0, 1.0, 1.0, 1.6, 1.0, 'pedestal', false);
+      B(-14, -10, 1.1, 7, 4.4, 0, 'shelf'); B(-14, 9.5, 1.1, 6, 4.4, 0, 'shelf');
+      B(-21, -12, 7, 1.1, 4.4, 0, 'shelf'); B(-21, 12.5, 7, 1.1, 4.4, 0, 'shelf');
+      B(-8, 15, 1.1, 6, 4.4, 0, 'shelf');
+      B(-6, -20, 14, 4, 2.4, 0, 'gallery'); steps(1, -20, [1, 0], 4, 2.4, 3.6, 'woodstep');
+      B(-6, -17.85, 14, 0.3, 0.9, 2.4, 'rail');
+      B(-8, -5, 3.2, 1.6, 0.95, 0, 'table'); B(-9, 6, 1.6, 3.2, 0.95, 0, 'table');
+      B(-24, -18, 5, 1.4, 1.3, 0, 'fallen'); B(-18.5, 0, 1.0, 1.4, 1.35, 0, 'lectern');
+      B(-4, -11, 1.6, 1.6, 0.8, 0, 'books'); B(-24, 6, 1.4, 1.4, 1.1, 0, 'books');
+      P('glasswin', -33.9, -12, Math.PI / 2); P('glasswin', -33.9, 12, Math.PI / 2); P('glasswin', -20, -23.9, 0); P('glasswin', -2, 23.9, Math.PI);
+      P('chandelier', -14, 0, 0, 1); P('chandelier', 0, 0, 0, 1.3, 0, false);
+      P('candles', -8, -5, 0, 1, 0.95); P('candles', -9, 6, 0, 1, 0.95); P('candles', -6, -20, 0, 1, 2.4);
+      P('candelabra', -21, -3.6); P('candelabra', -21, 3.6);
+      P('armillary', 0, 0, 0, 1, 2.6, false);
+      P('scrolls', -11, -2); P('scrolls', -17, 7, 1); P('scrolls', -26, -10, 2);
+      P('firepatch', -28, -21, 0, 1); P('firepatch', -10, 20, 1, 0.8);
+      P('statue', -32.6, 0, Math.PI / 2, 1.1);
+    },
+    dummies: [[-10, 0, -2], [-10, 0, 3], [-6, 0, -9], [-5, 0, 9], [0, 1.0, 0], [-6, 2.4, -20]],
+  },
+  // ------------------------------------------------------------------
+  bastion: {
+    name: '폭풍 성채', desc: '번개가 치는 절벽 요새. 가운데 협곡은 다리로만 건널 수 있고, 떨어지면 크게 다쳐요.',
+    theme: {
+      sky: ['#05080c', '#141e26', '#34424a'], fog: ['#222c34', 0.017], hemi: ['#a8c0d0', '#24262c', 1.8], amb: ['#303a44', 1.1],
+      sun: ['#c8d8ff', 2.2, [-30, 58, -20]], rim: ['#7ad0ff', 1.0], floor: 'slate', floorTint: '#a4aab0', wallTint: '#828a92',
+      accent: '#8ad8ff', particles: 'rain', moon: [-0.4, 0.35, -0.8], storm: true, clouds: 1, cloudC: '#4a5a68', mist: '#1e262e',
+    },
+    build(m) {
+      const { B, P, H, steps, outer } = m;
+      outer('wall');
+      H(-3.5, -24, 3.5, -15, 'abyss', false); H(-3.5, -11, 3.5, -2.2, 'abyss', false);
+      H(-3.5, 2.2, 3.5, 11, 'abyss', false); H(-3.5, 15, 3.5, 24, 'abyss', false);
+      for (const [x, z] of [[-4.6, -15.6], [-4.6, -10.4], [4.6, -15.6], [4.6, -10.4], [-4.6, -2.8], [-4.6, 2.8]]) B(x, z, 0.9, 0.9, 3.2, 0, 'post');
+      B(-17, 0, 5, 5, 7, 0, 'keep');
+      B(-24, -16, 8, 5, 2.6, 0, 'rampart'); steps(-20, -16, [1, 0], 4, 2.6, 3);
+      B(-24, -13.3, 8, 0.4, 0.8, 2.6, 'lowwall');
+      B(-10, -7, 1.2, 6, 3, 0, 'wall'); B(-10, 9, 1.2, 5, 1.3, 0, 'lowwall');
+      B(-12, -20, 6, 1.2, 3, 0, 'wall');
+      B(-7, 3, 1.5, 1.5, 1.5, 0, 'crate'); B(-22, 7, 2, 2, 1.4, 0, 'crate'); B(-22, 7, 1.1, 1.1, 1.0, 1.4, 'crate');
+      B(-26, 14, 3, 3, 1.2, 0, 'rubble');
+      P('catapult', -14, 17, 0.6, 1); P('banner', -33.9, -6, Math.PI / 2); P('banner', -33.9, 6, Math.PI / 2);
+      P('lantern', -21, -3.5); P('lantern', -21, 3.5); P('lantern', -6, -13); P('lantern', -6, 0.5);
+      P('stormcore', 0, 0, 0, 1, 8, false); P('bridge', 0, -13, 0, 1, 0, false); P('bridge', 0, 0, 0, 1.1, 0, false); P('bridge', 0, 13, 0, 1, 0, false);
+      P('chasm', 0, 0, 0, 1, 0, false);
+      P('spearrack', -18, -9, 0.2); P('spearrack', -27, 3, 1.4);
+    },
+    dummies: [[-12, 0, -2], [-12, 0, 4], [-6, 0, -12], [-6, 0, 12], [0, 0, 0], [-24, 2.6, -16]],
+  },
+  // ------------------------------------------------------------------
+  dunes: {
+    name: '황혼 왕릉', desc: '지는 해 아래 모래에 묻힌 왕의 무덤. 계단식 피라미드 위가 가장 넓게 보여요.',
+    theme: {
+      sky: ['#1c1838', '#8a4a4a', '#f2a456'], fog: ['#c88a60', 0.011], hemi: ['#ffd8a8', '#6a4a34', 1.6], amb: ['#6a4a40', 1.0],
+      sun: ['#ffc48a', 3.2, [-62, 24, 12]], rim: ['#ff7a4a', 1.1], floor: 'sand', floorTint: '#e4cca4', wallTint: '#cfae86',
+      accent: '#ffcf6a', particles: 'dust', moon: [-0.9, 0.1, 0.18], sunDisc: true, clouds: 0.7, cloudC: '#ffb87a', mist: '#d8a070',
+    },
+    build(m) {
+      const { B, P, H, outer } = m;
+      outer('sandwall');
+      B(0, 0, 12, 12, 0.5, 0, 'sandstone', false); B(0, 0, 9, 9, 0.5, 0.5, 'sandstone', false);
+      B(0, 0, 6, 6, 0.5, 1.0, 'sandstone', false); B(0, 0, 3, 3, 0.5, 1.5, 'sandstone', false);
+      B(-6, -13, 1.3, 1.3, 5.5, 0, 'spillar'); B(-11, -13, 1.3, 1.3, 2.4, 0, 'spillar'); B(-16, -13, 1.3, 1.3, 5.5, 0, 'spillar');
+      B(-6, 13, 1.3, 1.3, 1.8, 0, 'spillar'); B(-11, 13, 1.3, 1.3, 5.5, 0, 'spillar'); B(-16, 13, 1.3, 1.3, 3.2, 0, 'spillar');
+      B(-12.5, -4.5, 1.4, 1.4, 7.5, 0, 'sobelisk'); B(-12.5, 5, 2.4, 1.2, 1.2, 0, 'sandstone');
+      B(-23, -12, 5, 4, 3.4, 0, 'colossus');
+      H(-21, 3, -15.5, 9.5, 'quicksand');
+      B(-25, 16, 2, 2, 1.2, 0, 'crate'); B(-6, -20.5, 7, 1, 1.2, 0, 'sandwall'); B(-19, 20, 6, 1, 1.4, 0, 'sandwall');
+      P('sunaltar', 0, 0, 0, 1, 2.0, false);
+      P('canopy', -25, 16, 0.3, 1); P('urns', -9, -16); P('urns', -27, -4, 1); P('urns', -19, 6, 2, 0.8);
+      P('palm', -30, -20, 0.3, 1.2); P('palm', -29, 20, 1.2, 1.0); P('palm', -8, 21, 2.2, 1.1);
+      P('brazier', -21, -3.6); P('brazier', -21, 3.6); P('bones', -17, -6); P('bones', -4, 17, 1);
+      P('jackal', -32.6, 0, Math.PI / 2, 1.1);
+    },
+    dummies: [[-12, 0, 0], [-8, 0, -6], [-8, 0, 8], [-14, 0, -9], [0, 2.0, 0], [-3, 0.5, 4]],
+  },
 };
 
 export const MAPS = Object.entries(DEFS).map(([id, d]) => ({ id, name: d.name, desc: d.desc, accent: d.theme.accent }));
@@ -188,6 +276,8 @@ export function setMap(id) {
   return m;
 }
 
+export const PIT = { lava: 1, abyss: 1 };
+export function pitAt(x, z) { const k = hazardAt(x, z); return k && PIT[k] ? k : null; }
 export function hazardAt(x, z) {
   for (const h of HAZARDS) if (x >= h.min[0] && x <= h.max[0] && z >= h.min[1] && z <= h.max[1]) return h.kind;
   return null;

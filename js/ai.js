@@ -1,4 +1,4 @@
-import { COLLIDERS, HALF_X, HALF_Z, MAP, hazardAt } from './map.js';
+import { COLLIDERS, HALF_X, HALF_Z, MAP, hazardAt, pitAt } from './map.js';
 import { losClear, raycast, groundUnder, yawTo, angDiff, clamp, GRAVITY, EYE, P_RADIUS, rayPlayer } from './physics.js';
 
 // ---------- navigation graph ----------
@@ -18,7 +18,7 @@ function buildNav() {
     for (let z = -HALF_Z + 1.5; z <= HALF_Z - 1.5; z += S) {
       const y = groundUnder(x, z, 3.0, 0.3);
       if (blockedAt(x, z, y)) continue;
-      if (y < 0.3 && hazardAt(x, z) === 'lava') continue;
+      if (y < 0.3 && pitAt(x, z)) continue;
       nodes.push({ x, y, z, n: [] });
     }
   }
@@ -35,7 +35,7 @@ function buildNav() {
       for (let k = 1; k <= n; k++) {
         const x = a.x + (b.x - a.x) * k / n, z = a.z + (b.z - a.z) * k / n;
         const y = groundUnder(x, z, prevY + 1.35, 0.25);
-        if (blockedAt(x, z, y) || (y < 0.3 && hazardAt(x, z) === 'lava')) { ok = false; break; }
+        if (blockedAt(x, z, y) || (y < 0.3 && pitAt(x, z))) { ok = false; break; }
         if (y - prevY > 0.56) { if (y - prevY <= 1.3) jump = true; else { ok = false; break; } }
         prevY = y;
       }
@@ -303,6 +303,17 @@ export class BotBrain {
       inp.fwd = Math.cos(rel); inp.right = -Math.sin(rel);
       if (tgt) inp.right += this.strafe * 0.3;
       if (nx.y - p.pos[1] > 0.5 && Math.hypot(nx.x - p.pos[0], nx.z - p.pos[2]) < 2.2) inp.jump = true;
+    }
+
+    // never walk (or strafe) into lava or a chasm
+    if (p.pos[1] < 0.6 && (inp.fwd || inp.right)) {
+      const fy = p.yaw, fx = -Math.sin(fy), fz = -Math.cos(fy), rx = Math.cos(fy), rz = -Math.sin(fy);
+      const ahead = (f, r) => { const dx = fx * f + rx * r, dz = fz * f + rz * r, l = Math.hypot(dx, dz) || 1; return pitAt(p.pos[0] + dx / l * 1.3, p.pos[2] + dz / l * 1.3); };
+      if (ahead(inp.fwd, inp.right)) {
+        if (!ahead(inp.fwd, 0)) inp.right = 0;
+        else if (!ahead(0, inp.right)) inp.fwd = 0;
+        else { inp.fwd = -inp.fwd * 0.5; inp.right = -inp.right * 0.5; this.path = []; }
+      }
     }
 
     // stuck detection

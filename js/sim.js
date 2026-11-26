@@ -867,6 +867,18 @@ export class Sim {
         const hz = hazardAt(p.pos[0], p.pos[2]);
         if (hz === 'lava') { p._lava = (p._lava || 0) + dt; if (p._lava >= 0.25) { p._lava -= 0.25; this.damage(null, p, 12, {}); this.addSt(p, 'burn', 1.5, 6); } }
         else if (hz === 'water') this.addSt(p, 'slow', 0.3, 0.35);
+        else if (hz === 'quicksand') this.addSt(p, 'slow', 0.3, 0.5);
+        else if (hz === 'abyss') {
+          // fell into the chasm: lose a chunk of health and climb back out at your own side
+          const sp = SPAWNS[p.team][0];
+          const fall = [p.pos[0], 0, p.pos[2]];
+          let to = [Math.sign(sp[0]) * 6, 0, Math.max(-20, Math.min(20, p.pos[2]))];
+          if (hazardAt(to[0], to[2])) to = [sp[0], 0, sp[2]];
+          p.vel = [0, 0, 0]; this.teleport(p, to, p.yaw);
+          this.ev({ t: 'fx', fx: 'blink', pos: fall, to, color: '#8ad8ff' });
+          this.damage(null, p, Math.round(p.maxHp * 0.25), {});
+          this.addSt(p, 'slow', 1.2, 0.4);
+        }
       }
       if (p.form && this.now >= p.form.until) { p.form = null; p.fm = ''; this.ev({ t: 'fx', fx: 'formEnd', id: p.id, color: p.def.color }); if (p.ammo > (this.lmbOf(p).ammo || 0)) p.ammo = this.lmbOf(p).ammo || 0; }
       if (p.channel) this.stepChannel(p, dt);

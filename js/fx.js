@@ -988,6 +988,13 @@ export class FX {
   ambient(dt, kind = 'ash') {
     if (kind === 'snow') { for (let i = 0; i < 3; i++) if (Math.random() < dt * 60) this.P.emit([(Math.random() - 0.5) * HALF_X * 2, 6 + Math.random() * 5, (Math.random() - 0.5) * HALF_Z * 2], { c: '#dfe8f4', c2: '#ffffff', sp: 0.2, v: [0.6, -1.2, 0.3], s: 0.09, life: 7, drag: 0, a: 0.8 }); return; }
     if (kind === 'embers') { for (let i = 0; i < 2; i++) if (Math.random() < dt * 50) this.P.emit([(Math.random() - 0.5) * HALF_X * 2, Math.random() * 2, (Math.random() - 0.5) * HALF_Z * 2], { c: '#ff4a0a', c2: '#ffd27a', sp: 0.3, v: [0.2, 1.2, 0.1], s: 0.08, life: 4, drag: 0, a: 1 }); return; }
+    if (kind === 'rain') { for (let i = 0; i < 6; i++) if (Math.random() < dt * 90) this.P.emit([(Math.random() - 0.5) * HALF_X * 2.2, 9 + Math.random() * 4, (Math.random() - 0.5) * HALF_Z * 2.2], { c: '#9ab8d0', c2: '#dfefff', sp: 0, v: [-1.5, -22, 0.8], s: 0.05, life: 0.55, drag: 0, a: 0.55 }); return; }
+    if (kind === 'dust') { for (let i = 0; i < 2; i++) if (Math.random() < dt * 40) this.P.emit([-HALF_X + Math.random() * HALF_X * 2, Math.random() * 3, (Math.random() - 0.5) * HALF_Z * 2], { c: '#e8c890', c2: '#fff0d0', sp: 0.3, v: [3.5, 0.2, 0.8], s: 0.06, life: 4, drag: 0, a: 0.55 }); return; }
+    if (kind === 'pages') {
+      if (Math.random() < dt * 14) this.P.emit([(Math.random() - 0.5) * HALF_X * 2, 3 + Math.random() * 4, (Math.random() - 0.5) * HALF_Z * 2], { c: '#e8dcc0', c2: '#fff4dc', sp: 0.4, v: [0.4, -0.35, 0.2], s: 0.16, life: 7, drag: 0, a: 0.85 });
+      if (Math.random() < dt * 22) this.P.emit([(Math.random() - 0.5) * HALF_X * 2, Math.random() * 2, (Math.random() - 0.5) * HALF_Z * 2], { c: '#ff6a1a', c2: '#ffd27a', sp: 0.3, v: [0.2, 1.0, 0.1], s: 0.07, life: 4, drag: 0, a: 1 });
+      return;
+    }
     if (kind === 'spores') { if (Math.random() < dt * 40) this.P.emit([(Math.random() - 0.5) * HALF_X * 2, Math.random() * 4, (Math.random() - 0.5) * HALF_Z * 2], { c: '#6aff4a', c2: '#e8ffc8', sp: 0.2, v: [0.1, 0.25, 0.1], s: 0.07, life: 6, drag: 0, a: 0.8 }); return; }
     if (Math.random() < dt * 30) {
       const x = (Math.random() - 0.5) * HALF_X * 2, z = (Math.random() - 0.5) * HALF_Z * 2;
