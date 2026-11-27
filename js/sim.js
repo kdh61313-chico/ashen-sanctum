@@ -64,9 +64,11 @@ export class Sim {
   }
   removePlayer(id) { this.players.delete(id); this.brains.delete(id); }
   makeBot(id) { const p = this.players.get(id); if (!p) return; p.isBot = true; this.brains.set(id, new BotBrain(this, p, this.difficulty)); }
-  setHero(id, heroId) {
+  setHero(id, heroId, skin = null) {
     const p = this.players.get(id); if (!p) return;
     const def = HERO_MAP[heroId]; if (!def) return;
+    // a skin belongs to one hero: drop it when the hero changes
+    p.skin = skin && skin.startsWith(def.id + '_') ? skin : null; p.fxc = skinFx(p.skin)?.c || null;
     p.hero = def.id; p.def = def; p.pas = PASSIVES[def.id] || null; p.pasT = {}; p.rs = 0; p.fm = ''; p.sn = ''; p.marks = {}; p.maxHp = def.hp; p.hp = def.hp; p.cds = { lmb: 0, q: 0, e: 0 }; p.ammo = def.abilities.lmb.ammo || 0; p.reloadT = 0;
     if (this.mode === 'training') p.ult = ULT_COST;
     this.ev({ t: 'roster' });

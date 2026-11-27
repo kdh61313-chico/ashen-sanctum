@@ -129,17 +129,23 @@ export class Profile {
   equipSkin(hero, id) { if (id && !this.d.skins[id]) return false; if (id) this.d.skinEq[hero] = id; else delete this.d.skinEq[hero]; this.save(); return true; }
   skinOf(hero) { const id = this.d.skinEq[hero]; return id && this.d.skins[id] ? id : null; }
   canSkinPull(n) { return this.d.skinTix + Math.floor(this.d.crystals / SKIN_PULL_COST) >= n; }
+  // only skins of heroes you own can drop or be crafted
+  skinPool(tier) { return SKINS.filter(x => x.tier === tier && this.owns(x.hero)); }
+  skinTierAvail(tier) { return this.skinPool(tier).length > 0; }
   skinPull(n) {
     if (!this.canSkinPull(n)) return null;
     let left = n; const useT = Math.min(this.d.skinTix, left); this.d.skinTix -= useT; left -= useT; this.d.crystals -= left * SKIN_PULL_COST;
     const out = [];
+    const has = [0, 1, 2, 3, 4, 5].map(t => this.skinTierAvail(t));
     for (let i = 0; i < n; i++) {
-      this.d.skinPulls++; this.d.skinPity++;
+      this.d.skinPulls++; this.d.skinPity = Math.min(SKIN_PITY, this.d.skinPity + 1);
       let tier;
-      if (this.d.skinPity >= SKIN_PITY) tier = 5;
-      else { let r = Math.random(), acc = 0; tier = 0; for (let t = 5; t >= 0; t--) { acc += SKIN_TIERS[t].rate; if (r < acc) { tier = t; break; } } }
+      if (this.d.skinPity >= SKIN_PITY && has[5]) tier = 5;
+      else { const r = Math.random(); let acc = 0; tier = 0; for (let t = 5; t >= 0; t--) { acc += SKIN_TIERS[t].rate; if (r < acc) { tier = t; break; } } }
+      // a tier with nothing for your heroes falls to the nearest lower tier that has something
+      if (!has[tier]) { let t = tier; while (t >= 0 && !has[t]) t--; if (t < 0) { t = tier; while (t <= 5 && !has[t]) t++; } tier = t; }
       if (tier === 5) this.d.skinPity = 0;
-      const pool = SKINS.filter(x => x.tier === tier);
+      const pool = this.skinPool(tier);
       const sk = pool[(Math.random() * pool.length) | 0];
       const dup = !!this.d.skins[sk.id];
       if (dup) this.d.shards += SKIN_TIERS[tier].shard; else this.d.skins[sk.id] = Date.now();
@@ -147,7 +153,7 @@ export class Profile {
     }
     this.save(); return out;
   }
-  buySkin(id) { const sk = SKIN_MAP[id]; if (!sk || this.d.skins[id]) return false; const c = SKIN_TIERS[sk.tier].cost; if (this.d.shards < c) return false; this.d.shards -= c; this.d.skins[id] = Date.now(); this.save(); return true; }
+  buySkin(id) { const sk = SKIN_MAP[id]; if (!sk || this.d.skins[id] || !this.owns(sk.hero)) return false; const c = SKIN_TIERS[sk.tier].cost; if (this.d.shards < c) return false; this.d.shards -= c; this.d.skins[id] = Date.now(); this.save(); return true; }
 
   adminCompleteQuests() {
     const q = this.d.q;

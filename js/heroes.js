@@ -278,6 +278,13 @@ export const BALANCE = {
   selene: { dmg: 0.9 }, orin: { dmg: 0.92 },
   garrick: { hp: 1.18, dmg: 1.16 }, frey: { hp: 1.2, dmg: 1.18 }, sien: { hp: 1.2, dmg: 1.12 }, brann: { hp: 1.06, dmg: 1.18 }, onyx: { hp: 1.12, dmg: 1.15 },
   aura: { hp: 1.1, dmg: 1.15 }, pell: { hp: 1.12, dmg: 1.06 }, kaira: { hp: 1.16, dmg: 1.2 }, crow: { hp: 1.1, dmg: 1.2 }, nir: { dmg: 1.15 }, sira: { dmg: 1.24 }, dorn: { hp: 1.08 }, hyeon: { dmg: 1.06 }, gorm: { dmg: 1.1 }, grave: { dmg: 0.95 }, karman: { dmg: 0.94 }, ulfric: { hp: 1.06 },
+  // v2.2 (final values; later keys win)
+  lumen: { hp: 0.9, dmg: 0.84 }, zeno: { hp: 0.92, dmg: 0.74 }, mor: { hp: 0.9, dmg: 0.92 }, selene: { dmg: 0.84 }, vesper: { hp: 0.92, heal: 0.72 },
+  grave: { dmg: 0.9 }, lian: { dmg: 0.93 }, elise: { dmg: 0.94 }, valok: { hp: 0.83, dmg: 0.84 },
+  veronica: { hp: 1.1, dmg: 1.12 }, zephyr: { hp: 1.12, dmg: 1.14 }, kael: { hp: 1.1, dmg: 1.15, heal: 1.15 }, kaira: { hp: 1.22, dmg: 1.28 }, bael: { hp: 1.1, dmg: 1.1 },
+  moloch: { hp: 1.16, dmg: 1.26 }, brann: { hp: 1.12, dmg: 1.24 }, iris: { hp: 1.12, dmg: 1.18 }, maren: { hp: 1.14, dmg: 1.14 }, nir: { hp: 1.05, dmg: 1.22 },
+  asha: { hp: 1.08, dmg: 1.08 }, dorn: { hp: 1.14, dmg: 1.08 },
+  kael: { hp: 1.2, dmg: 1.3, heal: 1.3 }, zephyr: { hp: 1.2, dmg: 1.28 }, kaira: { hp: 1.3, dmg: 1.36 }, vesper: { hp: 0.88, heal: 0.62 }, mor: { hp: 0.88, dmg: 0.82 }, veronica: { hp: 1.15, dmg: 1.2 }, zeno: { hp: 0.92, dmg: 0.7 },
 };
 export const HEROES = [...BASE, ...NEW_HEROES, ...THIRD_HEROES, ...FOURTH_HEROES];
 for (const h of HEROES) { h.rarity = RARITY[h.id] || 4; h.starter = STARTERS.includes(h.id); h.el = HERO_EL[h.id] || 'fire';

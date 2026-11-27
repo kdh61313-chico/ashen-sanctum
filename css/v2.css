@@ -623,3 +623,4 @@ body.is-touch .pull--skin { order: 2; }
 #recruit .pull[hidden], #recruit .banner[hidden] { display: none !important; }
 body.is-touch #recruit > .rtabs { width: auto; max-width: none; margin-left: 0; margin-right: auto; }
 @media (orientation: portrait) { body.is-touch #recruit > .rtabs { margin-left: max(0px, calc((100% - 640px) / 2)); } }
+.skn__title + .skn__tally { margin-top: 18px; }

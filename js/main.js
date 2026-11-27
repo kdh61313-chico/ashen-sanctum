@@ -574,14 +574,14 @@ class App {
     this.refreshTop();
   }
   // today's featured skin: rotates daily through the 초전설 and 전설 skins
-  featuredSkin() { const pool = SKINS.filter(x => x.tier >= 4).sort((a, b) => b.tier - a.tier || a.id.localeCompare(b.id)); const day = Math.floor(Date.now() / 864e5); return pool[(day * 7) % pool.length]; }
+  featuredSkin() { const P = this.profile; let pool = SKINS.filter(x => x.tier >= 4 && P.owns(x.hero)); if (!pool.length) pool = SKINS.filter(x => P.owns(x.hero)); pool.sort((a, b) => b.tier - a.tier || a.id.localeCompare(b.id)); const day = Math.floor(Date.now() / 864e5); return pool[(day * 7) % pool.length]; }
   refreshSkinBanner(stage = false) {
     const P = this.profile, d = P.d, F = this.featuredSkin(), T = SKIN_TIERS[F.tier], h = HERO_MAP[F.hero];
     if (stage) { this.stage.setHero(h, true, F.id); $('recruit').style.setProperty('--accent', T.color); }
     $('skb-name').textContent = F.concept;
     $('skb-title').innerHTML = `<b style="color:${T.color}">${T.name}</b> · ${esc(h.name)} — 오늘 회랑에 걸린 스킨이에요`;
-    $('skn-rates').innerHTML = SKIN_TIERS.map((t, i) => `<li style="--tc:${t.color}"><b>${t.name}</b><span>${Math.round(t.rate * 100)}%</span><em>${SKINS.filter(s => s.tier === i).length}종</em></li>`).reverse().join('');
-    $('skn-pity').textContent = `초전설까지 최대 ${SKIN_PITY - d.skinPity}회 · 겹치면 빛조각이 돼요 · 장식권 ${d.skinTix}장`;
+    $('skn-rates').innerHTML = SKIN_TIERS.map((t, i) => `<li style="--tc:${t.color}"><b>${t.name}</b><span>${Math.round(t.rate * 100)}%</span><em>${P.skinPool(i).length}종</em></li>`).reverse().join('');
+    $('skn-pity').textContent = `가진 영웅의 스킨만 나와요 · ${P.skinTierAvail(5) ? `초전설까지 최대 ${SKIN_PITY - d.skinPity}회` : '초전설 스킨이 있는 영웅을 얻으면 초전설이 나와요'} · 장식권 ${d.skinTix}장`;
     const cost = (n) => { const t = Math.min(d.skinTix, n); return t ? `장식권 ${t}${n - t ? ` + 결정 ${((n - t) * SKIN_PULL_COST).toLocaleString()}` : ''}` : `잿빛 결정 ${(n * SKIN_PULL_COST).toLocaleString()}`; };
     $('skin1-cost').textContent = cost(1); $('skin10-cost').textContent = cost(10);
     $('btn-skin1').disabled = !P.canSkinPull(1); $('btn-skin10').disabled = !P.canSkinPull(10);
@@ -629,7 +629,7 @@ class App {
     const id = this.selHero, h = HERO_MAP[id]; if (!h) return;
     if (skid && !this.profile.ownsSkin(skid)) {
       this.stage.setHero(h, true, skid);
-      this.toast(`${SKIN_MAP[skid].name} 미리보기 · 장식의 회랑에서 얻을 수 있어요`, 2600);
+      this.toast(`${SKIN_MAP[skid].name} 미리보기 · 모집의 스킨 뽑기에서 얻을 수 있어요`, 2600);
       return;
     }
     this.profile.equipSkin(id, skid); this.audio.play('click');
@@ -657,7 +657,7 @@ class App {
       const T = SKIN_TIERS[sk.tier], has = !!d.skins[sk.id], eq = d.skinEq[sk.hero] === sk.id;
       return `<button type="button" class="skc${has ? '' : ' is-locked'}${this.skinSel === sk.id ? ' is-sel' : ''} skc--t${sk.tier}" data-sk="${sk.id}" style="--tc:${T.color}">
         <i class="skc__sw" style="background:${this.skinSwatch(sk)}"><img src="${this.portraits[sk.hero] || ''}" alt="" loading="lazy"></i>
-        <b>${esc(sk.concept)}</b><span>${esc(HERO_MAP[sk.hero].name)}</span><em>${T.name}${eq ? ' · 장착' : ''}</em></button>`;
+        <b>${esc(sk.concept)}</b><span>${esc(HERO_MAP[sk.hero].name)}</span><em>${T.name}${eq ? ' · 장착' : ''}${!has && !P.owns(sk.hero) ? ' · 영웅 없음' : ''}</em></button>`;
     }).join('') : `<p class="skn__empty">${f === 'own' ? '아직 스킨이 없어요. 왼쪽에서 뽑아 보세요.' : '이 등급의 스킨이 없어요.'}</p>`;
   }
   skinFocus(id, burst = true) {
@@ -669,7 +669,7 @@ class App {
     $('skins').style.setProperty('--accent', T.color);
     let act;
     if (has) act = eq ? `<button class="btn btn--ghost" data-act="unequip"><span class="btn__k">기본으로 되돌리기</span></button>` : `<button class="btn btn--ember" data-act="equip"${heroOwned ? '' : ' disabled'}><span class="btn__k">장착</span>${heroOwned ? '' : '<span class="btn__s">영웅을 먼저 모집하세요</span>'}</button>`;
-    else act = `<button class="btn btn--ghost" data-act="craft"${d.shards >= T.cost ? '' : ' disabled'}><span class="btn__k">빛조각 ${T.cost}으로 만들기</span><span class="btn__s">보유 ${d.shards}</span></button>`;
+    else act = `<button class="btn btn--ghost" data-act="craft"${d.shards >= T.cost && heroOwned ? '' : ' disabled'}><span class="btn__k">빛조각 ${T.cost}으로 만들기</span><span class="btn__s">${heroOwned ? `보유 ${d.shards}` : '영웅을 먼저 모집해야 얻을 수 있어요'}</span></button>`;
     $('skn-focus').innerHTML = `<p class="skn__tier" style="--tc:${T.color}">${T.name}</p><h3>${esc(sk.name)}</h3><p class="skn__hero">${esc(h.name)} · ${esc(h.title)}${has ? '' : ' · 미보유'}</p><p class="skn__pieces">${sk.acc.map(a => PIECE_NAMES[a]).join(' · ')}${sk.tier >= 3 ? ' · <b style="color:' + sk.p[4] + '">스킬 이펙트 변경</b>' : ''}</p>${act}`;
     qsa('.skc', $('skn-grid')).forEach(c => c.classList.toggle('is-sel', c.dataset.sk === id));
   }
@@ -918,7 +918,7 @@ class App {
   openTrainingSwap() { document.exitPointerLock?.(); this.input.locked = false; this.openSelect('swap'); }
   resumeTrainingWith(id) {
     if (!this.game?.training) { this.showHome(); return; }
-    this.game.sim.setHero('me', id);
+    this.game.sim.setHero('me', id, this.profile.skinOf(id));
     this.game.setRoster(this.game.sim.roster());
     this.game.setLocalHero(id);
     const g = this.game; this.game = null;

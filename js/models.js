@@ -932,7 +932,7 @@ export function buildHero(heroDef, skinId = null) {
   });
   if (P.isMelee) { weaponTip(P.weaponR); if (P.poseName === 'dual' || P.poseName === 'claws') weaponTip(P.weaponL); }
   applyPose(P);
-  if (skinId) applySkin(P, skinId);
+  if (skinId && String(skinId).startsWith(heroDef.id + '_')) applySkin(P, skinId);
   return P;
 }
 

@@ -82,8 +82,8 @@ export class Game {
 
   syncFromSim() {
     const sim = this.sim;
-    if (!this.rosterSig || this.rosterSig !== sim.players.size + ':' + [...sim.players.values()].map(p => p.hero + p.isBot).join()) {
-      this.rosterSig = sim.players.size + ':' + [...sim.players.values()].map(p => p.hero + p.isBot).join();
+    if (!this.rosterSig || this.rosterSig !== sim.players.size + ':' + [...sim.players.values()].map(p => p.hero + p.isBot + (p.skin || '')).join()) {
+      this.rosterSig = sim.players.size + ':' + [...sim.players.values()].map(p => p.hero + p.isBot + (p.skin || '')).join();
       this.setRoster(sim.roster());
     }
     for (const p of sim.players.values()) this.view.set(p.id, p);

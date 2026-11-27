@@ -3,6 +3,7 @@
 export const COUPONS = [
   { code: 'STORY20', ver: '2.0', until: '2027-04-30', reward: { crystals: 3000, permits: 5 }, label: '2.0 업데이트 기념' },
   { code: 'NARHEL', ver: '2.0', until: '2027-04-30', reward: { crystals: 2000, essence: 150, tome: 6 }, label: '별의 왕국' },
+  { code: 'PATCH22', ver: '2.2', until: '2027-04-30', reward: { crystals: 2000, skinTix: 5 }, label: '2.2 업데이트' },
   { code: 'FALLINGSTAR', ver: '2.1', until: '2027-04-30', reward: { skinTix: 10, permits: 5 }, label: '별이 떨어지는 밤' },
   { code: 'SKIN128', ver: '2.0', until: '2027-04-30', reward: { skinTix: 10, shards: 120 }, label: '장식의 회랑 개장' },
   { code: 'SEEDOFHOPE', ver: '2.0', until: '2027-04-30', reward: { permits: 5, seal: 8 }, label: '심연에서도 자라는 씨앗' },
