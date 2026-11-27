@@ -7,6 +7,7 @@ import {
 } from './physics.js';
 import { BotBrain } from './ai.js';
 import { matchup } from './elements.js';
+import { skinFx } from './skins.js';
 
 export const ROUNDS_TO_WIN = 3;
 const PRE_T = 4, LIVE_T = 120, POST_T = 4.5;
@@ -48,7 +49,7 @@ export class Sim {
     // bots sometimes show off a skin (ids are '<hero>_1' / '<hero>_2')
     if (skin === undefined) skin = isBot && !def.boss && Math.random() < 0.3 ? `${def.id}_${1 + ((Math.random() * 2) | 0)}` : null;
     const p = {
-      id, name, team, hero: def.id, def, isBot, isDummy, skin,
+      id, name, team, hero: def.id, def, isBot, isDummy, skin, fxc: skinFx(skin)?.c || null,
       pos: [0, 0, 0], vel: [0, 0, 0], yaw: SPAWN_YAW[team], pitch: 0, onGround: true,
       dashT: 0, dashV: [0, 0, 0], glideUntil: 0,
       hp: def.hp, maxHp: def.hp, alive: true, shield: 0, shieldT: 0,
@@ -212,7 +213,7 @@ export class Sim {
     this.ev({ t: 'cast', id, slot, hero: p.hero, combo: p.combo, from: origin, fm: p.fm, sn: p.sn });
     this._slot = slot; this._castDef = def;
     if (def.form) { p.form = { slot, until: this.now + def.form.dur }; p.fm = slot; if (def.form.st) this.applySt(p, def.form.st); if (def.form.heal) this.heal(p, p, def.form.heal); }
-    if (def.kind === 'stance') { p.sn = p.sn === slot ? '' : slot; if (def.alt?.ammo) p.ammo = this.lmbOf(p).ammo || 0; this.ev({ t: 'fx', fx: 'stance', id: p.id, on: !!p.sn, color: p.def.color }); }
+    if (def.kind === 'stance') { p.sn = p.sn === slot ? '' : slot; if (def.alt?.ammo) p.ammo = this.lmbOf(p).ammo || 0; this.ev({ t: 'fx', fx: 'stance', id: p.id, on: !!p.sn, color: (p.fxc || p.def.color) }); }
     if (def.gain) this.gain(p, def.gain);
     if (def.cleanse) this.cleanse(p, def.cleanse === 'allies' ? 10 : 0);
     if (def.hpCost) p.hp = Math.max(1, p.hp - def.hpCost);
@@ -230,8 +231,8 @@ export class Sim {
       if (def.kind === 'dash' && def.invuln) this.addSt(p, 'invuln', def.dur + 0.1);
       if (def.kind === 'leap' && def.land) p.leap = { def, t0: this.now };
       if (def.kind === 'launch' && def.aoe) this.aoeAt(p, origin, def.aoe.r, def.aoe.dmg, { knock: def.aoe.knock, look: 'burst' });
-      if (def.kind === 'launch') this.ev({ t: 'fx', fx: 'burst', pos: origin, color: p.def.color });
-      if (def.kind === 'blink') this.ev({ t: 'fx', fx: 'blink', pos: origin, to: [...p.pos], color: p.def.color });
+      if (def.kind === 'launch') this.ev({ t: 'fx', fx: 'burst', pos: origin, color: (p.fxc || p.def.color) });
+      if (def.kind === 'blink') this.ev({ t: 'fx', fx: 'blink', pos: origin, to: [...p.pos], color: (p.fxc || p.def.color) });
     } else {
       this['k_' + def.kind]?.(p, def, aim || { yaw: p.yaw, pitch: p.pitch });
     }
@@ -325,7 +326,7 @@ export class Sim {
     if (def.pierce) {
       const wall = raycast(eye, d, def.range);
       const end = [eye[0] + d[0] * wall, eye[1] + d[1] * wall, eye[2] + d[2] * wall];
-      this.ev({ t: 'fx', fx: 'beam', look: def.look, id: p.id, from: [eye[0], eye[1] - 0.2, eye[2]], to: end, color: p.def.color });
+      this.ev({ t: 'fx', fx: 'beam', look: def.look, id: p.id, from: [eye[0], eye[1] - 0.2, eye[2]], to: end, color: (p.fxc || p.def.color) });
       for (const o of this.enemiesOf(p)) {
         const tt = rayPlayer(eye, d, o.pos, wall, 0.6, P_HEIGHT * this.sz(o));
         if (tt >= 0) this.damage(p, o, dmg, { from: eye, onHit: def.onHit });
@@ -334,7 +335,7 @@ export class Sim {
     }
     const { t, target } = this.beamHit(eye, d, def.range, p.team);
     const end = [eye[0] + d[0] * t, eye[1] + d[1] * t, eye[2] + d[2] * t];
-    this.ev({ t: 'fx', fx: 'beam', look: def.look, id: p.id, from: [eye[0], eye[1] - 0.2, eye[2]], to: end, color: p.def.color });
+    this.ev({ t: 'fx', fx: 'beam', look: def.look, id: p.id, from: [eye[0], eye[1] - 0.2, eye[2]], to: end, color: (p.fxc || p.def.color) });
     if (target) {
       this.damage(p, target, dmg, { from: eye, onHit: def.onHit, steal: def.steal });
       if (def.pullBeam) { const dx = p.pos[0] - target.pos[0], dz = p.pos[2] - target.pos[2], l = Math.hypot(dx, dz) || 1; const k = Math.min(def.pullBeam, Math.max(0, l - 2)) * 2.2; this.impulse(target, [dx / l * k, 4, dz / l * k], true); }
@@ -348,7 +349,7 @@ export class Sim {
             if (dd < bd && losClear(this.chest(last), this.chest(o))) { bd = dd; best = o; }
           }
           if (!best) break;
-          this.ev({ t: 'fx', fx: 'beam', look: def.look, from: this.chest(last), to: this.chest(best), color: p.def.color });
+          this.ev({ t: 'fx', fx: 'beam', look: def.look, from: this.chest(last), to: this.chest(best), color: (p.fxc || p.def.color) });
           this.damage(p, best, def.chain.dmg, { from: this.chest(last), onHit: def.onHit });
           hitSet.add(best.id); last = best;
         }
@@ -393,10 +394,10 @@ export class Sim {
       if (hd > def.range) continue;
       if (Math.acos(clamp((dx * fx + dz * fz) / (hd || 1), -1, 1)) > half) continue;
       if (!losClear(eye, c)) continue;
-      this.ev({ t: 'fx', fx: 'beam', look: def.look || 'silver', id: p.id, from: [eye[0], eye[1] - 0.2, eye[2]], to: c, color: p.def.color });
+      this.ev({ t: 'fx', fx: 'beam', look: def.look || 'silver', id: p.id, from: [eye[0], eye[1] - 0.2, eye[2]], to: c, color: (p.fxc || p.def.color) });
       this.damage(p, o, def.dmg, { from: eye, onHit: def.onHitSt });
     }
-    this.ev({ t: 'fx', fx: 'deadeye', pos: [...p.pos], color: p.def.color });
+    this.ev({ t: 'fx', fx: 'deadeye', pos: [...p.pos], color: (p.fxc || p.def.color) });
   }
 
   spawnZone(p, zd, pos, yaw = 0) {
@@ -430,15 +431,15 @@ export class Sim {
       if (!losClear([o.pos[0], o.pos[1] + 1, o.pos[2]], [pos[0], pos[1] + 1, pos[2]])) pos = [o.pos[0] + fx * 1.3, o.pos[1], o.pos[2] + fz * 1.3];
       this.teleport(p, pos, o.yaw);
     } else { applyMoveAbility(p, { kind: 'blink', dist: def.dist }, aim.yaw, aim.pitch, this.now); this.teleport(p, p.pos, aim.yaw); }
-    this.ev({ t: 'fx', fx: 'blink', pos: from, to: [...p.pos], color: p.def.color });
+    this.ev({ t: 'fx', fx: 'blink', pos: from, to: [...p.pos], color: (p.fxc || p.def.color) });
   }
   k_swap(p, def, aim) {
     const o = this.aimTarget(p, aim, def.range, 0.12);
-    if (!o) { this.ev({ t: 'fx', fx: 'blink', pos: [...p.pos], color: p.def.color }); return; }
+    if (!o) { this.ev({ t: 'fx', fx: 'blink', pos: [...p.pos], color: (p.fxc || p.def.color) }); return; }
     const a = [...p.pos], b = [...o.pos];
     this.teleport(p, b, p.yaw); this.teleport(o, a, o.yaw);
     this.applySt(o, { stun: [0.6] });
-    this.ev({ t: 'fx', fx: 'swap', from: [a[0], a[1] + 1, a[2]], to: [b[0], b[1] + 1, b[2]], color: p.def.color });
+    this.ev({ t: 'fx', fx: 'swap', from: [a[0], a[1] + 1, a[2]], to: [b[0], b[1] + 1, b[2]], color: (p.fxc || p.def.color) });
   }
   k_allywarp(p, def, aim) {
     const allies = this.alliesOf(p).filter(o => o !== p);
@@ -449,7 +450,7 @@ export class Sim {
     const [fx, fz] = fwdFromYaw(o.yaw);
     this.teleport(p, [o.pos[0] - fx * 1.4, o.pos[1], o.pos[2] - fz * 1.4], o.yaw);
     if (def.heal) this.heal(p, o, def.heal);
-    this.ev({ t: 'fx', fx: 'blink', pos: from, to: [...p.pos], color: p.def.color });
+    this.ev({ t: 'fx', fx: 'blink', pos: from, to: [...p.pos], color: (p.fxc || p.def.color) });
   }
   k_recall(p, def) {
     const want = this.now - def.back;
@@ -458,7 +459,7 @@ export class Sim {
     const from = [...p.pos];
     this.teleport(p, [h[1], h[2], h[3]], p.yaw);
     if (def.heal) this.heal(p, p, def.heal);
-    this.ev({ t: 'fx', fx: 'recall', from, to: [...p.pos], color: p.def.color });
+    this.ev({ t: 'fx', fx: 'recall', from, to: [...p.pos], color: (p.fxc || p.def.color) });
   }
 
   k_trap(p, def) {
@@ -476,7 +477,7 @@ export class Sim {
     if (def.heal) for (const o of this.alliesOf(p)) {
       if (Math.hypot(o.pos[0] - p.pos[0], o.pos[2] - p.pos[2]) <= def.r) this.heal(p, o, def.heal);
     }
-    this.ev({ t: 'fx', fx: def.look || (def.heal ? 'healwave' : 'shock'), pos: [...p.pos], r: def.r, yaw: aim.yaw, angle: def.angle, color: p.def.color });
+    this.ev({ t: 'fx', fx: def.look || (def.heal ? 'healwave' : 'shock'), pos: [...p.pos], r: def.r, yaw: aim.yaw, angle: def.angle, color: (p.fxc || p.def.color) });
   }
 
   aoeAt(p, c, r, dmg, o = {}) {
@@ -529,7 +530,7 @@ export class Sim {
       if (def.heal) this.heal(p, t, def.heal);
       if (def.guard && t !== p) t.st.guard = { t: def.guard[0], v: def.guard[1], by: p.id };
       if (def.shield) { t.shield = Math.max(t.shield, def.shield); t.shieldT = 4; }
-      this.ev({ t: 'fx', fx: 'buff', id: t.id, color: p.def.color, icon: def.icon });
+      this.ev({ t: 'fx', fx: 'buff', id: t.id, color: (p.fxc || p.def.color), icon: def.icon });
     }
   }
 
@@ -604,7 +605,7 @@ export class Sim {
   addMark(src, tgt, n = 1, max = 5) {
     const m = tgt.marks[src.id] || { n: 0, t: 0 };
     m.n = Math.min(max, m.n + n); m.t = this.now + 6; tgt.marks[src.id] = m;
-    this.ev({ t: 'fx', fx: 'mark', id: tgt.id, n: m.n, color: src.def.color });
+    this.ev({ t: 'fx', fx: 'mark', id: tgt.id, n: m.n, color: (src.fxc || src.def.color) });
   }
   markCount(src, tgt) { const m = tgt.marks[src.id]; return m && m.t > this.now ? m.n : 0; }
   cleanse(p, r = 0) {
@@ -640,8 +641,8 @@ export class Sim {
     }
     if (C.fx >= 0.1) {
       C.fx = 0;
-      if (def.cone) this.ev({ t: 'fx', fx: 'cone', from: eye, dir: d, r: def.range, look: def.look, color: p.def.color, ang: def.cone });
-      else { const o = C.tgt && this.players.get(C.tgt); this.ev({ t: 'fx', fx: 'tether', from: [eye[0], eye[1] - 0.3, eye[2]], to: o ? this.chest(o) : [eye[0] + d[0] * def.range, eye[1] + d[1] * def.range, eye[2] + d[2] * def.range], color: (LOOK_COLORS[def.look] || p.def.color) }); }
+      if (def.cone) this.ev({ t: 'fx', fx: 'cone', from: eye, dir: d, r: def.range, look: def.look, color: (p.fxc || p.def.color), ang: def.cone });
+      else { const o = C.tgt && this.players.get(C.tgt); this.ev({ t: 'fx', fx: 'tether', from: [eye[0], eye[1] - 0.3, eye[2]], to: o ? this.chest(o) : [eye[0] + d[0] * def.range, eye[1] + d[1] * def.range, eye[2] + d[2] * def.range], color: (LOOK_COLORS[def.look] || (p.fxc || p.def.color)) }); }
     }
     if (C.t >= def.dur) { p.channel = null; delete p.st.channelRoot; if (def.end) this.aoeAt(p, p.pos, def.end.r, def.end.dmg, { knock: def.end.knock, look: def.look }); }
   }
@@ -651,7 +652,7 @@ export class Sim {
     for (let i = 0; i <= def.bounces && cur; i++) {
       hit.add(cur.id);
       const c = this.chest(cur);
-      this.ev({ t: 'fx', fx: 'beam', look: def.look || 'chain', from, to: c, color: p.def.color });
+      this.ev({ t: 'fx', fx: 'beam', look: def.look || 'chain', from, to: c, color: (p.fxc || p.def.color) });
       this.damage(p, cur, def.dmg * Math.pow(def.falloff ?? 0.85, i), { from, onHit: def.onHit, mark: def.mark });
       if (def.healAlly) { /* chain heals through allies */ }
       from = c; let best = null, bd = def.jump || 8;
@@ -694,7 +695,7 @@ export class Sim {
     const [fx, fz] = fwdFromYaw(o.yaw);
     const from = [...p.pos];
     this.teleport(p, [o.pos[0] - fx * 1.2, o.pos[1], o.pos[2] - fz * 1.2], o.yaw);
-    this.ev({ t: 'fx', fx: 'slashLine', from: [from[0], from[1] + 1, from[2]], to: this.chest(o), color: p.def.color });
+    this.ev({ t: 'fx', fx: 'slashLine', from: [from[0], from[1] + 1, from[2]], to: this.chest(o), color: (p.fxc || p.def.color) });
     this._slot = 'x'; this.damage(p, o, F.def.dmg, { from: p.pos, onHit: F.def.onHit, execute: F.def.execute }); this._slot = null;
   }
 
@@ -741,14 +742,14 @@ export class Sim {
     const brk = !o || !o.alive || !p.alive || Math.hypot(o.pos[0] - p.pos[0], o.pos[2] - p.pos[2]) > def.range * 1.25 || !losClear(this.chest(p), this.chest(o));
     if (brk) { p.tether = null; if (o) this.ev({ t: 'fx', fx: 'impact', pos: this.chest(o), look: def.look || 'chain' }); return; }
     T.t += dt; T.acc += dt; T.fx += dt;
-    if (T.fx >= 0.1) { T.fx = 0; this.ev({ t: 'fx', fx: 'tether', from: this.chest(p), to: this.chest(o), color: p.def.color }); }
+    if (T.fx >= 0.1) { T.fx = 0; this.ev({ t: 'fx', fx: 'tether', from: this.chest(p), to: this.chest(o), color: (p.fxc || p.def.color) }); }
     if (T.acc >= 0.25) { T.acc -= 0.25; if (def.dps) this.damage(p, o, def.dps * 0.25, { from: p.pos, noElem: true }); if (def.drain) this.heal(p, p, def.dps * 0.25 * def.drain, true); }
     if (T.t >= def.hold) {
       p.tether = null;
       if (def.dmg) this.damage(p, o, def.dmg, { from: p.pos, onHit: def.st });
       else if (def.st) this.applySt(o, def.st);
       if (def.pull) { const dx = p.pos[0] - o.pos[0], dz = p.pos[2] - o.pos[2], l = Math.hypot(dx, dz) || 1; const k = Math.min(def.pull, Math.max(0, l - 2)) * 2.2; this.impulse(o, [dx / l * k, 5, dz / l * k], true); }
-      this.ev({ t: 'fx', fx: 'burst', pos: [...o.pos], color: p.def.color });
+      this.ev({ t: 'fx', fx: 'burst', pos: [...o.pos], color: (p.fxc || p.def.color) });
     }
   }
 
@@ -763,10 +764,10 @@ export class Sim {
       o.pos = pos; o.yaw = p.yaw;
       this.ev({ t: 'tp', id: o.id, pos: [...pos], yaw: p.yaw });
       this.ev({ t: 'respawn', id: o.id, revived: true });
-      this.ev({ t: 'fx', fx: 'revive', pos: [...pos], color: p.def.color });
+      this.ev({ t: 'fx', fx: 'revive', pos: [...pos], color: (p.fxc || p.def.color) });
     } else {
       for (const a of this.alliesOf(p)) if (Math.hypot(a.pos[0] - p.pos[0], a.pos[2] - p.pos[2]) <= def.r) this.heal(p, a, def.heal);
-      this.ev({ t: 'fx', fx: 'healwave', pos: [...p.pos], r: def.r, color: p.def.color });
+      this.ev({ t: 'fx', fx: 'healwave', pos: [...p.pos], r: def.r, color: (p.fxc || p.def.color) });
     }
   }
 
@@ -885,7 +886,7 @@ export class Sim {
           this.addSt(p, 'slow', 1.2, 0.4);
         }
       }
-      if (p.form && this.now >= p.form.until) { p.form = null; p.fm = ''; this.ev({ t: 'fx', fx: 'formEnd', id: p.id, color: p.def.color }); if (p.ammo > (this.lmbOf(p).ammo || 0)) p.ammo = this.lmbOf(p).ammo || 0; }
+      if (p.form && this.now >= p.form.until) { p.form = null; p.fm = ''; this.ev({ t: 'fx', fx: 'formEnd', id: p.id, color: (p.fxc || p.def.color) }); if (p.ammo > (this.lmbOf(p).ammo || 0)) p.ammo = this.lmbOf(p).ammo || 0; }
       if (p.channel) this.stepChannel(p, dt);
       if (p.flurry) this.stepFlurry(p, dt);
       if (p.pas?.tick && p.alive) p.pas.tick(this, p, dt);
@@ -942,7 +943,7 @@ export class Sim {
       if (p.leap && this.now - p.leap.t0 > 0.25 && p.onGround) {
         const L = p.leap.def.land;
         this.aoeAt(p, p.pos, L.r, L.dmg, { knockup: L.knockup, st: L.st });
-        this.ev({ t: 'fx', fx: 'slam', pos: [...p.pos], r: L.r, color: p.def.color });
+        this.ev({ t: 'fx', fx: 'slam', pos: [...p.pos], r: L.r, color: (p.fxc || p.def.color) });
         if (L.zone) this.spawnZone(p, L.zone, p.pos, p.yaw);
         if (L.heal) for (const a of this.alliesOf(p)) if (Math.hypot(a.pos[0] - p.pos[0], a.pos[2] - p.pos[2]) <= L.r) this.heal(p, a, L.heal);
         p.leap = null;
@@ -1016,7 +1017,7 @@ export class Sim {
             const src = this.players.get(pr.owner);
             if (o.team !== pr.team && o.st.reflect && !def.noReflect) {
               pr.owner = o.id; pr.team = o.team; pr.vel = pr.vel.map(x => -x * 1.15); pr.hit = new Set([o.id]); pr.life = Math.max(pr.life, 1); pr.pos = [...pt];
-              this.ev({ t: 'fx', fx: 'reflect', pos: [...pt], color: o.def.color });
+              this.ev({ t: 'fx', fx: 'reflect', pos: [...pt], color: (o.fxc || o.def.color) });
               reflected = true; break outer;
             }
             if (o.team !== pr.team) {
@@ -1039,7 +1040,7 @@ export class Sim {
               if (def.healNearest && src) {
                 let best = null, bf = 1;
                 for (const a of this.alliesOf(src)) { const f = a.hp / a.maxHp; if (f < bf && Math.hypot(a.pos[0] - o.pos[0], a.pos[2] - o.pos[2]) < def.healNearest.r + 6) { bf = f; best = a; } }
-                if (best) { this.heal(src, best, def.healNearest.amt); this.ev({ t: 'fx', fx: 'wisp', from: [...pt], to: this.chest(best), color: src.def.color }); }
+                if (best) { this.heal(src, best, def.healNearest.amt); this.ev({ t: 'fx', fx: 'wisp', from: [...pt], to: this.chest(best), color: (src.fxc || src.def.color) }); }
               }
               if (def.splash) this.explode(pr, pt, o);
               if (!def.pierce) { dead = true; pr.endAt = [...pt]; break outer; }
@@ -1074,7 +1075,7 @@ export class Sim {
       }
       if (!dead && pr.life <= 0 && def.split && !def.splitOnHitOnly) this.splitProj(pr, pr.pos);
       if (!dead && pr.life <= 0) { if (def.splash && (def.grav || def.bounce)) this.explode(pr, pr.pos, null); dead = true; }
-      if (dead && def.warp) { const own = this.players.get(pr.owner); if (own && own.alive) { const e = pr.endAt || pr.pos; const v = pr.vel, l = Math.hypot(v[0], v[2]) || 1; const to = [e[0] - v[0] / l * 0.9, 0, e[2] - v[2] / l * 0.9]; to[1] = groundUnder(to[0], to[2], e[1] + 0.5); const from = [...own.pos]; this.teleport(own, to, own.yaw); this.ev({ t: 'fx', fx: 'warp', from: [from[0], from[1] + 1, from[2]], to: [to[0], to[1] + 1, to[2]], color: own.def.color }); } }
+      if (dead && def.warp) { const own = this.players.get(pr.owner); if (own && own.alive) { const e = pr.endAt || pr.pos; const v = pr.vel, l = Math.hypot(v[0], v[2]) || 1; const to = [e[0] - v[0] / l * 0.9, 0, e[2] - v[2] / l * 0.9]; to[1] = groundUnder(to[0], to[2], e[1] + 0.5); const from = [...own.pos]; this.teleport(own, to, own.yaw); this.ev({ t: 'fx', fx: 'warp', from: [from[0], from[1] + 1, from[2]], to: [to[0], to[1] + 1, to[2]], color: (own.fxc || own.def.color) }); } }
       if (!dead && Math.abs(pr.pos[0]) > 60) dead = true;
       if (!dead) keep.push(pr);
     }
@@ -1241,8 +1242,8 @@ export class Sim {
     return {
       t: 's', tm: r2(this.now), ph: this.phase, pt: r2(this.phaseT), rd: this.round, sc: this.score,
       p: ps,
-      pr: this.projs.map(pr => [pr.id, pr.look, r2(pr.pos[0]), r2(pr.pos[1]), r2(pr.pos[2]), pr.team, r2(pr.vel[0]), r2(pr.vel[1]), r2(pr.vel[2])]),
-      z: this.zones.map(z => [z.id, z.look, r2(z.pos[0]), r2(z.pos[1]), r2(z.pos[2]), z.r, r2(z.yaw), r2(z.t), z.delay, z.dur, z.team, z.def.wall ? z.def.wall.w : 0, z.def.wall ? z.def.wall.d : 0, z.def.h || 0]),
+      pr: this.projs.map(pr => [pr.id, pr.look, r2(pr.pos[0]), r2(pr.pos[1]), r2(pr.pos[2]), pr.team, r2(pr.vel[0]), r2(pr.vel[1]), r2(pr.vel[2]), pr.owner]),
+      z: this.zones.map(z => [z.id, z.look, r2(z.pos[0]), r2(z.pos[1]), r2(z.pos[2]), z.r, r2(z.yaw), r2(z.t), z.delay, z.dur, z.team, z.def.wall ? z.def.wall.w : 0, z.def.wall ? z.def.wall.d : 0, z.def.h || 0, z.owner]),
     };
   }
 }

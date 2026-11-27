@@ -4,6 +4,7 @@ import { statusMods, ROUNDS_TO_WIN } from './sim.js';
 import { buildHero, animateHero, triggerAttack, triggerHurt, triggerCheer, triggerSpawn, ownMaterials, setOpacity, attackDur } from './models.js';
 import { Trail } from './fx.js';
 import { ViewModel } from './viewmodel.js';
+import { skinFx } from './skins.js';
 import { icon } from './icons.js';
 import { ELEMENTS, matchup } from './elements.js';
 import { effLmb } from './heroes.js';
@@ -26,7 +27,7 @@ export class Game {
     this.fx = app.fx;
     this.audio = app.audio;
     this.view = new Map();     // id -> view player
-    this.roster = new Map();   // id -> {name, team, hero, isBot}
+    this.roster = new Map(); this.skinCol = new Map();   // id -> {name, team, hero, isBot}
     this.ents = new Map();     // id -> render entity
     this.projs = []; this.zones = [];
     this.phase = 'pre'; this.phaseT = 4; this.round = 1; this.score = [0, 0];
@@ -63,12 +64,15 @@ export class Game {
   }
 
   // ---------- roster / view ----------
+  // effect colour for a player: the skin's colour from 영웅 tier up, otherwise the hero's
+  colOf(id, heroId) { return this.skinCol.get(id)?.c || HERO_MAP[heroId || this.roster.get(id)?.hero]?.color || '#ffffff'; }
   setRoster(list) {
     const ids = new Set();
     for (const r of list) {
       ids.add(r.id);
       const prev = this.roster.get(r.id);
       this.roster.set(r.id, r);
+      { const sf = r.skin ? skinFx(r.skin) : null; if (sf) this.skinCol.set(r.id, sf); else this.skinCol.delete(r.id); }
       if (!prev && r.id === this.localId && r.skin && this.vm?.skin !== r.skin) this.setLocalHero(r.hero);
       if (prev && (prev.hero !== r.hero || (prev.skin || null) !== (r.skin || null))) { const e = this.ents.get(r.id); if (e) { this.scene.remove(e.P.root); e.plate?.remove(); this.ents.delete(r.id); } if (r.id === this.localId) this.setLocalHero(r.hero); }
     }
@@ -84,8 +88,8 @@ export class Game {
     }
     for (const p of sim.players.values()) this.view.set(p.id, p);
     this.phase = sim.phase; this.phaseT = sim.phaseT; this.round = sim.round; this.score = sim.score;
-    this.projs = sim.projs.map(pr => ({ id: pr.id, look: pr.look, pos: pr.pos, vel: pr.vel }));
-    this.zones = sim.zones.map(z => ({ id: z.id, look: z.look, pos: z.pos, r: z.r, yaw: z.yaw, t: z.t, delay: z.delay, dur: z.dur, team: z.team, w: z.def.wall?.w || 0, d: z.def.wall?.d || 0, h: z.def.h || 0 }));
+    this.projs = sim.projs.map(pr => ({ id: pr.id, look: pr.look, pos: pr.pos, vel: pr.vel, owner: pr.owner }));
+    this.zones = sim.zones.map(z => ({ id: z.id, owner: z.owner, look: z.look, pos: z.pos, r: z.r, yaw: z.yaw, t: z.t, delay: z.delay, dur: z.dur, team: z.team, w: z.def.wall?.w || 0, d: z.def.wall?.d || 0, h: z.def.h || 0 }));
   }
 
   applySnapshot(s) {
@@ -102,8 +106,8 @@ export class Game {
       const r = this.roster.get(id); if (r) { v.team = r.team; v.hero = r.hero; v.name = r.name; v.isBot = r.isBot; }
     }
     const now = this.clock;
-    this.projs = s.pr.map(a => ({ id: a[0], look: a[1], pos0: [a[2], a[3], a[4]], pos: [a[2], a[3], a[4]], vel: [a[6], a[7], a[8]], t0: now }));
-    this.zones = s.z.map(a => ({ id: a[0], look: a[1], pos: [a[2], a[3], a[4]], r: a[5], yaw: a[6], t: a[7], delay: a[8], dur: a[9], team: a[10], w: a[11], d: a[12], h: a[13], t0: now }));
+    this.projs = s.pr.map(a => ({ id: a[0], look: a[1], pos0: [a[2], a[3], a[4]], pos: [a[2], a[3], a[4]], vel: [a[6], a[7], a[8]], owner: a[9], t0: now }));
+    this.zones = s.z.map(a => ({ id: a[0], look: a[1], pos: [a[2], a[3], a[4]], r: a[5], yaw: a[6], t: a[7], delay: a[8], dur: a[9], team: a[10], w: a[11], d: a[12], h: a[13], owner: a[14], t0: now }));
     // reconcile local cooldowns
     const me = this.view.get(this.localId);
     if (me) for (const k of ['lmb', 'q', 'e']) { if (Math.abs((me.cds[k] || 0) - this.cds[k]) > 0.5 && this.clock - (this.lastCast?.[k] || -9) > 0.8) this.cds[k] = me.cds[k]; }
@@ -352,8 +356,8 @@ export class Game {
           const hd = HERO_MAP[e.hero], ab = hd?.abilities[e.slot];
           const at = e.from || v?.pos;
           if (at && hd) {
-            if (e.id !== me) this.fx.castCircle(at, hd.color, e.slot === 'x');
-            else if (e.slot === 'x') this.fx.runeDecal(at, 3.2, hd.color, 1.1, 1.2);
+            if (e.id !== me) this.fx.castCircle(at, this.colOf(e.id, hd.id), e.slot === 'x');
+            else if (e.slot === 'x') this.fx.runeDecal(at, 3.2, this.colOf(e.id, hd.id), 1.1, 1.2);
             if (ab && (ab.kind === 'dash' || ab.kind === 'leap' || ab.kind === 'launch' || ab.kind === 'grapple')) this.fx.dust(at, 1.3, 22);
           }
           if (e.slot === 'x' && hd) this.ultBanner(e, hd);
@@ -382,7 +386,7 @@ export class Game {
           break;
         }
         if (e.fx === 'swing') {
-          if (e.id !== me) { const v = this.view.get(e.id); if (v) { const [fx, fz] = fwdFromYaw(v.yaw); this.fx.slash([v.pos[0] + fx * 1.1, v.pos[1] + 1.2, v.pos[2] + fz * 1.1], v.yaw, HERO_MAP[v.hero]?.color || '#fff', 1.8, 0.18, Math.random() < 0.5 ? 1 : -1); } }
+          if (e.id !== me) { const v = this.view.get(e.id); if (v) { const [fx, fz] = fwdFromYaw(v.yaw); this.fx.slash([v.pos[0] + fx * 1.1, v.pos[1] + 1.2, v.pos[2] + fz * 1.1], v.yaw, this.colOf(e.id, v.hero), 1.8, 0.18, Math.random() < 0.5 ? 1 : -1); } }
           else if (e.hit) this.soundAt('hit');
           break;
         }
@@ -412,7 +416,7 @@ export class Game {
             triggerHurt(en.P, dir, side, e.a); } } }
         this.fx.P.emit(e.pos, { n: 6, c: '#8a0a14', c2: '#ff5a5a', sp: 2.5, s: 0.12, life: 0.4, g: 8 });
         { const att = this.view.get(e.by), ar = this.roster.get(e.by);
-          const col = HERO_MAP[ar?.hero]?.color || '#ffcf6a';
+          const col = ar ? this.colOf(e.by, ar.hero) : '#ffcf6a';
           let dir = [0, 0.4, 0];
           if (att) { const d = [e.pos[0] - att.pos[0], e.pos[1] - att.pos[1] - 1.2, e.pos[2] - att.pos[2]]; const l = Math.hypot(...d) || 1; dir = d.map(x => x / l); }
           this.fx.hitSpark(e.pos, dir, col, e.a >= 45);
@@ -526,7 +530,7 @@ export class Game {
     const el = $('ult-banner'); if (!el) return;
     const r = this.roster.get(e.id);
     const mine = e.id === this.localId, ally = r && r.team === this.myTeam();
-    el.style.setProperty('--c', hd.color);
+    el.style.setProperty('--c', this.colOf(e.id, hd.id));
     el.className = 'ult-banner ' + (mine ? 'is-me' : ally ? 'is-ally' : 'is-enemy');
     el.innerHTML = `<img src="${this.app.portraits[hd.id] || ''}"><div><small>${ally ? (mine ? '궁극기' : '아군 궁극기') : '적 궁극기'} · ${esc(r?.name || hd.name)}</small><b>${esc(hd.abilities.x.name)}</b></div>`;
     void el.offsetWidth; el.classList.add('is-on');
@@ -637,6 +641,7 @@ export class Game {
     // entities
     this.updateEntities(dt);
     // fx
+    this.fx.skinCol = this.skinCol;
     this.fx.syncProjectiles(this.projs, dt);
     this.fx.syncZones(this.zones, dt, this.myTeam());
     // viewmodel
@@ -709,7 +714,7 @@ export class Game {
         const tag = mu > 1 ? '<em class="plate__mu is-up" title="내 공격이 잘 들어요">▲</em>' : mu < 1 && mu !== 0.9 ? '<em class="plate__mu is-down" title="내 공격이 덜 들어요">▼</em>' : '';
         plate.innerHTML = `<div class="plate__st"></div><div class="plate__nm">${hel ? `<img class="plate__el" src="assets/el-${hel}.svg" alt="">` : ''}${esc(r.name)}${tag}</div><div class="plate__bar"><i></i><b></b></div>`;
         this.plates.appendChild(plate);
-        en = { P, plate, rpos: [...v.pos], speed: 0, vel: [0, 0, 0], snap: false, vis: true, hurt: 0, team: r.team, statusMesh: {}, trail: P.isMelee && P.weaponR?.tip ? new Trail(this.scene, HERO_MAP[r.hero]?.color || '#fff') : null };
+        en = { P, plate, rpos: [...v.pos], speed: 0, vel: [0, 0, 0], snap: false, vis: true, hurt: 0, team: r.team, statusMesh: {}, trail: P.isMelee && P.weaponR?.tip ? new Trail(this.scene, this.colOf(r.id, r.hero)) : null };
         this.ents.set(id, en);
       }
       if (en.team !== r.team) { en.team = r.team; en.plate.className = 'plate ' + (r.team === myTeam ? 'plate--ally' : 'plate--enemy'); }
@@ -731,7 +736,7 @@ export class Game {
       // afterimages while dashing / blinking / leaping
       if (!isMe && v.alive && !v.st?.invis && sp > 12) {
         en.ghostT = (en.ghostT || 0) - dt;
-        if (en.ghostT <= 0) { en.ghostT = 0.035; this.fx.ghost([...en.rpos], (v.yaw || 0) + Math.PI, HERO_MAP[r.hero]?.color || '#fff', 0.3, 0.55); }
+        if (en.ghostT <= 0) { en.ghostT = 0.035; this.fx.ghost([...en.rpos], (v.yaw || 0) + Math.PI, this.colOf(r.id, r.hero), 0.3, 0.55); }
       }
       P.root.position.set(en.rpos[0], en.rpos[1], en.rpos[2]);
       const yaw = isMe ? this.yaw : v.yaw;

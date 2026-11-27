@@ -192,7 +192,22 @@
 
 <!-- ============ RECRUIT ============ -->
 <section id="recruit" class="screen">
-  <div class="banner">
+  <nav class="rtabs" id="recruit-tabs" role="tablist">
+    <button role="tab" data-tab="hero" class="is-on">영웅 모집</button>
+    <button role="tab" data-tab="skin">스킨 뽑기</button>
+  </nav>
+  <div class="banner banner--skin" id="skin-banner" hidden>
+    <p class="banner__eyebrow">장식의 회랑</p>
+    <h2 class="banner__name" id="skb-name"></h2>
+    <p class="banner__title" id="skb-title"></p>
+    <ul class="skn__rates" id="skn-rates"></ul>
+    <p class="banner__pity" id="skn-pity"></p>
+  </div>
+  <div class="pull pull--skin" id="skin-pull" hidden>
+    <button class="btn btn--ghost btn--pull" id="btn-skin1"><span class="btn__k">1회 뽑기</span><span class="btn__s" id="skin1-cost"></span></button>
+    <button class="btn btn--ember btn--pull" id="btn-skin10"><span class="btn__k">10회 뽑기</span><span class="btn__s" id="skin10-cost"></span></button>
+  </div>
+  <div class="banner" id="hero-banner">
     <p class="banner__eyebrow">오늘의 모집</p>
     <h2 class="banner__name" id="ban-name">세라핀</h2>
     <p class="banner__title" id="ban-title"></p>
@@ -202,21 +217,15 @@
     </dl>
     <p class="banner__pity" id="ban-pity"></p>
   </div>
-  <div class="pull">
+  <div class="pull" id="hero-pull">
     <button class="btn btn--ghost btn--pull" id="btn-pull1"><span class="btn__k">1회 모집</span><span class="btn__s" id="pull1-cost"></span></button>
     <button class="btn btn--ember btn--pull" id="btn-pull10"><span class="btn__k">10회 모집</span><span class="btn__s" id="pull10-cost"></span></button>
   </div>
 </section>
 
-<section id="pullres" class="gacha" hidden>
-  <div class="gacha__bg"></div>
-  <div class="gacha__rays"></div>
-  <div class="gacha__seal">
-    <svg viewBox="0 0 200 200"><g fill="none" stroke="currentColor"><circle cx="100" cy="100" r="92" stroke-width="2"/><circle cx="100" cy="100" r="80" stroke-width="1" stroke-dasharray="3 5"/><path d="M100 14 L174 143 L26 143Z" stroke-width="2"/><path d="M100 186 L26 57 L174 57Z" stroke-width="2"/><circle cx="100" cy="100" r="38" stroke-width="3"/></g><path d="M100 70 L116 100 L100 130 L84 100Z" fill="currentColor"/></svg>
-    <i class="gacha__crack"></i>
-  </div>
-  <div class="gacha__flash" id="pull-flash"></div>
-  <div class="gacha__cards" id="pull-cards"></div>
+<section id="pullres" class="gacha sm" hidden>
+  <canvas class="sm__cv" id="pull-cv"></canvas>
+  <div class="sm__cards" id="pull-cards"></div>
   <div class="gacha__reveal" id="pull-reveal" hidden></div>
   <p class="gacha__hint" id="gacha-hint"></p>
   <button class="btn btn--ghost gacha__ok" id="btn-pull-ok" hidden><span class="btn__k">확인</span></button>
@@ -243,14 +252,10 @@
 
 <section id="skins" class="screen">
   <div class="skn__gacha">
-    <h2 class="skn__title">장식의 회랑</h2>
-    <p class="skn__lead">영웅마다 두 벌. 스킨은 겉모습만 바꾸고 능력치는 그대로예요.</p>
-    <ul class="skn__rates" id="skn-rates"></ul>
-    <p class="skn__pity" id="skn-pity"></p>
-    <div class="skn__pull">
-      <button class="btn btn--ghost btn--pull" id="btn-skin1"><span class="btn__k">1회 뽑기</span><span class="btn__s" id="skin1-cost"></span></button>
-      <button class="btn btn--ember btn--pull" id="btn-skin10"><span class="btn__k">10회 뽑기</span><span class="btn__s" id="skin10-cost"></span></button>
-    </div>
+    <h2 class="skn__title">옷장</h2>
+    <p class="skn__lead">영웅마다 두 벌씩, 저마다 다른 이야기를 입은 스킨 128종. 영웅 등급부터는 스킬 이펙트 색도 바뀌어요.</p>
+    <ul class="skn__tally" id="skn-tally"></ul>
+    <button class="btn btn--ember" id="btn-go-skinpull"><span class="btn__k">스킨 뽑으러 가기</span><span class="btn__s">모집 · 스킨 뽑기</span></button>
   </div>
   <div class="skn__focus" id="skn-focus"></div>
   <div class="skn__col">
@@ -260,11 +265,6 @@
   </div>
 </section>
 
-<section id="skinres" class="skinres" hidden>
-  <div class="skinres__cards" id="skinres-cards"></div>
-  <p class="skinres__sum" id="skinres-sum"></p>
-  <button class="btn btn--ghost skinres__ok" id="btn-skinres-ok"><span class="btn__k">확인</span></button>
-</section>
 
 <!-- ============ MODALS ============ -->
 <section id="online" class="modal" hidden>

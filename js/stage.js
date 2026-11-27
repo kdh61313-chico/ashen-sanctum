@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { skinFx } from './skins.js';
 import { buildHero, animateHero, triggerAttack, M, G, add, grp, GLOW } from './models.js';
 import { makeTextures } from './world.js';
 import { FX } from './fx.js';
@@ -169,17 +170,20 @@ export function renderPortraits(heroes, size = 160) {
 // Full-body splash art for the recruit reveal (transparent background, cached).
 const splashCache = new Map();
 let splashR = null;
-export function renderSplash(def, w = 520, h = 760) {
-  if (splashCache.has(def.id)) return splashCache.get(def.id);
+export function renderSplash(def, w = 520, h = 760, skin = null) {
+  const key = def.id + (skin || '');
+  if (splashCache.has(key)) return splashCache.get(key);
   if (!splashR) { splashR = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }); splashR.toneMapping = THREE.ACESFilmicToneMapping; splashR.outputColorSpace = THREE.SRGBColorSpace; }
   const r = splashR; r.setSize(w, h); r.setClearColor(0x000000, 0);
   const s = new THREE.Scene();
   s.add(new THREE.HemisphereLight('#c8c0e8', '#3a2a24', 1.5));
   const k = new THREE.DirectionalLight('#ffe8d0', 3.2); k.position.set(2.5, 3, 4); s.add(k);
-  const rim = new THREE.DirectionalLight(def.color, 7); rim.position.set(-3, 2.5, -2.5); s.add(rim);
-  const rim2 = new THREE.DirectionalLight(def.color, 3); rim2.position.set(3, 1, -3); s.add(rim2);
-  const P = buildHero(def);
+  const rc = (skin && skinFx(skin)?.c) || def.color;
+  const rim = new THREE.DirectionalLight(rc, 7); rim.position.set(-3, 2.5, -2.5); s.add(rim);
+  const rim2 = new THREE.DirectionalLight(rc, 3); rim2.position.set(3, 1, -3); s.add(rim2);
+  const P = buildHero(def, skin);
   for (let i = 0; i < 4; i++) animateHero(P, { speed: 0, onGround: true, alive: true, t: 0.6 + i * 0.016 }, 0.016);
+  for (const f of P.update) { try { f(1.2, {}); } catch (e) { } }
   s.add(P.root);
   P.root.rotation.y = 0.45;
   P.root.updateMatrixWorld(true);
@@ -191,7 +195,7 @@ export function renderSplash(def, w = 520, h = 760) {
   cam.lookAt(c.x, c.y, c.z);
   r.render(s, cam);
   const url = r.domElement.toDataURL('image/png');
-  splashCache.set(def.id, url);
+  splashCache.set(key, url);
   P.root.traverse(o => { if (o.geometry) o.geometry.dispose(); });
   return url;
 }

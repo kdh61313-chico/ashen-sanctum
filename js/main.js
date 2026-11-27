@@ -12,7 +12,7 @@ import { FX } from './fx.js';
 import { Audio } from './audio.js';
 import { Net, makeCode, cleanCode } from './net.js';
 import { ELEMENTS, EL_ORDER, matchup, strongVs, weakTo } from './elements.js';
-import { GachaShow } from './gacha.js';
+import { Summon } from './summon.js';
 import { NOTES, NOTES_VERSION } from './notes.js';
 import { CHAPTERS, STAGE_MAP, STAGE_TYPES, RAID } from './campaign.js';
 import { TIERS, tierOf } from './profile.js';
@@ -25,7 +25,7 @@ import { SCRIPTS } from './story.js';
 import { LORE, LORE_TITLES } from './lore.js';
 import { renderBusts } from './stage.js';
 import { StoryPlayer } from './vn.js';
-import { SKINS, SKIN_MAP, THEMES, TIERS as SKIN_TIERS, SKIN_PULL_COST, SKIN_PITY, skinsOf } from './skins.js';
+import { SKINS, SKIN_MAP, PIECE_NAMES, TIERS as SKIN_TIERS, SKIN_PULL_COST, SKIN_PITY, skinsOf } from './skins.js';
 import { installGuard } from './guard.js';
 import { MAXPOT } from './profile.js';
 import { Profile, PULL_COST, TOKEN_PRICE, PERMIT_TOKEN_PRICE, RATES, PITY_START } from './profile.js';
@@ -547,9 +547,15 @@ class App {
   }
 
   // ---------------- recruit ----------------
-  openRecruit() {
+  openRecruit(tab) {
     this.setScreen('recruit');
     $('back-label').textContent = '홈';
+    this.recruitTab = tab || this.recruitTab || 'hero';
+    qsa('#recruit-tabs button').forEach(b => b.classList.toggle('is-on', b.dataset.tab === this.recruitTab));
+    const isSkin = this.recruitTab === 'skin';
+    $('hero-banner').hidden = isSkin; $('hero-pull').hidden = isSkin; $('skin-banner').hidden = !isSkin; $('skin-pull').hidden = !isSkin;
+    $('recruit').classList.toggle('is-skin', isSkin);
+    if (isSkin) { this.refreshSkinBanner(true); return; }
     const B = this.profile.banner(), six = HERO_MAP[B.six];
     this.stage.setHero(six, true);
     $('recruit').style.setProperty('--accent', six.color);
@@ -567,6 +573,20 @@ class App {
     $('btn-pull1').disabled = !this.profile.canPull(1); $('btn-pull10').disabled = !this.profile.canPull(10);
     this.refreshTop();
   }
+  // today's featured skin: rotates daily through the 초전설 and 전설 skins
+  featuredSkin() { const pool = SKINS.filter(x => x.tier >= 4).sort((a, b) => b.tier - a.tier || a.id.localeCompare(b.id)); const day = Math.floor(Date.now() / 864e5); return pool[(day * 7) % pool.length]; }
+  refreshSkinBanner(stage = false) {
+    const P = this.profile, d = P.d, F = this.featuredSkin(), T = SKIN_TIERS[F.tier], h = HERO_MAP[F.hero];
+    if (stage) { this.stage.setHero(h, true, F.id); $('recruit').style.setProperty('--accent', T.color); }
+    $('skb-name').textContent = F.concept;
+    $('skb-title').innerHTML = `<b style="color:${T.color}">${T.name}</b> · ${esc(h.name)} — 오늘 회랑에 걸린 스킨이에요`;
+    $('skn-rates').innerHTML = SKIN_TIERS.map((t, i) => `<li style="--tc:${t.color}"><b>${t.name}</b><span>${Math.round(t.rate * 100)}%</span><em>${SKINS.filter(s => s.tier === i).length}종</em></li>`).reverse().join('');
+    $('skn-pity').textContent = `초전설까지 최대 ${SKIN_PITY - d.skinPity}회 · 겹치면 빛조각이 돼요 · 장식권 ${d.skinTix}장`;
+    const cost = (n) => { const t = Math.min(d.skinTix, n); return t ? `장식권 ${t}${n - t ? ` + 결정 ${((n - t) * SKIN_PULL_COST).toLocaleString()}` : ''}` : `잿빛 결정 ${(n * SKIN_PULL_COST).toLocaleString()}`; };
+    $('skin1-cost').textContent = cost(1); $('skin10-cost').textContent = cost(10);
+    $('btn-skin1').disabled = !P.canSkinPull(1); $('btn-skin10').disabled = !P.canSkinPull(10);
+    this.refreshTop();
+  }
   doPull(n) {
     this.audio.init();
     if (this.gacha?.busy) return;
@@ -574,9 +594,9 @@ class App {
     if (!res) { this.toast('잿빛 결정이 부족해요. 경기와 임무로 결정을 모아 보세요.'); return; }
     if (res.some(r => r.rarity === 6)) this.profile.d.totals.six += res.filter(r => r.rarity === 6).length;
     this.refreshTop();
-    this.gacha = this.gacha || new GachaShow(this);
+    this.gacha = this.gacha || new Summon(this);
     this.gacha.busy = true;
-    this.gacha.play(res).finally(() => { this.gacha.busy = false; });
+    this.gacha.playHeroes(res).finally(() => { this.gacha.busy = false; });
     this.refreshRecruit();
   }
 
@@ -593,7 +613,7 @@ class App {
     ];
     $('home-wallet').innerHTML = W.map(([k, n, v, ic]) => `<div class="wallet__i wallet__i--${k}" title="${n}"><svg viewBox="0 0 24 24" aria-hidden="true">${ic}</svg><dd>${v.toLocaleString()}</dd><dt>${n}</dt></div>`).join('');
   }
-  skinSwatch(sk) { const p = THEMES[sk.theme].p; return `linear-gradient(150deg, ${p[2]} 0%, ${p[1]} 38%, ${p[0]} 78%), radial-gradient(circle at 70% 25%, ${p[4]}, transparent 55%)`; }
+  skinSwatch(sk) { const p = sk.p; return `linear-gradient(150deg, ${p[2]} 0%, ${p[1]} 38%, ${p[0]} 78%), radial-gradient(circle at 70% 25%, ${p[4]}, transparent 55%)`; }
   renderSelSkins(id) {
     const h = HERO_MAP[id], box = $('sel-skins');
     if (!h || h.boss || id === 'dummy') { box.innerHTML = ''; return; }
@@ -601,7 +621,7 @@ class App {
     const chip = (sk) => {
       const has = !sk || this.profile.ownsSkin(sk.id), on = (sk ? sk.id : null) === eq, T = sk ? SKIN_TIERS[sk.tier] : null;
       return `<button type="button" class="skinpick__c${on ? ' is-on' : ''}${has ? '' : ' is-locked'}" data-sk="${sk ? sk.id : ''}" style="--tc:${T ? T.color : '#8a8378'}" title="${sk ? esc(sk.name) + ' · ' + T.name : '기본'}">
-        <i style="background:${sk ? this.skinSwatch(sk) : `linear-gradient(150deg, #d8cfc0, ${h.color} 60%, #1a1416)`}"></i><span>${sk ? esc(THEMES[sk.theme].name) : '기본'}</span><small>${sk ? T.name : ''}${has ? '' : ' · 미보유'}</small></button>`;
+        <i style="background:${sk ? this.skinSwatch(sk) : `linear-gradient(150deg, #d8cfc0, ${h.color} 60%, #1a1416)`}"></i><span>${sk ? esc(sk.concept) : '기본'}</span><small>${sk ? T.name : ''}${has ? '' : ' · 미보유'}</small></button>`;
     };
     box.innerHTML = [null, ...skinsOf(id)].map(chip).join('');
   }
@@ -624,11 +644,7 @@ class App {
   }
   renderSkins() {
     const P = this.profile, d = P.d;
-    $('skn-rates').innerHTML = SKIN_TIERS.map((t, i) => `<li style="--tc:${t.color}"><b>${t.name}</b><span>${(t.rate * 100).toFixed(t.rate < 0.1 ? 0 : 0)}%</span><em>${SKINS.filter(s => s.tier === i).length}종</em></li>`).reverse().join('');
-    $('skn-pity').textContent = `초전설까지 ${SKIN_PITY - d.skinPity}회 남음 · 겹치면 빛조각으로 바뀌어요`;
-    const cost = (n) => { const t = Math.min(d.skinTix, n); return t ? `장식권 ${t}${n - t ? ` + 결정 ${((n - t) * SKIN_PULL_COST).toLocaleString()}` : ''}` : `결정 ${(n * SKIN_PULL_COST).toLocaleString()}`; };
-    $('skin1-cost').textContent = cost(1); $('skin10-cost').textContent = cost(10);
-    $('btn-skin1').disabled = !P.canSkinPull(1); $('btn-skin10').disabled = !P.canSkinPull(10);
+    $('skn-tally').innerHTML = SKIN_TIERS.map((t, i) => { const all = SKINS.filter(x => x.tier === i), have = all.filter(x => d.skins[x.id]).length; return `<li style="--tc:${t.color}"><b>${t.name}</b><span>${have} / ${all.length}</span><i style="--p:${all.length ? have / all.length * 100 : 0}%"></i></li>`; }).reverse().join('');
     const own = Object.keys(d.skins).length;
     $('skn-count').textContent = `${own} / ${SKINS.length} · 빛조각 ${d.shards}`;
     const F = [['all', '전체'], ['own', '보유'], ...SKIN_TIERS.map((t, i) => [String(i), t.name])].reverse();
@@ -641,7 +657,7 @@ class App {
       const T = SKIN_TIERS[sk.tier], has = !!d.skins[sk.id], eq = d.skinEq[sk.hero] === sk.id;
       return `<button type="button" class="skc${has ? '' : ' is-locked'}${this.skinSel === sk.id ? ' is-sel' : ''} skc--t${sk.tier}" data-sk="${sk.id}" style="--tc:${T.color}">
         <i class="skc__sw" style="background:${this.skinSwatch(sk)}"><img src="${this.portraits[sk.hero] || ''}" alt="" loading="lazy"></i>
-        <b>${esc(THEMES[sk.theme].name)}</b><span>${esc(HERO_MAP[sk.hero].name)}</span><em>${T.name}${eq ? ' · 장착' : ''}</em></button>`;
+        <b>${esc(sk.concept)}</b><span>${esc(HERO_MAP[sk.hero].name)}</span><em>${T.name}${eq ? ' · 장착' : ''}</em></button>`;
     }).join('') : `<p class="skn__empty">${f === 'own' ? '아직 스킨이 없어요. 왼쪽에서 뽑아 보세요.' : '이 등급의 스킨이 없어요.'}</p>`;
   }
   skinFocus(id, burst = true) {
@@ -654,7 +670,7 @@ class App {
     let act;
     if (has) act = eq ? `<button class="btn btn--ghost" data-act="unequip"><span class="btn__k">기본으로 되돌리기</span></button>` : `<button class="btn btn--ember" data-act="equip"${heroOwned ? '' : ' disabled'}><span class="btn__k">장착</span>${heroOwned ? '' : '<span class="btn__s">영웅을 먼저 모집하세요</span>'}</button>`;
     else act = `<button class="btn btn--ghost" data-act="craft"${d.shards >= T.cost ? '' : ' disabled'}><span class="btn__k">빛조각 ${T.cost}으로 만들기</span><span class="btn__s">보유 ${d.shards}</span></button>`;
-    $('skn-focus').innerHTML = `<p class="skn__tier" style="--tc:${T.color}">${T.name}</p><h3>${esc(sk.name)}</h3><p class="skn__hero">${esc(h.name)} · ${esc(h.title)}${has ? '' : ' · 미보유'}</p>${act}`;
+    $('skn-focus').innerHTML = `<p class="skn__tier" style="--tc:${T.color}">${T.name}</p><h3>${esc(sk.name)}</h3><p class="skn__hero">${esc(h.name)} · ${esc(h.title)}${has ? '' : ' · 미보유'}</p><p class="skn__pieces">${sk.acc.map(a => PIECE_NAMES[a]).join(' · ')}${sk.tier >= 3 ? ' · <b style="color:' + sk.p[4] + '">스킬 이펙트 변경</b>' : ''}</p>${act}`;
     qsa('.skc', $('skn-grid')).forEach(c => c.classList.toggle('is-sel', c.dataset.sk === id));
   }
   skinAct(a) {
@@ -667,19 +683,15 @@ class App {
   }
   doSkinPull(n) {
     this.audio.init();
+    if (this.gacha?.busy) return;
     const res = this.profile.skinPull(n); if (!res) { this.audio.play('deny'); this.toast('잿빛 결정이나 장식권이 부족해요'); return; }
     this.refreshTop();
-    const best = res.reduce((a, b) => (b.tier > a.tier ? b : a), res[0]);
-    this.audio.play(best.tier >= 4 ? 'ult' : best.tier >= 2 ? 'bell' : 'magic');
-    $('skinres-cards').innerHTML = res.map((r, i) => {
-      const sk = SKIN_MAP[r.id], T = SKIN_TIERS[r.tier];
-      return `<div class="srs srs--t${r.tier}" style="--tc:${T.color};--d:${i * 90}ms"><i class="srs__sw" style="background:${this.skinSwatch(sk)}"><img src="${this.portraits[sk.hero] || ''}" alt=""></i><em>${T.name}</em><b>${esc(THEMES[sk.theme].name)}</b><span>${esc(HERO_MAP[sk.hero].name)}</span>${r.dup ? `<small>중복 · 빛조각 +${r.shards}</small>` : '<small class="is-new">새 스킨</small>'}</div>`;
-    }).join('');
-    const sh = res.reduce((a, r) => a + r.shards, 0), nw = res.filter(r => !r.dup).length;
-    $('skinres-sum').textContent = `새 스킨 ${nw}종${sh ? ` · 빛조각 +${sh}` : ''}`;
-    $('skinres').className = 'skinres skinres--t' + best.tier; $('skinres').hidden = false;
-    this.skinFocus(best.id, true);
+    this.gacha = this.gacha || new Summon(this);
+    this.gacha.busy = true;
+    this.gacha.playSkins(res).finally(() => { this.gacha.busy = false; });
+    this.refreshSkinBanner();
   }
+
 
   openShop() { this.setScreen('shop'); $('back-label').textContent = '홈'; this.renderShop(); }
   renderShop() {
@@ -762,7 +774,8 @@ class App {
     $('tile-skins').addEventListener('click', () => { this.audio.init(); this.openSkins(); });
     $('btn-skin1').addEventListener('click', () => this.doSkinPull(1));
     $('btn-skin10').addEventListener('click', () => this.doSkinPull(10));
-    $('btn-skinres-ok').addEventListener('click', () => { $('skinres').hidden = true; this.renderSkins(); });
+    qsa('#recruit-tabs button').forEach(b => b.addEventListener('click', () => { this.audio.play('click'); this.openRecruit(b.dataset.tab); }));
+    $('btn-go-skinpull').addEventListener('click', () => { this.audio.init(); this.openRecruit('skin'); });
     $('skn-filter').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; this.skinFilter = b.dataset.f; this.renderSkins(); });
     $('skn-grid').addEventListener('click', (e) => { const b = e.target.closest('[data-sk]'); if (b) this.skinFocus(b.dataset.sk); });
     $('skn-focus').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) this.skinAct(b.dataset.act); });
@@ -810,7 +823,7 @@ class App {
     });
     $('btn-pull1').addEventListener('click', () => this.doPull(1));
     $('btn-pull10').addEventListener('click', () => this.doPull(10));
-    $('btn-pull-ok').addEventListener('click', (e) => { e.stopPropagation(); $('pullres').hidden = true; this.refreshRecruit(); this.filterRoster(); this.refreshQuestBadge?.(); });
+    $('btn-pull-ok').addEventListener('click', (e) => { e.stopPropagation(); $('pullres').hidden = true; this.refreshRecruit(); this.refreshSkinBanner(); this.filterRoster(); this.refreshQuestBadge?.(); });
     $('shop-grid').addEventListener('click', (e) => {
       const b = e.target.closest('.sitem'); if (!b || b.disabled) return;
       if (b.dataset.permit) { if (this.profile.buyPermit()) { this.toast('모집 허가증을 교환했어요'); this.audio.play('select'); } }

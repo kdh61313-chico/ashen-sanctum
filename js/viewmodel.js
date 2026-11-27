@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { buildHero, M } from './models.js';
-import { skinObject } from './skins.js';
+import { skinObject, skinFx } from './skins.js';
 import { Trail, runeTex } from './fx.js';
 
 // ============================================================================
@@ -268,6 +268,7 @@ export class ViewModel {
 
   setHero(def, skin = null) {
     this.skin = skin;
+    const fc = skinFx(skin)?.c || def.color; this.fc = fc;
     this.trail?.dispose(); this.trail = null; this.trail2?.dispose(); this.trail2 = null;
     for (const sh of this.shells) this.scene.remove(sh.m);
     this.root.clear(); this.shells = [];
@@ -275,7 +276,7 @@ export class ViewModel {
     const PH = buildHero(def); // recoloured below without the body FX (rings/motes)
     this.pose = PH.spec.pose; this.isGun = PH.isGun; this.isMelee = PH.isMelee;
     const c = PH.c;
-    this.rim.color.set(def.color);
+    this.rim.color.set(fc);
     const prep = (w) => {
       if (!w) return null; const k = w.clone(); k.position.set(0, 0, 0); k.rotation.set(0, 0, 0); k.scale.setScalar(1);
       // up close, glowing parts bloom across the screen: tone them down for the first-person copy
@@ -304,8 +305,8 @@ export class ViewModel {
     const mkOrb = (arm) => {
       const g = new THREE.Group();
       const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.03, 1), addMat('#ffffff'));
-      const glow = new THREE.Mesh(new THREE.IcosahedronGeometry(0.06, 1), addMat(def.color, null, 0.5));
-      const ring = new THREE.Mesh(new THREE.RingGeometry(0.075, 0.09, 32), addMat(def.color, null, 0.7));
+      const glow = new THREE.Mesh(new THREE.IcosahedronGeometry(0.06, 1), addMat(fc, null, 0.5));
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.075, 0.09, 32), addMat(fc, null, 0.7));
       g.add(core, glow, ring); g.position.set(0, 0.06, -0.06);
       arm.open.add(g); this.orbs.push({ g, glow, ring, core });
       return g;
@@ -340,20 +341,20 @@ export class ViewModel {
       const arrow = new THREE.Group();
       const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.78, 5), M('#3a2a1c'));
       shaft.rotation.z = Math.PI / 2; shaft.position.x = 0.39; arrow.add(shaft);
-      const head = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.07, 4), M('#cfd8e0', { m: 0.9, r: 0.2, e: def.color, ei: 0.6 }));
+      const head = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.07, 4), M('#cfd8e0', { m: 0.9, r: 0.2, e: fc, ei: 0.6 }));
       head.rotation.z = -Math.PI / 2; head.position.x = 0.8; arrow.add(head);
-      for (let i = 0; i < 3; i++) { const f = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.025, 0.002), M(def.color, { e: def.color, ei: 0.4 })); f.position.set(0.05, 0, 0); f.rotation.x = i * Math.PI / 3 * 2; arrow.add(f); }
+      for (let i = 0; i < 3; i++) { const f = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.025, 0.002), M(fc, { e: fc, ei: 0.4 })); f.position.set(0.05, 0, 0); f.rotation.x = i * Math.PI / 3 * 2; arrow.add(f); }
       arrow.position.set(this.stringX0, 0.02, 0);
       this.bow.add(arrow); this.arrow = arrow;
     }
     // skill rune disc in front of the casting palm
-    this.rune = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), addMat(def.color, runeTex(), 0));
+    this.rune = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), addMat(fc, runeTex(), 0));
     this.rune.visible = false; this.root.add(this.rune);
-    this.ultRune = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), addMat(def.color, runeTex(), 0));
+    this.ultRune = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), addMat(fc, runeTex(), 0));
     this.ultRune.visible = false; this.root.add(this.ultRune);
     // trails (drawn in view space)
-    if (this.tip) this.trail = new Trail(this.scene, def.color, 12, 0.42);
-    if (this.tip2) this.trail2 = new Trail(this.scene, def.color, 10, 0.42);
+    if (this.tip) this.trail = new Trail(this.scene, fc, 12, 0.42);
+    if (this.tip2) this.trail2 = new Trail(this.scene, fc, 10, 0.42);
     // muzzle aim convergence for guns: rotate rest so the barrel points at the crosshair 25 m out
     if (this.isGun && this.muzR) {
       this.root.updateMatrixWorld(true);
@@ -383,7 +384,7 @@ export class ViewModel {
         this.recoilR.v.add(V(5.5 * k, (Math.random() - 0.5) * 1.5 * k, (Math.random() - 0.5) * 2 * k));
         const f = this.flashes[(this.L.kind === 'dualgun' && this.side < 0 && this.flashes[1]) ? 1 : 0];
         if (f) { f.t = 0; f.g.rotation.y = Math.random() * 6; }
-        this.flashL.intensity = 3.5 * k + 1.5; this.flashL.color.set(this.def.color);
+        this.flashL.intensity = 3.5 * k + 1.5; this.flashL.color.set(this.fc || this.def.color);
         if (this.barrel) this.barrel.userData.bspin = 45;
         if (this.L.kind === 'pistol' || this.L.kind === 'dualgun' || this.L.kind === 'rifle') this.ejectShell();
       }

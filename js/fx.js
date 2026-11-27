@@ -556,13 +556,21 @@ export class FX {
     }
   }
 
+  // a projectile/zone look recoloured for a 영웅+ skin (cached per look and colour)
+  skinLook(look, SK, zone = false) {
+    this._skL = this._skL || new Map();
+    const k = look + SK.c + (zone ? 'z' : ''); let L = this._skL.get(k);
+    if (!L) { L = { ...(LOOK[look] || (zone ? LOOK.trap : LOOK.soul)), c: SK.c, c2: SK.c2 }; this._skL.set(k, L); }
+    return L;
+  }
   // ---------- projectiles ----------
   syncProjectiles(list, dt) {
     const seen = new Set();
     for (const pr of list) {
       seen.add(pr.id);
       let m = this.projMeshes.get(pr.id);
-      const L = LOOK[pr.look] || LOOK.soul;
+      const SK = pr.owner && this.skinCol?.get(pr.owner);
+      const L = SK ? this.skinLook(pr.look, SK) : (LOOK[pr.look] || LOOK.soul);
       if (!m) {
         m = new THREE.Group();
         const core = new THREE.Mesh(this.sphere, addMat(L.c2, 1)); core.scale.setScalar(L.s * 0.55);
@@ -598,6 +606,7 @@ export class FX {
         if (Math.hypot(pr.pos[0] - lp[0], pr.pos[1] - lp[1], pr.pos[2] - lp[2]) < 8) { this.S.seg(lp, [...pr.pos], { c: L.c, w, life: 0.22 }); this.S.seg(lp, [...pr.pos], { c: L.c2, w: w * 0.35, life: 0.12 }); }
       }
       m.userData.lp = [...pr.pos];
+      if (SK && SK.tier >= 4 && Math.random() < 0.5) this.P.emit([...pr.pos], { n: 1, c: SK.c, c2: SK.tier >= 5 ? (SK.flame || '#ffffff') : SK.c2, sp: 0.4, s: SK.tier >= 5 ? 0.12 : 0.08, life: 0.45, drag: 2 });
       m.position.set(pr.pos[0], pr.pos[1], pr.pos[2]);
       if (m.userData.halo && this._camQ) { m.userData.halo.quaternion.copy(m.quaternion).invert().multiply(this._camQ); m.userData.halo.rotateX(Math.PI / 2); }
       if (m.userData.axe) m.userData.axe.rotation.y += dt * 22;
@@ -614,7 +623,8 @@ export class FX {
     for (const z of list) {
       seen.add(z.id);
       let v = this.zoneVis.get(z.id);
-      const L = LOOK[z.look] || LOOK.trap;
+      const SK = z.owner && z.look !== 'trap' && this.skinCol?.get(z.owner);
+      const L = SK ? this.skinLook(z.look, SK, true) : (LOOK[z.look] || LOOK.trap);
       const friendly = z.team === myTeam;
       if (!v) {
         v = { g: new THREE.Group(), look: z.look, acc: 0 };
