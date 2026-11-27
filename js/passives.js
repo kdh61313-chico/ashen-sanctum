@@ -298,6 +298,42 @@ export const PASSIVES = {
     anyDeath(S, p, v) { if (v.team === p.team && dist(p, v) < 20) p.ult = Math.min(100, p.ult + 40); },
   },
   // ---------------- bosses ----------------
+  // ---- v2.0 heroes ----
+  serenia: {
+    name: '별의 노래', desc: '별빛 바늘이 적을 맞힐 때마다 별빛이 쌓인다. 다섯 개가 모이면 다음 공격이 바늘 세 개로 갈라진다.',
+    res: { max: 5, name: '별빛', color: '#ffe6a8' },
+    hit(S, p, t, dmg, o) { if (o.slot === 'lmb' && !o.extra) S.gain(p, 1); },
+    cast(S, p, slot, def) {
+      if (slot !== 'lmb' || p.rs < 5) return;
+      p.rs = 0; const e = S.eye(p);
+      for (const da of [-0.12, 0.12]) { const y = p.yaw + da; const d = [-Math.sin(y) * Math.cos(p.pitch), Math.sin(p.pitch), -Math.cos(y) * Math.cos(p.pitch)]; S._slot = 'lmb'; S.spawnProj(p, { ...def, extra: true }, [e[0], e[1] - 0.15, e[2]], d); }
+    },
+  },
+  karnok: {
+    name: '탐식', desc: '적을 쓰러뜨리면 최대 체력의 20%를 회복하고 탐식이 하나 쌓인다. 탐식 하나마다 주는 피해가 4% 늘어난다 (최대 5).',
+    res: { max: 5, name: '탐식', color: '#9a5aff' },
+    kill(S, p) { S.heal(p, p, p.maxHp * 0.2); S.gain(p, 1); S.ev({ t: 'fx', fx: 'burst', pos: [...p.pos], color: '#9a5aff' }); },
+    out(S, p) { return 1 + (p.rs || 0) * 0.04; },
+  },
+  mir: {
+    name: '질풍', desc: '같은 적을 번개 화살로 3초 안에 세 번 맞히면 그 자리에 벼락이 떨어져 추가 피해 30을 준다.',
+    hit(S, p, t, dmg, o) {
+      if (o.slot !== 'lmb') return;
+      S.addMark(p, t, 1, 3);
+      if (S.markCount(p, t) >= 3) { delete t.marks[p.id]; S.damage(p, t, 30, { slot: 'pas' }); S.ev({ t: 'fx', fx: 'burst', pos: S.chest(t), color: '#bfe8ff' }); }
+    },
+  },
+  osel: {
+    name: '광합성', desc: '1초 넘게 멈춰 서 있으면 오셀과 6m 안의 아군이 초당 체력 8을 회복한다.',
+    tick(S, p, dt) {
+      const moving = Math.hypot(p.vel[0], p.vel[2]) > 0.6;
+      p.pasT.still = moving ? 0 : (p.pasT.still || 0) + dt;
+      if (p.pasT.still < 1) return;
+      p.pasT.acc = (p.pasT.acc || 0) + dt;
+      if (p.pasT.acc < 0.5) return; p.pasT.acc = 0;
+      for (const a of S.alliesOf(p)) if (a.alive && Math.hypot(a.pos[0] - p.pos[0], a.pos[2] - p.pos[2]) <= 6) S.heal(p, a, 4, true);
+    },
+  },
   ashlord: {
     name: '용광로의 핵', desc: '등 뒤의 핵을 맞으면 피해 +40%. 체력 2/3, 1/3에서 잿빛 망령을 부르고, 30% 아래에서는 격노한다.',
     spawn(S, p) { p.pasT.phase = 0; },

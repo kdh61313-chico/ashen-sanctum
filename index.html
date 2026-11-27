@@ -141,6 +141,7 @@
 
   <aside class="dossier">
     <blockquote id="sel-quote" class="dossier__quote"></blockquote>
+    <button class="dossier__lore" id="btn-lore" type="button"><b>영웅 이야기</b><span id="lore-sub"></span></button>
     <div class="elbox" id="sel-elbox"></div>
     <dl class="stats" id="sel-stats"></dl>
     <ol class="skills" id="sel-skills"></ol>
@@ -308,6 +309,19 @@
     <div class="admin__row"><button class="btn btn--ghost btn--sm admin__danger" data-adm="wipe"><span class="btn__k">저장 데이터 초기화</span></button></div>
     <p class="savebox__note" id="adm-note"></p>
     <button class="modal__close" id="btn-admin-close" aria-label="닫기">✕</button>
+  </div>
+</section>
+
+<section id="lore" class="modal" hidden>
+  <div class="modal__card modal__card--wide lore">
+    <img class="lore__bust" id="lore-bust" alt="">
+    <div class="lore__body">
+      <small class="lore__title" id="lore-title"></small>
+      <h2 class="lore__name" id="lore-name"></h2>
+      <div class="lore__tabs" id="lore-tabs"></div>
+      <div class="lore__page" id="lore-page"></div>
+    </div>
+    <button class="modal__close" id="btn-lore-close" aria-label="닫기">✕</button>
   </div>
 </section>
 

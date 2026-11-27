@@ -45,7 +45,7 @@ export const ACHIEVEMENTS = [
   { id: 'a_kill500', name: '전장의 망령', desc: '적 500명 처치', stat: 'kill', goal: 500, reward: { permits: 3 } },
   { id: 'a_hero10', name: '모여드는 영웅들', desc: '영웅 10명 보유', stat: 'owned', goal: 10, reward: { crystals: 600 } },
   { id: 'a_hero25', name: '성역의 군단', desc: '영웅 25명 보유', stat: 'owned', goal: 25, reward: { permits: 2 } },
-  { id: 'a_hero60', name: '모든 이름을 부르다', desc: '영웅 60명 모두 보유', stat: 'owned', goal: 60, reward: { permits: 10 } },
+  { id: 'a_hero60', name: '모든 이름을 부르다', desc: '영웅 64명 모두 보유', stat: 'owned', goal: 64, reward: { permits: 10 } },
   { id: 'a_six', name: '별의 계시', desc: '★6 영웅 얻기', stat: 'six', goal: 1, reward: { crystals: 750 } },
   { id: 'a_allel', name: '여섯 원소', desc: '모든 속성의 영웅을 하나씩 보유', stat: 'elements', goal: 6, reward: { permits: 1 } },
   { id: 'a_lv10', name: '숙련된 지휘관', desc: '레벨 10 달성', stat: 'level', goal: 10, reward: { permits: 2 } },
@@ -73,6 +73,8 @@ const fresh = () => ({
   growth: {}, mats: { essence: 40, seal: 0, tome: 2 }, camp: {}, raid: { clears: {}, best: {} }, rank: { season: '', pts: 0, best: 0, reached: {}, last: null },
   // v5: redeemed coupon codes
   codes: {},
+  // v6: story scenes read (campaign story nodes and hero stories)
+  read: {}, lore: {},
 });
 
 // deep-merge saved data over defaults without ever dropping saved values
@@ -249,7 +251,15 @@ export class Profile {
     this.save();
     return r;
   }
-  campStars(chapter) { return chapter.stages.reduce((a, st) => a + this.stars(st.id), 0); }
+  campStars(chapter) { return chapter.stages.reduce((a, st) => a + (st.type === 'story' ? 0 : this.stars(st.id)), 0); }
+  campMax(chapter) { return chapter.stages.filter(st => st.type !== 'story').length * 3; }
+  done(st) { return st.type === 'story' ? !!this.d.read[st.id] : this.stars(st.id) > 0; }
+  readStory(st) {
+    const first = !this.d.read[st.id];
+    this.d.read[st.id] = Date.now();
+    if (first && st.first) this.give(st.first);
+    this.save(); return first ? st.first : null;
+  }
 
   // ---------------- raid ----------------
   raidClear(diff, time) {

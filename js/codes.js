@@ -1,6 +1,9 @@
 // Coupon codes. Every update adds a few; each works once per save.
 // Codes are matched case-insensitively and ignore spaces and dashes.
 export const COUPONS = [
+  { code: 'STORY20', ver: '2.0', until: '2027-04-30', reward: { crystals: 3000, permits: 5 }, label: '2.0 업데이트 기념' },
+  { code: 'NARHEL', ver: '2.0', until: '2027-04-30', reward: { crystals: 2000, essence: 150, tome: 6 }, label: '별의 왕국' },
+  { code: 'SEEDOFHOPE', ver: '2.0', until: '2027-04-30', reward: { permits: 5, seal: 8 }, label: '심연에서도 자라는 씨앗' },
   { code: 'ASHEN19', ver: '1.9', until: '2027-03-31', reward: { crystals: 3000, permits: 5 }, label: '1.9 업데이트 기념' },
   { code: 'SANCTUM2026', ver: '1.9', until: '2027-03-31', reward: { crystals: 1500, essence: 120, tome: 5 }, label: '성역 개방 감사' },
   { code: 'TYPECHART', ver: '1.9', until: '2027-03-31', reward: { permits: 3, seal: 6 }, label: '속성 상성 추가 기념' },

@@ -21,6 +21,10 @@ import { icon } from './icons.js';
 import { Stage, renderPortraits } from './stage.js';
 import { Game, esc } from './game.js';
 import { COUPONS, normCode, isAdminCode, rewardText } from './codes.js';
+import { SCRIPTS } from './story.js';
+import { LORE, LORE_TITLES } from './lore.js';
+import { renderBusts } from './stage.js';
+import { StoryPlayer } from './vn.js';
 import { installGuard } from './guard.js';
 import { MAXPOT } from './profile.js';
 import { Profile, PULL_COST, TOKEN_PRICE, PERMIT_TOKEN_PRICE, RATES, PITY_START } from './profile.js';
@@ -253,7 +257,7 @@ class App {
     if (!bg) { bg = document.createElement('span'); bg.className = 'slab__bg'; $('tile-recruit').prepend(bg); }
     bg.style.backgroundImage = `url(${this.portraits[six.id]})`;
     $('tile-roster-sub').textContent = `보유 ${this.profile.ownedList().length} / ${HEROES.length}`;
-    { const next = CHAPTERS.flatMap(c => c.stages).find(st => !this.profile.stars(st.id)); $('tile-battle-sub').textContent = next ? `캠페인 · 레이드 · 랭크전 · 대전 — 다음 ${next.id} ${next.name}` : '캠페인 · 레이드 · 랭크전 · 대전'; }
+    { const next = CHAPTERS.flatMap(c => c.stages).find(st => !this.profile.done(st)); $('tile-battle-sub').textContent = next ? `캠페인 · 레이드 · 랭크전 · 대전 — 다음 ${next.type === 'story' ? '이야기' : next.id} ${next.name}` : '캠페인 · 레이드 · 랭크전 · 대전'; }
     this.refreshQuestBadge();
     $('notes-badge').hidden = this.profile.d.lastPatch === NOTES_VERSION;
   }
@@ -296,7 +300,7 @@ class App {
       case 'all': heroes.forEach(h => own(h.id)); return this.adminDone(`영웅 ${heroes.length}명을 모두 얻었어요.`);
       case 'maxall': heroes.forEach(h => maxGrow(h.id)); return this.adminDone('모든 영웅을 최대로 육성했어요.');
       case 'resetgrowth': d.growth = {}; return this.adminDone('육성을 초기화했어요.');
-      case 'camp': for (const ch of CHAPTERS) for (const st of ch.stages) d.camp[st.id] = 3; return this.adminDone('캠페인을 모두 ★3으로 클리어했어요.');
+      case 'camp': for (const ch of CHAPTERS) for (const st of ch.stages) { if (st.type === 'story') d.read[st.id] = d.read[st.id] || Date.now(); else d.camp[st.id] = 3; } return this.adminDone('캠페인을 모두 ★3으로 클리어했어요.');
       case 'raid': for (let i = 0; i < RAID.diffs.length; i++) { d.raid.clears[i] = (d.raid.clears[i] || 0) + 1; d.raid.best[i] = d.raid.best[i] || 60; } return this.adminDone('레이드를 모든 난이도로 클리어했어요.');
       case 'quests': { P.adminCompleteQuests(); if (this.qTab) this.renderQuests(); this.refreshQuestBadge?.(); return this.adminDone('일일 · 주간 임무를 모두 달성 상태로 바꿨어요. 임무 화면에서 보상을 받으세요.'); }
       case 'pity': d.force6 = true; return this.adminDone('다음 모집 한 번은 ★6이 확정이에요.');
@@ -304,6 +308,53 @@ class App {
       case 'codes': d.codes = {}; return this.adminDone('쿠폰 코드를 다시 쓸 수 있어요.');
       case 'wipe': if (!confirm('정말 저장 데이터를 처음 상태로 되돌릴까요? 되돌릴 수 없어요.')) return; P.wipe(); setTimeout(() => location.reload(), 300); return;
     }
+  }
+
+  // ---------------- hero stories ----------------
+  loreOpen(id, k) {
+    const P = this.profile; if (!P.owns(id)) return false;
+    const g = P.gr(id);
+    return k === 0 || (k === 1 && g.lv >= 10) || (k === 2 && g.elite >= 1);
+  }
+  loreNeed(k) { return ['영웅을 얻으면 열려요', '레벨 10이 되면 열려요', '정예화 1단계가 되면 열려요'][k]; }
+  refreshLoreBtn() {
+    const id = this.selHero; if (!id || !LORE[id]) return;
+    const open = [0, 1, 2].filter(k => this.loreOpen(id, k)).length, unread = [0, 1, 2].filter(k => this.loreOpen(id, k) && !this.profile.d.lore[id + ':' + k]).length;
+    $('lore-sub').textContent = `${open} / 3장${unread ? ` · 새 이야기 ${unread}` : ''}`;
+    $('btn-lore').classList.toggle('has-new', unread > 0);
+  }
+  openLore(id) {
+    const h = HERO_MAP[id]; if (!h || !LORE[id]) return;
+    this.loreHero = id; this.busts = this.busts || {};
+    if (!this.busts[id]) Object.assign(this.busts, renderBusts([h]));
+    $('lore-bust').src = this.busts[id];
+    $('lore-title').textContent = h.title; $('lore-name').textContent = h.name;
+    $('lore').style.setProperty('--accent', h.color);
+    const first = [0, 1, 2].find(k => this.loreOpen(id, k) && !this.profile.d.lore[id + ':' + k]);
+    this.showLorePage(first ?? 0);
+    $('lore').hidden = false;
+  }
+  showLorePage(k) {
+    const id = this.loreHero, P = this.profile;
+    $('lore-tabs').innerHTML = LORE_TITLES.map((t, i) => `<button type="button" data-k="${i}" class="${i === k ? 'is-on' : ''}${this.loreOpen(id, i) && !P.d.lore[id + ':' + i] ? ' is-new' : ''}" ${this.loreOpen(id, i) ? '' : 'disabled'}><small>${i + 1}장</small>${t}</button>`).join('');
+    if (!this.loreOpen(id, k)) { $('lore-page').innerHTML = `<p class="lore__lock">${this.loreNeed(k)}</p>`; return; }
+    let note = '';
+    if (!P.d.lore[id + ':' + k]) { P.d.lore[id + ':' + k] = Date.now(); P.give({ crystals: 60 }); P.save(); this.refreshTop(); note = '<p class="lore__rw">처음 읽은 보상 · 결정 60</p>'; qsa('button', $('lore-tabs'))[k].classList.remove('is-new'); }
+    $('lore-page').innerHTML = `<p class="lore__text">${esc(LORE[id][k])}</p>${note}`;
+  }
+
+  // ---------------- story scenes ----------------
+  playStory(script, opts, done) {
+    this.vn = this.vn || new StoryPlayer(this);
+    this.vn.play(script, { ...opts, onDone: done });
+  }
+  afterStage() {
+    const st = this.pendingPost; this.pendingPost = null;
+    const all = CHAPTERS.flatMap(c => c.stages);
+    const cur = this.ctx?.st; const nx = cur ? all[all.findIndex(x => x.id === cur.id) + 1] : null;
+    if (nx && this.profile.stars(cur.id)) this.curStage = nx.id;
+    const open = () => this.openCampaign(nx && this.profile.stars(cur.id) ? CHAPTERS.findIndex(c => c.stages.includes(nx)) : undefined);
+    if (st) { this.setScreen('campaign'); this.playStory({ lines: SCRIPTS[st.id].post, bg: st.map }, {}, open); } else open();
   }
 
   openElChart() {
@@ -463,10 +514,10 @@ class App {
     $('sel-role').textContent = ROLES[h.role].name;
     { const E = ELEMENTS[h.el]; const ec = $('sel-el'); ec.innerHTML = `<img src="assets/el-${h.el}.svg" alt="">${E.name}`; ec.style.setProperty('--ec', E.color);
       const elTag = (k) => `<img src="assets/el-${k}.svg" alt=""><b style="color:${ELEMENTS[k].color}">${ELEMENTS[k].name}</b>`;
-      $('sel-elbox').innerHTML = `<img src="assets/el-${h.el}.svg" alt=""><div><b style="color:${E.color}">${E.name} 속성</b><p>${E.desc}</p><small>같은 속성 2명 이상이면 공명: ${E.reso}</small><div class="el-mu"><span>강함 ${strongVs(h.el).map(elTag).join(' ')}</span><span>약함 ${weakTo(h.el).map(elTag).join(' ')}</span><button type="button" data-elchart>상성표</button></div></div>`; }
+      $('sel-elbox').innerHTML = `<img src="assets/el-${h.el}.svg" alt=""><div><b style="color:${E.color}">${E.name} 속성</b><p>${E.desc}</p><small>같은 속성 2명 이상이면 공명: ${E.reso}</small><div class="el-mu"><span>강함 ${strongVs(h.el).map(elTag).join(' ')}</span><span>약함 ${weakTo(h.el).map(elTag).join(' ') || '<b>없음</b>'}</span><button type="button" data-elchart>상성표</button></div></div>`; }
     $('sel-stars').innerHTML = `${stars(h.rarity)} <b>${h.rarity}성</b>`; $('sel-stars').className = 'stars stars--' + h.rarity;
     $('select').style.setProperty('--accent', h.color);
-    $('sel-quote').textContent = h.quote;
+    $('sel-quote').textContent = h.quote; this.refreshLoreBtn?.();
     const bars = (v) => Array.from({ length: 5 }, (_, i) => `<i class="${i < v ? 'on' : ''}"></i>`).join('');
     const hpLv = Math.max(1, Math.min(5, Math.round(((h.hp - 250) / (520 - 250)) * 4) + 1));
     const spLv = Math.max(1, Math.min(5, Math.round(((h.speed - 5.8) / (7.6 - 5.8)) * 4) + 1));
@@ -557,7 +608,10 @@ class App {
     $('btn-raid-go').addEventListener('click', () => { this.ctx = { type: 'raid', diff: this.raidDiff || 0 }; this.openSelect('raid'); });
     $('btn-ranked-go').addEventListener('click', () => { this.ctx = { type: 'ranked' }; this.openSelect('ranked'); });
     $('btn-grow').addEventListener('click', () => this.openGrowth(this.selHero));
-    $('btn-gr-close').addEventListener('click', () => { $('growth').hidden = true; this.updateSelectActions(); this.refreshTop(); });
+    $('btn-lore').addEventListener('click', () => this.openLore(this.selHero));
+    $('btn-lore-close').addEventListener('click', () => { $('lore').hidden = true; this.updateSelectActions?.(); this.refreshLoreBtn(); });
+    $('lore-tabs').addEventListener('click', (e) => { const b = e.target.closest('button[data-k]'); if (b && !b.disabled) this.showLorePage(+b.dataset.k); });
+    $('btn-gr-close').addEventListener('click', () => { $('growth').hidden = true; this.updateSelectActions(); this.refreshTop(); this.refreshLoreBtn(); });
     $('gr-body').addEventListener('click', (e) => {
       const b = e.target.closest('button[data-act]'); if (!b) return;
       const id = this.grHero, P = this.profile; let ok = false;
@@ -570,7 +624,26 @@ class App {
     });
     $('camp-chapters').addEventListener('click', (e) => { const b = e.target.closest('button[data-ch]'); if (!b || b.disabled) return; this.audio.play('click'); this.openCampaign(+b.dataset.ch); });
     $('camp-map').addEventListener('click', (e) => { const b = e.target.closest('button[data-st]'); if (!b || b.disabled) return; this.audio.play('click'); this.showStage(b.dataset.st); });
-    $('stage-panel').addEventListener('click', (e) => { if (e.target.closest('#btn-stage-go')) { this.ctx = { type: 'stage', st: STAGE_MAP[this.curStage] }; this.openSelect('stage'); } if (e.target.closest('#btn-stage-close')) $('stage-panel').hidden = true; });
+    $('stage-panel').addEventListener('click', (e) => {
+      const st = STAGE_MAP[this.curStage];
+      if (e.target.closest('#btn-stage-go')) {
+        const go = () => { this.ctx = { type: 'stage', st }; this.openSelect('stage'); };
+        const pre = SCRIPTS[st.id]?.pre;
+        if (pre && !this.profile.stars(st.id)) this.playStory({ lines: pre, bg: st.map }, { title: st.name, sub: `${st.id} · ${STAGE_TYPES[st.type]}` }, go); else go();
+      }
+      if (e.target.closest('#btn-stage-talk')) { const S = SCRIPTS[st.id]; this.playStory({ lines: [...(S.pre || []), ...(S.post || [])], bg: st.map }, { title: st.name, sub: st.id }, () => {}); }
+      if (e.target.closest('#btn-story-go')) {
+        const C = CHAPTERS.find(c => c.stages.includes(CHAPTERS.flatMap(x => x.stages).find(x => x.id === st.id)));
+        this.playStory(SCRIPTS[st.id] || { lines: [] }, { title: st.name, sub: C ? `${C.sub} · ${C.name}` : '' }, () => {
+          const r = this.profile.readStory(st);
+          if (r) { this.toast(`이야기 보상: ${rewardText(r)}`); this.refreshTop(); }
+          const all = CHAPTERS.flatMap(c => c.stages), nx = all[all.findIndex(x => x.id === st.id) + 1];
+          if (nx) this.curStage = nx.id;
+          this.openCampaign(nx ? CHAPTERS.findIndex(c => c.stages.includes(nx)) : undefined);
+        });
+      }
+      if (e.target.closest('#btn-stage-close')) $('stage-panel').hidden = true;
+    });
     $('raid-diffs').addEventListener('click', (e) => { const b = e.target.closest('button[data-d]'); if (!b) return; this.raidDiff = +b.dataset.d; this.audio.play('click'); this.openRaid(); });
     $('rank-season-rw').addEventListener('click', (e) => { if (!e.target.closest('button')) return; const r = this.profile.claimSeason(); if (r) { this.toast(`시즌 보상: 결정 ${r.crystals} · 허가증 ${r.permits}`); this.audio.play('win'); this.refreshTop(); this.openRanked(); } });
     $('btn-ai').addEventListener('click', () => this.openSelect('ai'));
@@ -670,7 +743,7 @@ class App {
     $('btn-pause-hero').addEventListener('click', () => { $('pause').hidden = true; this.openTrainingSwap(); });
     $('btn-quit').addEventListener('click', () => { $('pause').hidden = true; this.quitToMenu(); });
     $('btn-again').addEventListener('click', () => this.again());
-    $('btn-menu').addEventListener('click', () => { $('results').hidden = true; if (this.net && this.lobby) this.leaveOnline(); else this.quitToMenu(); });
+    $('btn-menu').addEventListener('click', () => { $('results').hidden = true; if (this.net && this.lobby) this.leaveOnline(); else if (this.pendingPost && this.ctx?.type === 'stage') { this.game?.dispose(); this.game = null; this.afterStage(); } else this.quitToMenu(); });
     $('lobby-code').addEventListener('click', () => this.shareInvite());
     $('btn-switch-team').addEventListener('click', () => this.lobbySwitchTeam());
     $('btn-leave-lobby').addEventListener('click', () => this.leaveOnline());
@@ -757,28 +830,29 @@ class App {
     this.setScreen('play'); $('back-label').textContent = '홈';
     this.stage.setHero(HERO_MAP[this.profile.d.assistant] || HERO_MAP.valok, false);
     for (const b of qsa('.mode', $('modes'))) { const a = b.querySelector('.mode__art'); if (!a.style.backgroundImage) a.style.backgroundImage = `url(${this.modeArt(b.dataset.art)})`; }
-    const total = CHAPTERS.reduce((a, c) => a + c.stages.length * 3, 0), got = CHAPTERS.reduce((a, c) => a + this.profile.campStars(c), 0);
-    const next = CHAPTERS.flatMap(c => c.stages).find(st => !this.profile.stars(st.id));
-    $('rec-campaign').textContent = `별 ${got} / ${total}` + (next ? ` · 다음 ${next.id}` : ' · 완료');
+    const total = CHAPTERS.reduce((a, c) => a + this.profile.campMax(c), 0), got = CHAPTERS.reduce((a, c) => a + this.profile.campStars(c), 0);
+    const next = CHAPTERS.flatMap(c => c.stages).find(st => !this.profile.done(st));
+    $('rec-campaign').textContent = `별 ${got} / ${total}` + (next ? ` · 다음 ${next.type === 'story' ? '이야기' : next.id}` : ' · 완료');
     const R = this.profile.rankState(); $('rec-ranked').textContent = `${TIERS[tierOf(R.pts)].name} · ${R.pts}점`;
     const rc = this.profile.d.raid.clears; $('rec-raid').textContent = ['보통', '어려움', '악몽'].map((n, i) => rc[i] ? `${n} ✓` : null).filter(Boolean).join(' · ') || '아직 처치하지 못했어요';
     $('horde-sub').textContent = this.profile.d.hordeBest ? `최고 ${this.profile.d.hordeBest}웨이브` : '';
   }
-  chapterOpen(i) { if (i === 0) return true; const prev = CHAPTERS[i - 1]; return this.profile.stars(prev.stages[prev.stages.length - 1].id) > 0; }
-  stageOpen(st) { const all = CHAPTERS.flatMap(c => c.stages); const i = all.findIndex(x => x.id === st.id); return i === 0 || this.profile.stars(all[i - 1].id) > 0; }
+  chapterOpen(i) { if (i === 0) return true; const prev = CHAPTERS[i - 1].stages.filter(st => st.type !== 'story'); return this.profile.stars(prev[prev.length - 1].id) > 0; }
+  stageOpen(st) { const all = CHAPTERS.flatMap(c => c.stages); const i = all.findIndex(x => x.id === st.id); const ci = CHAPTERS.findIndex(c => c.stages[0].id === st.id); return i === 0 || this.profile.done(st) || this.profile.done(all[i - 1]) || (ci > 0 && this.chapterOpen(ci)); }
   openCampaign(ch) {
-    if (ch === undefined) ch = this.campCh ?? Math.max(0, CHAPTERS.findIndex((c, i) => this.chapterOpen(i) && c.stages.some(st => !this.profile.stars(st.id))));
+    if (ch === undefined) ch = this.campCh ?? Math.max(0, CHAPTERS.findIndex((c, i) => this.chapterOpen(i) && c.stages.some(st => !this.profile.done(st))));
     if (ch < 0) ch = 0;
     this.campCh = ch;
     this.setScreen('campaign'); $('back-label').textContent = '출정';
     const C = CHAPTERS[ch];
-    $('camp-chapters').innerHTML = CHAPTERS.map((c, i) => `<button data-ch="${i}" class="${i === ch ? 'is-on' : ''}" ${this.chapterOpen(i) ? '' : 'disabled'}><small>${c.sub}</small><b>${c.name}</b><span>${this.chapterOpen(i) ? `별 ${this.profile.campStars(c)} / ${c.stages.length * 3}` : '이전 장을 끝내면 열려요'}</span></button>`).join('');
+    $('camp-chapters').innerHTML = CHAPTERS.map((c, i) => `<button data-ch="${i}" class="${i === ch ? 'is-on' : ''}" ${this.chapterOpen(i) ? '' : 'disabled'}><small>${c.sub}</small><b>${c.name}</b><span>${this.chapterOpen(i) ? `별 ${this.profile.campStars(c)} / ${this.profile.campMax(c)}` : '이전 장을 끝내면 열려요'}</span></button>`).join('');
     $('camp-sub').textContent = C.sub; $('camp-title').textContent = C.name; $('camp-story').textContent = C.story;
     // stages laid out along a winding road
     const pts = C.stages.map((st, i) => ({ x: 8 + i * (84 / (C.stages.length - 1)), y: 50 + Math.sin(i * 1.3 + ch) * 26 }));
     const path = pts.map((p, i) => (i ? 'L' : 'M') + p.x + ' ' + p.y).join(' ');
     $('camp-map').innerHTML = `<svg class="camp__road" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="${path}"/></svg>` + C.stages.map((st, i) => {
       const n = this.profile.stars(st.id), open = this.stageOpen(st);
+      if (st.type === 'story') return `<button class="node node--story${this.profile.done(st) ? ' is-clear' : ''}${this.curStage === st.id ? ' is-sel' : ''}" data-st="${st.id}" style="left:${pts[i].x}%;top:${pts[i].y}%" ${open ? '' : 'disabled'} title="${st.name}"><span class="node__dot"><svg viewBox="0 0 24 24"><path d="M4 5c3-1 6-1 8 1 2-2 5-2 8-1v13c-3-1-6-1-8 1-2-2-5-2-8-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 6v13" stroke="currentColor" stroke-width="1.6"/></svg></span><span class="node__name">${st.name}</span></button>`;
       return `<button class="node node--${st.type}${n ? ' is-clear' : ''}${this.curStage === st.id ? ' is-sel' : ''}" data-st="${st.id}" style="left:${pts[i].x}%;top:${pts[i].y}%" ${open ? '' : 'disabled'}><span class="node__dot"></span><span class="node__id">${st.id}</span><span class="node__name">${st.name}</span><span class="node__stars">${[0, 1, 2].map(k => `<i class="${k < n ? 'on' : ''}"></i>`).join('')}</span></button>`;
     }).join('');
     const sel = C.stages.find(st => st.id === this.curStage);
@@ -788,6 +862,17 @@ class App {
   showStage(id) {
     const st = STAGE_MAP[id]; this.curStage = id;
     qsa('.node', $('camp-map')).forEach(n => n.classList.toggle('is-sel', n.dataset.st === id));
+    if (st.type === 'story') {
+      const read = this.profile.done(st);
+      const people = [...new Set((SCRIPTS[id]?.lines || []).map(l => l[0]).filter(w => HERO_MAP[w]))].map(w => `<img src="${this.portraits[w] || ''}" title="${HERO_MAP[w].name}">`).join('');
+      $('stage-panel').innerHTML = `<button class="stage__x" id="btn-stage-close" aria-label="닫기">✕</button>
+        <p class="stage__type">이야기</p><h3>${st.name}</h3><p class="stage__desc">${st.desc}</p>
+        <div class="stage__foes stage__cast">${people}</div>
+        <div class="stage__rw"><b>${read ? '이미 읽었어요' : '처음 읽으면'}</b>${read ? '' : Object.entries(st.first || {}).map(([k, v]) => `<span>${{ crystals: '결정', permits: '허가증', essence: '잿빛 정수', seal: '승급 인장', tome: '기술서' }[k]} ${v}</span>`).join('')}</div>
+        <button class="btn btn--ember" id="btn-story-go"><span class="btn__k">${read ? '다시 보기' : '이야기 보기'}</span></button>`;
+      $('stage-panel').hidden = false;
+      return;
+    }
     const n = this.profile.stars(id);
     const rw = (o) => Object.entries(o || {}).map(([k, v]) => `<span>${{ crystals: '결정', permits: '허가증', essence: '잿빛 정수', seal: '승급 인장', tome: '기술서' }[k]} ${v}</span>`).join('');
     const foes = st.enemies.map(e => `<img src="${this.portraits[e] || ''}" title="${HERO_MAP[e].name}">`).join('');
@@ -798,6 +883,7 @@ class App {
       <ul class="stage__stars"><li class="${n >= 1 ? 'on' : ''}">승리</li><li class="${n >= 2 ? 'on' : ''}">한 번도 쓰러지지 않기</li><li class="${n >= 3 ? 'on' : ''}">${st.time}초 안에 끝내기</li></ul>
       <div class="stage__rw"><b>${n ? '반복 보상' : '첫 클리어'}</b>${rw(n ? st.again : { ...st.first, ...Object.fromEntries(Object.entries(st.again).map(([k, v]) => [k, (st.first[k] || 0) + v])) })}${st.perfect && n < 3 ? `<b>별 세 개</b>${rw(st.perfect)}` : ''}</div>
       <p class="stage__lv">권장 육성: 레벨 ${Math.round((st.lv - 0.75) * 60)} 이상</p>
+      ${(SCRIPTS[id]?.pre || SCRIPTS[id]?.post) && n ? `<button class="stage__replay" id="btn-stage-talk" type="button">대화 다시 보기</button>` : ''}
       <button class="btn btn--ember" id="btn-stage-go"><span class="btn__k">출전 준비</span></button>`;
     $('stage-panel').hidden = false;
   }
@@ -847,7 +933,9 @@ class App {
     const raidBoss = st.boss === 'ashlord';
     const { sim, mapId } = this.baseSim({ mode: raidBoss ? 'raid' : st.type === 'survive' ? 'horde' : 'match', difficulty: Math.min(2, Math.max(0, Math.round((lv - 0.8) * 4))), roundsToWin: st.rounds || 1, winWaves: st.waves || 0, map: st.map });
     sim.addPlayer({ id: 'me', name: this.settings.name || '나', team: 0, hero: this.selHero, mul: this.growthFor(this.selHero) });
-    this.pickBotsFor(sim, 0, st.allies, used);
+    const fixed = (st.allyHeroes || []).filter(id => id !== this.selHero && !used.has(id)).slice(0, st.allies);
+    fixed.forEach((id, k) => { used.add(id); sim.addPlayer({ id: `a${k}`, name: HERO_MAP[id].name, team: 0, hero: id, isBot: true, mul: { hp: Math.max(1, lv * 0.95), dmg: Math.max(1, Math.pow(lv, 0.7)), cd: 1 } }); });
+    this.pickBotsFor(sim, 0, st.allies - fixed.length, used);
     if (st.type !== 'survive') st.enemies.forEach((id, k) => sim.addPlayer({ id: `e${k}`, name: (id === st.boss ? (raidBoss ? '' : '우두머리 ') : '') + HERO_MAP[id].name, team: 1, hero: id, isBot: true, mul: id === st.boss && !raidBoss ? { hp: emul.hp * 2.4, dmg: emul.dmg * 1.15, cd: 0.85 } : emul }));
     sim.startMatch();
     if (st.type === 'survive') for (const p of sim.players.values()) if (p.team === 1) { p.hpMul = (p.hpMul || 1) * lv; }
@@ -917,7 +1005,7 @@ class App {
       const st = ctx.st, t = extra.time || 999;
       const starsGot = win ? 1 + ((me?.stats?.d || 0) === 0 ? 1 : 0) + (t <= st.time ? 1 : 0) : 0;
       $('res-score').innerHTML = `${st.id} ${st.name}<span class="res-stars">${[0, 1, 2].map(k => `<i class="${k < starsGot ? 'on' : ''}">★</i>`).join('')}</span>`;
-      if (win) { const r = this.profile.clearStage(st, starsGot); extraHtml = `<span class="lvup">${r.first ? '첫 클리어 · ' : ''}${rwTxt(r)}</span>`; }
+      if (win) { const r = this.profile.clearStage(st, starsGot); extraHtml = `<span class="lvup">${r.first ? '첫 클리어 · ' : ''}${rwTxt(r)}</span>`; if (r.first && SCRIPTS[st.id]?.post) this.pendingPost = st; }
     } else if (kind === 'raid') {
       const t = extra.raidTime || extra.time || 0;
       $('res-score').textContent = win ? `${RAID.diffs[ctx.diff].name} · ${Math.floor(t / 60)}분 ${Math.round(t % 60)}초` : `${RAID.diffs[ctx.diff].name} · 4분 안에 쓰러뜨리지 못했어요`;
@@ -936,7 +1024,7 @@ class App {
     this.audio.play(win ? 'win' : 'lose');
   }
 
-  again() { $('results').hidden = true; if (this.net) { this.backToLobby(true); return; } const h = this.game?.horde; this.game?.dispose(); this.game = null; const k = this.ctx?.type; if (k === 'stage') { this.openCampaign(); return; } if (k === 'raid') { this.openRaid(); return; } if (k === 'ranked') { this.openSelect('ranked'); return; } this.openSelect(h ? 'horde' : 'ai'); }
+  again() { $('results').hidden = true; if (this.net) { this.backToLobby(true); return; } const h = this.game?.horde; this.game?.dispose(); this.game = null; const k = this.ctx?.type; if (k === 'stage') { this.afterStage(); return; } if (k === 'raid') { this.openRaid(); return; } if (k === 'ranked') { this.openSelect('ranked'); return; } this.openSelect(h ? 'horde' : 'ai'); }
 
   // ---------------- online ----------------
   async hostRoom() {

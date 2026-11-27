@@ -14,11 +14,13 @@ export const ROLES = {
 
 import { NEW_HEROES, RARITY, STARTERS } from './heroes2.js';
 import { THIRD_HEROES, THIRD_RARITY } from './heroes3.js';
+import { FOURTH_HEROES, FOURTH_RARITY, FOURTH_EL } from './heroes4.js';
 import { HERO_EL } from './elements.js';
 import { KITS } from './kits.js';
 import { BOSSES } from './bosses.js';
 import { PASSIVES } from './passives.js';
-Object.assign(RARITY, THIRD_RARITY);
+Object.assign(RARITY, THIRD_RARITY, FOURTH_RARITY);
+Object.assign(HERO_EL, FOURTH_EL);
 export { RARITY, STARTERS };
 
 const BASE = [
@@ -266,16 +268,22 @@ const BASE = [
 
 // balance patch v1.5: multipliers on top of the base data
 export const BALANCE = {
-  grom: { hp: 1.08, dmg: 1.1 }, mariette: { dmg: 1.12 }, maren: { hp: 1.08, dmg: 1.08 }, koru: { dmg: 1.1 }, bark: { dmg: 1.08 },
-  jack: { dmg: 1.1 }, sien: { hp: 1.1 }, zephyr: { hp: 1.06, dmg: 1.08 }, azrak: { hp: 1.05 }, brann: { dmg: 1.1 }, helga: { hp: 1.06, dmg: 1.06 },
-  luna: { dmg: 1.08 }, moloch: { hp: 1.05, dmg: 1.15 }, pell: { hp: 1.08 }, sira: { dmg: 1.1 }, frey: { hp: 1.05 }, iris: { dmg: 1.06 }, surtr: { dmg: 0.94 }, orin: { dmg: 0.95 },
-  valok: { hp: 0.9, dmg: 0.9 }, lumen: { hp: 0.95, dmg: 0.95 }, igna: { dmg: 0.96 }, mor: { hp: 0.94 }, selene: { dmg: 0.94 }, zeno: { dmg: 0.95 },
+  // v1.5
+  grom: { hp: 1.12, dmg: 1.12 }, mariette: { dmg: 1.12 }, maren: { hp: 1.08, dmg: 1.08 }, koru: { dmg: 1.1 }, bark: { dmg: 1.08 },
+  jack: { dmg: 1.16 }, zephyr: { hp: 1.06, dmg: 1.08 }, azrak: { hp: 1.05 }, helga: { hp: 1.06, dmg: 1.06 },
+  luna: { dmg: 1.08 }, moloch: { hp: 1.1, dmg: 1.2 }, iris: { hp: 1.06, dmg: 1.1 }, surtr: { dmg: 0.94 },
+  valok: { hp: 0.86, dmg: 0.86 }, lumen: { hp: 0.95, dmg: 0.95 }, mor: { hp: 0.94 },
+  // v2.0 (values include the v1.5 change where both touched a hero)
+  vesper: { hp: 0.95, heal: 0.82 }, zeno: { hp: 0.95, dmg: 0.8 }, thalia: { hp: 0.95, dmg: 0.92 }, igna: { dmg: 0.92 }, nox: { dmg: 0.88 }, rowan: { dmg: 0.94 },
+  selene: { dmg: 0.9 }, orin: { dmg: 0.92 },
+  garrick: { hp: 1.18, dmg: 1.16 }, frey: { hp: 1.2, dmg: 1.18 }, sien: { hp: 1.2, dmg: 1.12 }, brann: { hp: 1.06, dmg: 1.18 }, onyx: { hp: 1.12, dmg: 1.15 },
+  aura: { hp: 1.1, dmg: 1.15 }, pell: { hp: 1.12, dmg: 1.06 }, kaira: { hp: 1.16, dmg: 1.2 }, crow: { hp: 1.1, dmg: 1.2 }, nir: { dmg: 1.15 }, sira: { dmg: 1.24 }, dorn: { hp: 1.08 }, hyeon: { dmg: 1.06 }, gorm: { dmg: 1.1 }, grave: { dmg: 0.95 }, karman: { dmg: 0.94 }, ulfric: { hp: 1.06 },
 };
-export const HEROES = [...BASE, ...NEW_HEROES, ...THIRD_HEROES];
+export const HEROES = [...BASE, ...NEW_HEROES, ...THIRD_HEROES, ...FOURTH_HEROES];
 for (const h of HEROES) { h.rarity = RARITY[h.id] || 4; h.starter = STARTERS.includes(h.id); h.el = HERO_EL[h.id] || 'fire';
   if (KITS[h.id]) h.abilities = { ...h.abilities, ...KITS[h.id] };
   const B = BALANCE[h.id];
-  if (B) { if (B.hp) h.hp = Math.round(h.hp * B.hp); if (B.dmg) for (const a of Object.values(h.abilities)) { if (a.dmg) a.dmg = Math.round(a.dmg * B.dmg); if (a.splash?.dmg) a.splash = { ...a.splash, dmg: Math.round(a.splash.dmg * B.dmg) }; if (a.dps) a.dps = Math.round(a.dps * B.dmg); } }
+  if (B) { if (B.hp) h.hp = Math.round(h.hp * B.hp); if (B.dmg) for (const a of Object.values(h.abilities)) { if (a.dmg) a.dmg = Math.round(a.dmg * B.dmg); if (a.splash?.dmg) a.splash = { ...a.splash, dmg: Math.round(a.splash.dmg * B.dmg) }; if (a.dps) a.dps = Math.round(a.dps * B.dmg); } if (B.heal) for (const a of Object.values(h.abilities)) for (const k of ['heal', 'hps', 'healAlly']) if (a[k]) a[k] = Math.round(a[k] * B.heal); }
   const P = PASSIVES[h.id]; h.passive = P ? { name: P.name, desc: P.desc, res: P.res || null } : null; }
 
 export const DUMMY = {

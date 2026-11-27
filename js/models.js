@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { NEW_WEAPONS, NEW_BUILDERS, NEW_POSES } from './models2.js';
 import { THIRD_WEAPONS, THIRD_BUILDERS } from './models3.js';
+import { FOURTH_WEAPONS, FOURTH_BUILDERS } from './models4.js';
 import { installRemodel } from './weapons2.js';
 
 // ---------------------------------------------------------------
@@ -868,9 +869,9 @@ const POSES = {
 };
 Object.assign(WEAPONS, NEW_WEAPONS);
 Object.assign(BUILDERS, NEW_BUILDERS);
-Object.assign(WEAPONS, THIRD_WEAPONS);
+Object.assign(WEAPONS, THIRD_WEAPONS, FOURTH_WEAPONS);
 installRemodel(WEAPONS, NEW_WEAPONS, THIRD_WEAPONS);
-Object.assign(BUILDERS, THIRD_BUILDERS);
+Object.assign(BUILDERS, THIRD_BUILDERS, FOURTH_BUILDERS);
 Object.assign(POSES, NEW_POSES);
 const GUN_POSES = new Set(['pistol', 'dualgun', 'rifle', 'heavy', 'armcannon']);
 const MELEE_POSES = new Set(['twohand', 'onehand', 'dual', 'claws']);

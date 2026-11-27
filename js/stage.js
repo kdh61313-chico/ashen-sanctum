@@ -195,3 +195,32 @@ export function renderSplash(def, w = 520, h = 760) {
   P.root.traverse(o => { if (o.geometry) o.geometry.dispose(); });
   return url;
 }
+
+// Upper-body cut-outs for story scenes: transparent background, lit from the front-left.
+export function renderBusts(heroes, w = 360, h = 480) {
+  const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+  r.setSize(w, h); r.setClearColor(0x000000, 0);
+  r.toneMapping = THREE.ACESFilmicToneMapping; r.outputColorSpace = THREE.SRGBColorSpace;
+  const out = {};
+  for (const def of heroes) {
+    const s = new THREE.Scene();
+    s.add(new THREE.HemisphereLight('#c8c0d8', '#1a1416', 0.9));
+    const k = new THREE.DirectionalLight('#ffe8cc', 2.1); k.position.set(-2.5, 2.5, 3); s.add(k);
+    const fill = new THREE.DirectionalLight('#8a90c0', 0.5); fill.position.set(3, 0.5, 2); s.add(fill);
+    const rim = new THREE.DirectionalLight(def.color, 5); rim.position.set(3, 2, -3); s.add(rim);
+    const P = buildHero(def);
+    animateHero(P, { speed: 0, onGround: true, alive: true, t: 1.2 }, 0.016);
+    s.add(P.root);
+    P.root.rotation.y = -0.25;
+    P.root.updateMatrixWorld(true);
+    const hp = new THREE.Vector3(); P.head.getWorldPosition(hp);
+    const sc = def.scale || 1;
+    const cam = new THREE.PerspectiveCamera(26, w / h, 0.05, 30);
+    cam.position.set(hp.x - 0.25 * sc, hp.y - 0.3 * sc, hp.z + 3.1 * sc);
+    cam.lookAt(hp.x, hp.y - 0.42 * sc, hp.z);
+    r.render(s, cam);
+    out[def.id] = r.domElement.toDataURL('image/png');
+  }
+  r.dispose(); r.forceContextLoss?.();
+  return out;
+}
