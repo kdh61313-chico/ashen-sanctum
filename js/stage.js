@@ -80,11 +80,11 @@ export class Stage {
     this.fx.setScale(h * pr, this.camera.fov);
   }
 
-  setHero(def, burst = true) {
+  setHero(def, burst = true, skin = null) {
     if (this.hero) this.scene.remove(this.hero.root);
-    const P = buildHero(def);
+    const P = buildHero(def, skin);
     P.root.position.y = this.daisY;
-    P.root.traverse(o => { if (o.isMesh) { o.castShadow = true; } });
+    P.root.traverse(o => { if (o.isMesh) { o.castShadow = !o.userData.skinFx; } });
     this.scene.add(P.root);
     this.hero = P;
     const c = new THREE.Color(def.color);

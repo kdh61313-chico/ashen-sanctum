@@ -25,6 +25,7 @@ import { SCRIPTS } from './story.js';
 import { LORE, LORE_TITLES } from './lore.js';
 import { renderBusts } from './stage.js';
 import { StoryPlayer } from './vn.js';
+import { SKINS, SKIN_MAP, THEMES, TIERS as SKIN_TIERS, SKIN_PULL_COST, SKIN_PITY, skinsOf } from './skins.js';
 import { installGuard } from './guard.js';
 import { MAXPOT } from './profile.js';
 import { Profile, PULL_COST, TOKEN_PRICE, PERMIT_TOKEN_PRICE, RATES, PITY_START } from './profile.js';
@@ -224,7 +225,7 @@ class App {
   // ---------------- screens ----------------
   setScreen(name) {
     this.state = name;
-    const SCR = ['home', 'select', 'recruit', 'shop', 'quests', 'play', 'campaign', 'raid', 'ranked'];
+    const SCR = ['home', 'select', 'recruit', 'shop', 'quests', 'play', 'campaign', 'raid', 'ranked', 'skins'];
     for (const s of SCR) $(s).scrollTop = 0;
     for (const s of SCR) $(s).classList.toggle('is-on', s === name);
     $('hud').classList.toggle('is-on', name === 'game');
@@ -243,6 +244,7 @@ class App {
     $('cur-token').textContent = d.tokens;
     $('lv-num').textContent = d.level;
     $('lv-xp').style.width = (d.xp / this.profile.xpNeed() * 100) + '%';
+    if (this.state === 'home') this.renderWallet?.();
   }
 
   showHome() {
@@ -257,6 +259,8 @@ class App {
     if (!bg) { bg = document.createElement('span'); bg.className = 'slab__bg'; $('tile-recruit').prepend(bg); }
     bg.style.backgroundImage = `url(${this.portraits[six.id]})`;
     $('tile-roster-sub').textContent = `보유 ${this.profile.ownedList().length} / ${HEROES.length}`;
+    $('tile-skins-sub').textContent = `수집 ${Object.keys(this.profile.d.skins).length} / ${SKINS.length}`;
+    this.renderWallet();
     { const next = CHAPTERS.flatMap(c => c.stages).find(st => !this.profile.done(st)); $('tile-battle-sub').textContent = next ? `캠페인 · 레이드 · 랭크전 · 대전 — 다음 ${next.type === 'story' ? '이야기' : next.id} ${next.name}` : '캠페인 · 레이드 · 랭크전 · 대전'; }
     this.refreshQuestBadge();
     $('notes-badge').hidden = this.profile.d.lastPatch === NOTES_VERSION;
@@ -266,7 +270,7 @@ class App {
   openAdmin() {
     if (!this.adminOn) return;
     const d = this.profile.d;
-    const F = [['crystals', '잿빛 결정', d.crystals], ['permits', '모집 허가증', d.permits], ['tokens', '잔불 증표', d.tokens], ['essence', '정수', d.mats.essence], ['seal', '인장', d.mats.seal], ['tome', '기술서', d.mats.tome], ['level', '계정 레벨', d.level]];
+    const F = [['crystals', '잿빛 결정', d.crystals], ['permits', '모집 허가증', d.permits], ['tokens', '잔불 증표', d.tokens], ['essence', '정수', d.mats.essence], ['seal', '인장', d.mats.seal], ['tome', '기술서', d.mats.tome], ['skinTix', '장식권', d.skinTix], ['shards', '빛조각', d.shards], ['level', '계정 레벨', d.level]];
     $('adm-cur').innerHTML = F.map(([k, n, v]) => `<label class="admin__f">${n}<input type="number" min="0" data-cur="${k}" value="${v}"></label>`).join('');
     $('adm-hero').innerHTML = [...HEROES].filter(h => !h.boss).sort((a, b) => b.rarity - a.rarity || a.name.localeCompare(b.name)).map(h => `<option value="${h.id}">${'★'.repeat(h.rarity)} ${esc(h.name)}${d.owned[h.id] ? '' : ' (미보유)'}</option>`).join('');
     $('adm-rank').value = d.rank.pts || 0; $('adm-horde').value = d.hordeBest || 0;
@@ -279,7 +283,7 @@ class App {
     const d = this.profile.d;
     for (const inp of qsa('[data-cur]', $('adm-cur'))) {
       const v = Math.max(0, Math.floor(+inp.value || 0)), k = inp.dataset.cur;
-      if (k === 'crystals' || k === 'permits' || k === 'tokens') d[k] = v;
+      if (k === 'crystals' || k === 'permits' || k === 'tokens' || k === 'skinTix' || k === 'shards') d[k] = v;
       else if (k === 'level') { d.level = Math.max(1, Math.min(99, v)); d.xp = 0; }
       else d.mats[k] = v;
     }
@@ -292,11 +296,12 @@ class App {
     const maxGrow = (hid) => { own(hid); d.owned[hid].pot = MAXPOT; d.growth[hid] = { lv: 40, elite: 2, sk: 7 }; };
     const heroes = HEROES.filter(h => !h.boss);
     switch (a) {
-      case 'rich': for (const k of ['crystals', 'permits', 'tokens']) d[k] = 99999; for (const k of ['essence', 'seal', 'tome']) d.mats[k] = 99999; return this.adminDone('모든 재화를 99,999로 바꿨어요.');
-      case 'zero': for (const k of ['crystals', 'permits', 'tokens']) d[k] = 0; for (const k of ['essence', 'seal', 'tome']) d.mats[k] = 0; return this.adminDone('모든 재화를 0으로 바꿨어요.');
+      case 'rich': for (const k of ['crystals', 'permits', 'tokens', 'skinTix', 'shards']) d[k] = 99999; for (const k of ['essence', 'seal', 'tome']) d.mats[k] = 99999; return this.adminDone('모든 재화를 99,999로 바꿨어요.');
+      case 'zero': for (const k of ['crystals', 'permits', 'tokens', 'skinTix', 'shards']) d[k] = 0; for (const k of ['essence', 'seal', 'tome']) d.mats[k] = 0; return this.adminDone('모든 재화를 0으로 바꿨어요.');
       case 'give1': own(id); return this.adminDone(`${HERO_MAP[id].name}을(를) 얻었어요.`);
       case 'max1': maxGrow(id); return this.adminDone(`${HERO_MAP[id].name}: 레벨 40, 정예 2, 기술 7, 잠재 ${MAXPOT}.`);
       case 'take1': if (Object.keys(d.owned).length <= 1) return this.adminDone('마지막 영웅은 뺄 수 없어요.'); delete d.owned[id]; delete d.growth[id]; return this.adminDone(`${HERO_MAP[id].name}을(를) 목록에서 뺐어요.`);
+      case 'skins': SKINS.forEach(sk => { d.skins[sk.id] = d.skins[sk.id] || Date.now(); }); return this.adminDone(`스킨 ${SKINS.length}종을 모두 얻었어요.`);
       case 'all': heroes.forEach(h => own(h.id)); return this.adminDone(`영웅 ${heroes.length}명을 모두 얻었어요.`);
       case 'maxall': heroes.forEach(h => maxGrow(h.id)); return this.adminDone('모든 영웅을 최대로 육성했어요.');
       case 'resetgrowth': d.growth = {}; return this.adminDone('육성을 초기화했어요.');
@@ -534,7 +539,8 @@ class App {
       return `<li class="skill${s === 'x' ? ' skill--ult' : ''}"><div class="rune"><img src="${icon(d.icon, s === 'x' ? '#ffb08a' : '#efe0c0')}" alt=""><span class="rune__key">${SLOT_KEYS[s]}</span></div><div><div class="skill__name">${d.name}<span class="skill__cd">${cd}</span></div><div class="skill__desc">${d.desc}${alt ? `<br><i class="skill__alt">→ 좌클릭: ${alt.name}. ${alt.desc}</i>` : ''}</div></div></li>`;
     }).join('');
     if (h.passive) $('sel-skills').insertAdjacentHTML('afterbegin', `<li class="skill skill--passive"><div class="rune rune--passive"><img src="assets/el-${h.el}.svg" alt=""><span class="rune__key">패시브</span></div><div><div class="skill__name">${h.passive.name}${h.passive.res ? `<span class="skill__cd" style="color:${h.passive.res.color}">${h.passive.res.name}</span>` : ''}</div><div class="skill__desc">${h.passive.desc}</div></div></li>`);
-    this.stage.setHero(h, sound);
+    this.stage.setHero(h, sound, this.profile.skinOf(id));
+    this.renderSelSkins(id);
     if (sound) this.audio.play('select');
     if (this.state === 'select') this.updateSelectActions();
     if (this.lobby && this.profile.owns(id)) this.lobbyPick(id);
@@ -575,6 +581,106 @@ class App {
   }
 
   // ---------------- shop ----------------
+  // ---------------- skins ----------------
+  renderWallet() {
+    const d = this.profile.d, m = d.mats || {};
+    const W = [
+      ['essence', '잿빛 정수', m.essence || 0, '<path d="M12 3c3 5 6 8 6 11.5A6 6 0 0 1 6 14.5C6 11 9 8 12 3z"/>'],
+      ['seal', '승급 인장', m.seal || 0, '<path d="M12 2l8 4.6v9.2L12 20.4 4 15.8V6.6z"/><circle cx="12" cy="11.2" r="3.4" fill="#0c0a0b"/>'],
+      ['tome', '기술서', m.tome || 0, '<path d="M5 4h9a4 4 0 0 1 4 4v12H9a4 4 0 0 1-4-4z"/><path d="M8 8h7M8 11h7" stroke="#0c0a0b" stroke-width="1.4"/>'],
+      ['skinTix', '장식권', d.skinTix || 0, '<path d="M3 7h18v3a2 2 0 0 0 0 4v3H3v-3a2 2 0 0 0 0-4z"/><path d="M14 7v10" stroke="#0c0a0b" stroke-width="1.2" stroke-dasharray="1.6 1.6"/>'],
+      ['shards', '빛조각', d.shards || 0, '<path d="M12 2l5 8-5 12-5-12z"/><path d="M7 10h10" stroke="#0c0a0b" stroke-width="1"/>'],
+    ];
+    $('home-wallet').innerHTML = W.map(([k, n, v, ic]) => `<div class="wallet__i wallet__i--${k}" title="${n}"><svg viewBox="0 0 24 24" aria-hidden="true">${ic}</svg><dd>${v.toLocaleString()}</dd><dt>${n}</dt></div>`).join('');
+  }
+  skinSwatch(sk) { const p = THEMES[sk.theme].p; return `linear-gradient(150deg, ${p[2]} 0%, ${p[1]} 38%, ${p[0]} 78%), radial-gradient(circle at 70% 25%, ${p[4]}, transparent 55%)`; }
+  renderSelSkins(id) {
+    const h = HERO_MAP[id], box = $('sel-skins');
+    if (!h || h.boss || id === 'dummy') { box.innerHTML = ''; return; }
+    const eq = this.profile.skinOf(id), owned = this.profile.owns(id);
+    const chip = (sk) => {
+      const has = !sk || this.profile.ownsSkin(sk.id), on = (sk ? sk.id : null) === eq, T = sk ? SKIN_TIERS[sk.tier] : null;
+      return `<button type="button" class="skinpick__c${on ? ' is-on' : ''}${has ? '' : ' is-locked'}" data-sk="${sk ? sk.id : ''}" style="--tc:${T ? T.color : '#8a8378'}" title="${sk ? esc(sk.name) + ' · ' + T.name : '기본'}">
+        <i style="background:${sk ? this.skinSwatch(sk) : `linear-gradient(150deg, #d8cfc0, ${h.color} 60%, #1a1416)`}"></i><span>${sk ? esc(THEMES[sk.theme].name) : '기본'}</span><small>${sk ? T.name : ''}${has ? '' : ' · 미보유'}</small></button>`;
+    };
+    box.innerHTML = [null, ...skinsOf(id)].map(chip).join('');
+  }
+  selSkinPick(skid) {
+    const id = this.selHero, h = HERO_MAP[id]; if (!h) return;
+    if (skid && !this.profile.ownsSkin(skid)) {
+      this.stage.setHero(h, true, skid);
+      this.toast(`${SKIN_MAP[skid].name} 미리보기 · 장식의 회랑에서 얻을 수 있어요`, 2600);
+      return;
+    }
+    this.profile.equipSkin(id, skid); this.audio.play('click');
+    this.stage.setHero(h, true, skid); this.renderSelSkins(id);
+    if (this.lobby && this.profile.owns(id)) this.lobbyPick(id);
+  }
+  openSkins() {
+    this.setScreen('skins'); $('back-label').textContent = '홈';
+    this.skinFilter = this.skinFilter || 'all';
+    const first = this.skinSel && SKIN_MAP[this.skinSel] ? this.skinSel : (this.profile.skinOf(this.profile.d.assistant) || skinsOf(this.profile.d.assistant)[1]?.id || SKINS[0].id);
+    this.renderSkins(); this.skinFocus(first, false);
+  }
+  renderSkins() {
+    const P = this.profile, d = P.d;
+    $('skn-rates').innerHTML = SKIN_TIERS.map((t, i) => `<li style="--tc:${t.color}"><b>${t.name}</b><span>${(t.rate * 100).toFixed(t.rate < 0.1 ? 0 : 0)}%</span><em>${SKINS.filter(s => s.tier === i).length}종</em></li>`).reverse().join('');
+    $('skn-pity').textContent = `초전설까지 ${SKIN_PITY - d.skinPity}회 남음 · 겹치면 빛조각으로 바뀌어요`;
+    const cost = (n) => { const t = Math.min(d.skinTix, n); return t ? `장식권 ${t}${n - t ? ` + 결정 ${((n - t) * SKIN_PULL_COST).toLocaleString()}` : ''}` : `결정 ${(n * SKIN_PULL_COST).toLocaleString()}`; };
+    $('skin1-cost').textContent = cost(1); $('skin10-cost').textContent = cost(10);
+    $('btn-skin1').disabled = !P.canSkinPull(1); $('btn-skin10').disabled = !P.canSkinPull(10);
+    const own = Object.keys(d.skins).length;
+    $('skn-count').textContent = `${own} / ${SKINS.length} · 빛조각 ${d.shards}`;
+    const F = [['all', '전체'], ['own', '보유'], ...SKIN_TIERS.map((t, i) => [String(i), t.name])].reverse();
+    const f = this.skinFilter || 'all';
+    $('skn-filter').innerHTML = [F.pop(), F.pop(), ...F.reverse()].map(([k, n]) => `<button type="button" data-f="${k}" class="${f === k ? 'is-on' : ''}"${/^\d$/.test(k) ? ` style="--tc:${SKIN_TIERS[+k].color}"` : ''}>${n}</button>`).join('');
+    let list = SKINS.slice();
+    if (f === 'own') list = list.filter(s => d.skins[s.id]); else if (/^\d$/.test(f)) list = list.filter(s => s.tier === +f);
+    list.sort((a, b) => (!!d.skins[b.id] - !!d.skins[a.id]) || b.tier - a.tier || HERO_MAP[a.hero].name.localeCompare(HERO_MAP[b.hero].name));
+    $('skn-grid').innerHTML = list.length ? list.map(sk => {
+      const T = SKIN_TIERS[sk.tier], has = !!d.skins[sk.id], eq = d.skinEq[sk.hero] === sk.id;
+      return `<button type="button" class="skc${has ? '' : ' is-locked'}${this.skinSel === sk.id ? ' is-sel' : ''} skc--t${sk.tier}" data-sk="${sk.id}" style="--tc:${T.color}">
+        <i class="skc__sw" style="background:${this.skinSwatch(sk)}"><img src="${this.portraits[sk.hero] || ''}" alt="" loading="lazy"></i>
+        <b>${esc(THEMES[sk.theme].name)}</b><span>${esc(HERO_MAP[sk.hero].name)}</span><em>${T.name}${eq ? ' · 장착' : ''}</em></button>`;
+    }).join('') : `<p class="skn__empty">${f === 'own' ? '아직 스킨이 없어요. 왼쪽에서 뽑아 보세요.' : '이 등급의 스킨이 없어요.'}</p>`;
+  }
+  skinFocus(id, burst = true) {
+    const sk = SKIN_MAP[id]; if (!sk) return;
+    this.skinSel = id;
+    const P = this.profile, d = P.d, T = SKIN_TIERS[sk.tier], h = HERO_MAP[sk.hero];
+    const has = !!d.skins[id], eq = d.skinEq[sk.hero] === id, heroOwned = P.owns(sk.hero);
+    this.stage.setHero(h, burst, id);
+    $('skins').style.setProperty('--accent', T.color);
+    let act;
+    if (has) act = eq ? `<button class="btn btn--ghost" data-act="unequip"><span class="btn__k">기본으로 되돌리기</span></button>` : `<button class="btn btn--ember" data-act="equip"${heroOwned ? '' : ' disabled'}><span class="btn__k">장착</span>${heroOwned ? '' : '<span class="btn__s">영웅을 먼저 모집하세요</span>'}</button>`;
+    else act = `<button class="btn btn--ghost" data-act="craft"${d.shards >= T.cost ? '' : ' disabled'}><span class="btn__k">빛조각 ${T.cost}으로 만들기</span><span class="btn__s">보유 ${d.shards}</span></button>`;
+    $('skn-focus').innerHTML = `<p class="skn__tier" style="--tc:${T.color}">${T.name}</p><h3>${esc(sk.name)}</h3><p class="skn__hero">${esc(h.name)} · ${esc(h.title)}${has ? '' : ' · 미보유'}</p>${act}`;
+    qsa('.skc', $('skn-grid')).forEach(c => c.classList.toggle('is-sel', c.dataset.sk === id));
+  }
+  skinAct(a) {
+    const sk = SKIN_MAP[this.skinSel]; if (!sk) return;
+    const P = this.profile;
+    if (a === 'equip') { if (P.equipSkin(sk.hero, sk.id)) { this.audio.play('click'); this.toast(`${HERO_MAP[sk.hero].name}에게 ${sk.name}을(를) 입혔어요`); } }
+    else if (a === 'unequip') { P.equipSkin(sk.hero, null); this.toast(`${HERO_MAP[sk.hero].name}: 기본 모습`); }
+    else if (a === 'craft') { if (P.buySkin(sk.id)) { this.audio.play('bell'); this.toast(`${sk.name}을(를) 만들었어요`); } }
+    this.refreshTop(); this.renderSkins(); this.skinFocus(sk.id, a === 'craft');
+  }
+  doSkinPull(n) {
+    this.audio.init();
+    const res = this.profile.skinPull(n); if (!res) { this.audio.play('deny'); this.toast('잿빛 결정이나 장식권이 부족해요'); return; }
+    this.refreshTop();
+    const best = res.reduce((a, b) => (b.tier > a.tier ? b : a), res[0]);
+    this.audio.play(best.tier >= 4 ? 'ult' : best.tier >= 2 ? 'bell' : 'magic');
+    $('skinres-cards').innerHTML = res.map((r, i) => {
+      const sk = SKIN_MAP[r.id], T = SKIN_TIERS[r.tier];
+      return `<div class="srs srs--t${r.tier}" style="--tc:${T.color};--d:${i * 90}ms"><i class="srs__sw" style="background:${this.skinSwatch(sk)}"><img src="${this.portraits[sk.hero] || ''}" alt=""></i><em>${T.name}</em><b>${esc(THEMES[sk.theme].name)}</b><span>${esc(HERO_MAP[sk.hero].name)}</span>${r.dup ? `<small>중복 · 빛조각 +${r.shards}</small>` : '<small class="is-new">새 스킨</small>'}</div>`;
+    }).join('');
+    const sh = res.reduce((a, r) => a + r.shards, 0), nw = res.filter(r => !r.dup).length;
+    $('skinres-sum').textContent = `새 스킨 ${nw}종${sh ? ` · 빛조각 +${sh}` : ''}`;
+    $('skinres').className = 'skinres skinres--t' + best.tier; $('skinres').hidden = false;
+    this.skinFocus(best.id, true);
+  }
+
   openShop() { this.setScreen('shop'); $('back-label').textContent = '홈'; this.renderShop(); }
   renderShop() {
     const d = this.profile.d;
@@ -653,6 +759,14 @@ class App {
     $('tile-recruit').addEventListener('click', () => { this.audio.init(); this.openRecruit(); });
     $('tile-roster').addEventListener('click', () => { this.audio.init(); this.openSelect('browse'); });
     $('tile-shop').addEventListener('click', () => { this.audio.init(); this.openShop(); });
+    $('tile-skins').addEventListener('click', () => { this.audio.init(); this.openSkins(); });
+    $('btn-skin1').addEventListener('click', () => this.doSkinPull(1));
+    $('btn-skin10').addEventListener('click', () => this.doSkinPull(10));
+    $('btn-skinres-ok').addEventListener('click', () => { $('skinres').hidden = true; this.renderSkins(); });
+    $('skn-filter').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; this.skinFilter = b.dataset.f; this.renderSkins(); });
+    $('skn-grid').addEventListener('click', (e) => { const b = e.target.closest('[data-sk]'); if (b) this.skinFocus(b.dataset.sk); });
+    $('skn-focus').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) this.skinAct(b.dataset.act); });
+    $('sel-skins').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) this.selSkinPick(b.dataset.sk || null); });
     $('tile-quests').addEventListener('click', () => { this.audio.init(); this.openQuests(); });
     $('tile-notes').addEventListener('click', () => { this.audio.init(); this.openNotes(); });
     $('btn-notes-close').addEventListener('click', () => { $('notes').hidden = true; });
@@ -782,7 +896,7 @@ class App {
     const mapId = pickMap(this.settings.map);
     this.buildArena(mapId);
     const sim = new Sim({ mode: 'training', difficulty: 1, mapId });
-    sim.addPlayer({ id: 'me', name: this.settings.name || '나', team: 0, hero: this.selHero });
+    sim.addPlayer({ id: 'me', name: this.settings.name || '나', team: 0, hero: this.selHero, skin: this.profile.skinOf(this.selHero) });
     for (let i = 0; i < 6; i++) { const p = sim.addPlayer({ id: 'd' + i, name: '허수아비', team: 1, hero: 'dummy', isDummy: true }); if (i === 5) p.mover = true; }
     sim.startTraining();
     this.beginGame(new Game(this, { role: 'offline', sim, localId: 'me', training: true }));
@@ -817,7 +931,7 @@ class App {
     const mapId = pickMap(this.settings.map);
     this.buildArena(mapId);
     const sim = new Sim({ mode: 'match', difficulty: this.settings.diff, mapId });
-    sim.addPlayer({ id: 'me', name: this.settings.name || '나', team: 0, hero: this.selHero, mul: this.growthFor(this.selHero) });
+    sim.addPlayer({ id: 'me', name: this.settings.name || '나', team: 0, hero: this.selHero, skin: this.profile.skinOf(this.selHero), mul: this.growthFor(this.selHero) });
     this.pickBots(sim, [new Set([this.selHero]), new Set()], size);
     sim.teamSize = size;
     sim.startMatch();
@@ -932,7 +1046,7 @@ class App {
     const lv = st.lv, emul = { hp: lv, dmg: Math.pow(lv, 0.8), cd: 1 };
     const raidBoss = st.boss === 'ashlord';
     const { sim, mapId } = this.baseSim({ mode: raidBoss ? 'raid' : st.type === 'survive' ? 'horde' : 'match', difficulty: Math.min(2, Math.max(0, Math.round((lv - 0.8) * 4))), roundsToWin: st.rounds || 1, winWaves: st.waves || 0, map: st.map });
-    sim.addPlayer({ id: 'me', name: this.settings.name || '나', team: 0, hero: this.selHero, mul: this.growthFor(this.selHero) });
+    sim.addPlayer({ id: 'me', name: this.settings.name || '나', team: 0, hero: this.selHero, skin: this.profile.skinOf(this.selHero), mul: this.growthFor(this.selHero) });
     const fixed = (st.allyHeroes || []).filter(id => id !== this.selHero && !used.has(id)).slice(0, st.allies);
     fixed.forEach((id, k) => { used.add(id); sim.addPlayer({ id: `a${k}`, name: HERO_MAP[id].name, team: 0, hero: id, isBot: true, mul: { hp: Math.max(1, lv * 0.95), dmg: Math.max(1, Math.pow(lv, 0.7)), cd: 1 } }); });
     this.pickBotsFor(sim, 0, st.allies - fixed.length, used);
@@ -945,7 +1059,7 @@ class App {
   startRaid() {
     const D = RAID.diffs[this.ctx.diff || 0];
     const { sim, mapId } = this.baseSim({ mode: 'raid', difficulty: Math.min(2, this.ctx.diff + 1), map: 'forge' });
-    sim.addPlayer({ id: 'me', name: this.settings.name || '나', team: 0, hero: this.selHero, mul: this.growthFor(this.selHero) });
+    sim.addPlayer({ id: 'me', name: this.settings.name || '나', team: 0, hero: this.selHero, skin: this.profile.skinOf(this.selHero), mul: this.growthFor(this.selHero) });
     this.pickBotsFor(sim, 0, 2, new Set([this.selHero]));
     sim.addPlayer({ id: 'boss', name: RAID.name, team: 1, hero: RAID.boss, isBot: true, mul: { hp: D.mul, dmg: D.dmg, cd: 1 } });
     sim.startMatch();
@@ -954,7 +1068,7 @@ class App {
   startRanked() {
     const R = this.profile.rankState(), t = tierOf(R.pts);
     const { sim, mapId } = this.baseSim({ mode: 'match', difficulty: Math.min(2, Math.floor(t / 2)), roundsToWin: 2, map: 'random' });
-    sim.addPlayer({ id: 'me', name: this.settings.name || '나', team: 0, hero: this.selHero, mul: this.growthFor(this.selHero) });
+    sim.addPlayer({ id: 'me', name: this.settings.name || '나', team: 0, hero: this.selHero, skin: this.profile.skinOf(this.selHero), mul: this.growthFor(this.selHero) });
     const used = new Set([this.selHero]);
     this.pickBotsFor(sim, 0, 2, used);
     const em = 0.92 + 0.07 * t; this.pickBotsFor(sim, 1, 3, used, { hp: em, dmg: em, cd: 1 });
@@ -967,7 +1081,7 @@ class App {
     const mapId = pickMap(this.settings.map);
     this.buildArena(mapId);
     const sim = new Sim({ mode: 'horde', difficulty: this.settings.diff, mapId });
-    sim.addPlayer({ id: 'me', name: this.settings.name || '나', team: 0, hero: this.selHero, mul: this.growthFor(this.selHero) });
+    sim.addPlayer({ id: 'me', name: this.settings.name || '나', team: 0, hero: this.selHero, skin: this.profile.skinOf(this.selHero), mul: this.growthFor(this.selHero) });
     const pool = HEROES.map(h => h.id).filter(id => id !== this.selHero);
     for (let k = 0; k < 2; k++) { const id = pool.splice((Math.random() * pool.length) | 0, 1)[0]; sim.addPlayer({ id: 'b0' + k, name: HERO_MAP[id].name, team: 0, hero: id, isBot: true }); }
     sim.startMatch();
@@ -1134,7 +1248,7 @@ class App {
     const p = L.players.find(x => x.id === pid);
     switch (m.t) {
       case 'hello': if (p) { p.name = String(m.name || '도전자').slice(0, 10); this.assignHero(p, m.hero); this.broadcastLobby(); } break;
-      case 'pick': if (p && !L.inGame) { this.assignHero(p, m.hero); this.broadcastLobby(); } break;
+      case 'pick': if (p && !L.inGame) { this.assignHero(p, m.hero); if (p.hero === m.hero) p.skin = typeof m.skin === 'string' && /^[a-z]+_[12]$/.test(m.skin) && m.skin.startsWith(p.hero + '_') ? m.skin : null; this.broadcastLobby(); } break;
       case 'team': if (p && !L.inGame) { const other = 1 - p.team; if (L.players.filter(x => x.team === other).length < (L.size || 3)) { p.team = other; this.assignHero(p, p.hero); } this.broadcastLobby(); } break;
       case 'st': if (this.game?.sim) this.game.sim.clientState(pid, m); break;
       case 'cast': if (this.game?.sim) { const sp = this.game.sim.players.get(pid); if (sp && m.pos && sp.alive) sp.pos = m.pos; this.game.sim.cast(pid, m.slot, m.aim, true); } break;
@@ -1145,19 +1259,20 @@ class App {
   assignHero(p, want) {
     const L = this.lobby;
     const taken = new Set(L.players.filter(x => x !== p && x.team === p.team).map(x => x.hero));
-    if (want && HERO_MAP[want] && want !== 'dummy' && !taken.has(want)) p.hero = want;
+    if (want && HERO_MAP[want] && want !== 'dummy' && !taken.has(want)) { if (p.hero !== want) p.skin = null; p.hero = want; }
     else if (!p.hero || taken.has(p.hero)) p.hero = ['valok', 'igna', 'selene', 'mor', 'grave'].find(id => !taken.has(id));
   }
   broadcastLobby() {
     const L = this.lobby; if (!L) return;
-    const pub = { code: L.code, players: L.players.map(({ id, name, team, hero, host }) => ({ id, name, team, hero, host })), fill: L.fill, diff: L.diff, map: L.map, size: L.size || 3, inGame: L.inGame };
+    const pub = { code: L.code, players: L.players.map(({ id, name, team, hero, host, skin }) => ({ id, name, team, hero, host, skin })), fill: L.fill, diff: L.diff, map: L.map, size: L.size || 3, inGame: L.inGame };
     this.net.broadcast({ t: 'lobby', lobby: pub });
     this.updateLobbyUi();
   }
   lobbyPick(id) {
     if (!this.lobby || !this.net) return;
-    if (this.net.isHost) { const me = this.lobby.players.find(p => p.id === 'h'); if (me && me.hero !== id) { this.assignHero(me, id); this.broadcastLobby(); } }
-    else this.net.send('host', { t: 'pick', hero: id });
+    const skin = this.profile.skinOf(id);
+    if (this.net.isHost) { const me = this.lobby.players.find(p => p.id === 'h'); if (me && (me.hero !== id || me.skin !== skin)) { this.assignHero(me, id); if (me.hero === id) me.skin = skin; this.broadcastLobby(); } }
+    else this.net.send('host', { t: 'pick', hero: id, skin });
   }
   lobbySwitchTeam() {
     if (!this.lobby) return;
@@ -1176,7 +1291,7 @@ class App {
     this.buildArena(mapId);
     const sim = new Sim({ mode: 'match', difficulty: L.diff, mapId });
     const used = [new Set(), new Set()];
-    for (const p of L.players) { if (!p.hero) this.assignHero(p, null); sim.addPlayer({ id: p.id, name: p.name, team: p.team, hero: p.hero }); used[p.team].add(p.hero); }
+    for (const p of L.players) { if (!p.hero) this.assignHero(p, null); sim.addPlayer({ id: p.id, name: p.name, team: p.team, hero: p.hero, skin: p.skin || null }); used[p.team].add(p.hero); }
     if (L.fill) this.pickBots(sim, used, L.size || 3);
     sim.teamSize = L.size || 3;
     sim.startMatch();

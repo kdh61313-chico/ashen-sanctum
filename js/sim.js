@@ -43,10 +43,12 @@ export class Sim {
   }
 
   // ---------- players ----------
-  addPlayer({ id, name, team, hero, isBot = false, isDummy = false, mul = null }) {
+  addPlayer({ id, name, team, hero, isBot = false, isDummy = false, mul = null, skin }) {
     const def = HERO_MAP[hero] || HERO_MAP.valok;
+    // bots sometimes show off a skin (ids are '<hero>_1' / '<hero>_2')
+    if (skin === undefined) skin = isBot && !def.boss && Math.random() < 0.3 ? `${def.id}_${1 + ((Math.random() * 2) | 0)}` : null;
     const p = {
-      id, name, team, hero: def.id, def, isBot, isDummy,
+      id, name, team, hero: def.id, def, isBot, isDummy, skin,
       pos: [0, 0, 0], vel: [0, 0, 0], yaw: SPAWN_YAW[team], pitch: 0, onGround: true,
       dashT: 0, dashV: [0, 0, 0], glideUntil: 0,
       hp: def.hp, maxHp: def.hp, alive: true, shield: 0, shieldT: 0,
@@ -69,7 +71,7 @@ export class Sim {
     this.ev({ t: 'roster' });
   }
   roster() {
-    return [...this.players.values()].map(p => ({ id: p.id, name: p.name, team: p.team, hero: p.hero, isBot: p.isBot, isDummy: p.isDummy }));
+    return [...this.players.values()].map(p => ({ id: p.id, name: p.name, team: p.team, hero: p.hero, isBot: p.isBot, isDummy: p.isDummy, skin: p.skin || null }));
   }
 
   ev(e) { this.events.push(e); }

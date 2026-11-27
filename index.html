@@ -54,8 +54,9 @@
   <nav class="home__menu">
     <button class="slab slab--battle" id="tile-battle"><span class="slab__k">전투</span><span class="slab__s" id="tile-battle-sub">캠페인 · 레이드 · 랭크전 · 대전</span></button>
     <button class="slab slab--recruit" id="tile-recruit"><span class="slab__k">모집</span><span class="slab__s" id="tile-recruit-sub">오늘의 영웅</span></button>
-    <div class="slab-row">
+    <div class="slab-row slab-row--3">
       <button class="slab slab--sm" id="tile-roster"><span class="slab__k">영웅</span><span class="slab__s" id="tile-roster-sub">0 / 60</span></button>
+      <button class="slab slab--sm slab--skin" id="tile-skins"><span class="slab__k">스킨</span><span class="slab__s" id="tile-skins-sub">0 / 128</span></button>
       <button class="slab slab--sm" id="tile-shop"><span class="slab__k">상점</span><span class="slab__s">증표 교환</span></button>
     </div>
     <div class="slab-row">
@@ -64,6 +65,7 @@
     </div>
   </nav>
   <div class="home__assist" id="home-assist"></div>
+  <dl class="wallet" id="home-wallet" aria-label="보조 재화"></dl>
 </section>
 
 <!-- ============ PLAY ============ -->
@@ -141,6 +143,7 @@
 
   <aside class="dossier">
     <blockquote id="sel-quote" class="dossier__quote"></blockquote>
+    <div class="skinpick" id="sel-skins" aria-label="스킨"></div>
     <button class="dossier__lore" id="btn-lore" type="button"><b>영웅 이야기</b><span id="lore-sub"></span></button>
     <div class="elbox" id="sel-elbox"></div>
     <dl class="stats" id="sel-stats"></dl>
@@ -238,6 +241,31 @@
   </div>
 </section>
 
+<section id="skins" class="screen">
+  <div class="skn__gacha">
+    <h2 class="skn__title">장식의 회랑</h2>
+    <p class="skn__lead">영웅마다 두 벌. 스킨은 겉모습만 바꾸고 능력치는 그대로예요.</p>
+    <ul class="skn__rates" id="skn-rates"></ul>
+    <p class="skn__pity" id="skn-pity"></p>
+    <div class="skn__pull">
+      <button class="btn btn--ghost btn--pull" id="btn-skin1"><span class="btn__k">1회 뽑기</span><span class="btn__s" id="skin1-cost"></span></button>
+      <button class="btn btn--ember btn--pull" id="btn-skin10"><span class="btn__k">10회 뽑기</span><span class="btn__s" id="skin10-cost"></span></button>
+    </div>
+  </div>
+  <div class="skn__focus" id="skn-focus"></div>
+  <div class="skn__col">
+    <div class="skn__head"><h3>수집</h3><b id="skn-count"></b></div>
+    <div class="skn__filter" id="skn-filter"></div>
+    <div class="skn__grid" id="skn-grid"></div>
+  </div>
+</section>
+
+<section id="skinres" class="skinres" hidden>
+  <div class="skinres__cards" id="skinres-cards"></div>
+  <p class="skinres__sum" id="skinres-sum"></p>
+  <button class="btn btn--ghost skinres__ok" id="btn-skinres-ok"><span class="btn__k">확인</span></button>
+</section>
+
 <!-- ============ MODALS ============ -->
 <section id="online" class="modal" hidden>
   <div class="modal__card">
@@ -293,7 +321,7 @@
       <button class="btn btn--ghost btn--sm" data-adm="give1"><span class="btn__k">이 영웅 얻기</span></button>
       <button class="btn btn--ghost btn--sm" data-adm="max1"><span class="btn__k">이 영웅 최대 육성</span></button>
       <button class="btn btn--ghost btn--sm" data-adm="take1"><span class="btn__k">이 영웅 빼기</span></button></div>
-    <div class="admin__row"><button class="btn btn--ghost btn--sm" data-adm="all"><span class="btn__k">모든 영웅 얻기</span></button>
+    <div class="admin__row"><button class="btn btn--ghost btn--sm" data-adm="all"><span class="btn__k">모든 영웅 얻기</span></button><button class="btn btn--ghost btn--sm" data-adm="skins"><span class="btn__k">모든 스킨 얻기</span></button>
       <button class="btn btn--ghost btn--sm" data-adm="maxall"><span class="btn__k">모든 영웅 최대 육성 · 잠재 최대</span></button>
       <button class="btn btn--ghost btn--sm" data-adm="resetgrowth"><span class="btn__k">육성 초기화</span></button></div>
     <h3 class="admin__h">진행</h3>

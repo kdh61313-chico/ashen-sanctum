@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { buildHero, M } from './models.js';
+import { skinObject } from './skins.js';
 import { Trail, runeTex } from './fx.js';
 
 // ============================================================================
@@ -265,12 +266,13 @@ export class ViewModel {
     this.scene.remove(this.root); this.scene.remove(this.lights);
   }
 
-  setHero(def) {
+  setHero(def, skin = null) {
+    this.skin = skin;
     this.trail?.dispose(); this.trail = null; this.trail2?.dispose(); this.trail2 = null;
     for (const sh of this.shells) this.scene.remove(sh.m);
     this.root.clear(); this.shells = [];
     this.def = def;
-    const PH = buildHero(def);
+    const PH = buildHero(def); // recoloured below without the body FX (rings/motes)
     this.pose = PH.spec.pose; this.isGun = PH.isGun; this.isMelee = PH.isMelee;
     const c = PH.c;
     this.rim.color.set(def.color);
@@ -311,6 +313,7 @@ export class ViewModel {
     if (Lk === 'cast') { mkOrb(this.armR); mkOrb(this.armL); }
     else if (needOrb && Lk !== 'knife' && Lk !== 'sword') mkOrb(this.armL);
     else if (needOrb) { mkOrb(this.armL); this.orbs[0].g.visible = false; }
+    if (skin) skinObject(this.root, skin);
     // gun details
     this.slides = [this.W.getObjectByName('slide'), this.W2?.getObjectByName('slide')].map(o => o ? { o, y: o.position.y, t: 9 } : null);
     this.muzR = this.W.getObjectByName('muzzle') || null;

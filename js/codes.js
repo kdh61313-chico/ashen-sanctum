@@ -3,6 +3,7 @@
 export const COUPONS = [
   { code: 'STORY20', ver: '2.0', until: '2027-04-30', reward: { crystals: 3000, permits: 5 }, label: '2.0 업데이트 기념' },
   { code: 'NARHEL', ver: '2.0', until: '2027-04-30', reward: { crystals: 2000, essence: 150, tome: 6 }, label: '별의 왕국' },
+  { code: 'SKIN128', ver: '2.0', until: '2027-04-30', reward: { skinTix: 10, shards: 120 }, label: '장식의 회랑 개장' },
   { code: 'SEEDOFHOPE', ver: '2.0', until: '2027-04-30', reward: { permits: 5, seal: 8 }, label: '심연에서도 자라는 씨앗' },
   { code: 'ASHEN19', ver: '1.9', until: '2027-03-31', reward: { crystals: 3000, permits: 5 }, label: '1.9 업데이트 기념' },
   { code: 'SANCTUM2026', ver: '1.9', until: '2027-03-31', reward: { crystals: 1500, essence: 120, tome: 5 }, label: '성역 개방 감사' },
@@ -19,5 +20,5 @@ export async function digest(s) {
 }
 export async function isAdminCode(s) { try { return (await digest(s)) === ADMIN_DIGEST; } catch (e) { return false; } }
 
-export const REWARD_NAMES = { crystals: '잿빛 결정', permits: '모집 허가증', tokens: '잔불 증표', essence: '정수', seal: '인장', tome: '기술서' };
+export const REWARD_NAMES = { crystals: '잿빛 결정', permits: '모집 허가증', tokens: '잔불 증표', essence: '정수', seal: '인장', tome: '기술서', skinTix: '장식권', shards: '빛조각' };
 export const rewardText = (r) => Object.entries(r).map(([k, v]) => `${REWARD_NAMES[k] || k} ${v.toLocaleString()}`).join(', ');

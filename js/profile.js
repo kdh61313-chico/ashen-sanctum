@@ -1,5 +1,6 @@
 import { HEROES, HERO_MAP, STARTERS } from './heroes.js';
 import { ELEMENTS } from './elements.js';
+import { SKINS, SKIN_MAP, TIERS as SKIN_TIERS, SKIN_PULL_COST, SKIN_PITY } from './skins.js';
 
 // Player profile, saved in this browser only (never shared with other players).
 // Arknights-inspired recruitment: ★6 1% (+2% per pull after 70 without a ★6),
@@ -75,6 +76,8 @@ const fresh = () => ({
   codes: {},
   // v6: story scenes read (campaign story nodes and hero stories)
   read: {}, lore: {},
+  // v7: skins
+  skins: {}, skinEq: {}, skinTix: 3, shards: 0, skinPity: 0, skinPulls: 0,
 });
 
 // deep-merge saved data over defaults without ever dropping saved values
@@ -121,6 +124,31 @@ export class Profile {
     try { const prev = localStorage.getItem(KEY); if (prev) localStorage.setItem(BAK, prev); localStorage.setItem(KEY, json); } catch (e) { }
     try { IDB.set(KEY, JSON.parse(json)); } catch (e) { }
   }
+  // ---------------- skins ----------------
+  ownsSkin(id) { return !!this.d.skins[id]; }
+  equipSkin(hero, id) { if (id && !this.d.skins[id]) return false; if (id) this.d.skinEq[hero] = id; else delete this.d.skinEq[hero]; this.save(); return true; }
+  skinOf(hero) { const id = this.d.skinEq[hero]; return id && this.d.skins[id] ? id : null; }
+  canSkinPull(n) { return this.d.skinTix + Math.floor(this.d.crystals / SKIN_PULL_COST) >= n; }
+  skinPull(n) {
+    if (!this.canSkinPull(n)) return null;
+    let left = n; const useT = Math.min(this.d.skinTix, left); this.d.skinTix -= useT; left -= useT; this.d.crystals -= left * SKIN_PULL_COST;
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      this.d.skinPulls++; this.d.skinPity++;
+      let tier;
+      if (this.d.skinPity >= SKIN_PITY) tier = 5;
+      else { let r = Math.random(), acc = 0; tier = 0; for (let t = 5; t >= 0; t--) { acc += SKIN_TIERS[t].rate; if (r < acc) { tier = t; break; } } }
+      if (tier === 5) this.d.skinPity = 0;
+      const pool = SKINS.filter(x => x.tier === tier);
+      const sk = pool[(Math.random() * pool.length) | 0];
+      const dup = !!this.d.skins[sk.id];
+      if (dup) this.d.shards += SKIN_TIERS[tier].shard; else this.d.skins[sk.id] = Date.now();
+      out.push({ id: sk.id, tier, dup, shards: dup ? SKIN_TIERS[tier].shard : 0 });
+    }
+    this.save(); return out;
+  }
+  buySkin(id) { const sk = SKIN_MAP[id]; if (!sk || this.d.skins[id]) return false; const c = SKIN_TIERS[sk.tier].cost; if (this.d.shards < c) return false; this.d.shards -= c; this.d.skins[id] = Date.now(); this.save(); return true; }
+
   adminCompleteQuests() {
     const q = this.d.q;
     for (const qd of DAILY_POOL) if (q.dailyIds.includes(qd.id)) q.daily[qd.stat] = Math.max(q.daily[qd.stat] || 0, qd.goal);
@@ -194,7 +222,7 @@ export class Profile {
   }
   claimable() { const L = this.questList(); return [...L.daily, ...L.weekly, ...L.ach].filter(x => x.done && !x.claimed).length + (this.bonusReady('daily') ? 1 : 0) + (this.bonusReady('weekly') ? 1 : 0); }
   bonusReady(scope) { const L = this.questList(); const list = scope === 'daily' ? L.daily : L.weekly; return list.every(x => x.claimed) && !(scope === 'daily' ? L.dailyBonus : L.weeklyBonus); }
-  give(r) { if (r.crystals) this.d.crystals += r.crystals; if (r.permits) this.d.permits += r.permits; if (r.tokens) this.d.tokens += r.tokens; for (const k of ['essence', 'seal', 'tome']) if (r[k]) this.d.mats[k] = (this.d.mats[k] || 0) + r[k]; }
+  give(r) { if (r.crystals) this.d.crystals += r.crystals; if (r.permits) this.d.permits += r.permits; if (r.tokens) this.d.tokens += r.tokens; for (const k of ['essence', 'seal', 'tome']) if (r[k]) this.d.mats[k] = (this.d.mats[k] || 0) + r[k]; if (r.skinTix) this.d.skinTix += r.skinTix; if (r.shards) this.d.shards += r.shards; }
   // coupon: returns { ok, msg }
   redeem(c) {
     if (this.d.codes[c.code]) return { ok: false, msg: '이미 사용한 코드예요.' };

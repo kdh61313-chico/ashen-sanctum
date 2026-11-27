@@ -69,7 +69,8 @@ export class Game {
       ids.add(r.id);
       const prev = this.roster.get(r.id);
       this.roster.set(r.id, r);
-      if (prev && prev.hero !== r.hero) { const e = this.ents.get(r.id); if (e) { this.scene.remove(e.P.root); e.plate?.remove(); this.ents.delete(r.id); } if (r.id === this.localId) this.setLocalHero(r.hero); }
+      if (!prev && r.id === this.localId && r.skin && this.vm?.skin !== r.skin) this.setLocalHero(r.hero);
+      if (prev && (prev.hero !== r.hero || (prev.skin || null) !== (r.skin || null))) { const e = this.ents.get(r.id); if (e) { this.scene.remove(e.P.root); e.plate?.remove(); this.ents.delete(r.id); } if (r.id === this.localId) this.setLocalHero(r.hero); }
     }
     for (const id of [...this.roster.keys()]) if (!ids.has(id)) { this.roster.delete(id); this.view.delete(id); const e = this.ents.get(id); if (e) { this.scene.remove(e.P.root); e.plate?.remove(); this.ents.delete(id); } }
     this.hudHeadsDirty = true;
@@ -110,7 +111,8 @@ export class Game {
 
   setLocalHero(heroId) {
     this.hero = HERO_MAP[heroId];
-    this.vm.setHero(this.hero);
+    const sk = this.sim?.players?.get(this.localId)?.skin ?? this.roster.get(this.localId)?.skin ?? null;
+    this.vm.setHero(this.hero, sk);
     this.vm.setTheme?.(this.app?.world?.theme);
     this.cds = { lmb: 0, q: 0, e: 0 };
     this.ammo = this.hero.abilities.lmb.ammo || 0; this.reloadT = 0;
@@ -697,7 +699,7 @@ export class Game {
       const r = this.roster.get(id); if (!r) continue;
       let en = this.ents.get(id);
       if (!en) {
-        const P = buildHero(HERO_MAP[r.hero] || HERO_MAP.valok);
+        const P = buildHero(HERO_MAP[r.hero] || HERO_MAP.valok, r.skin || null);
         ownMaterials(P);
         this.scene.add(P.root);
         const plate = document.createElement('div');

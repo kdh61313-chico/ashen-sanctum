@@ -3,6 +3,7 @@ import { NEW_WEAPONS, NEW_BUILDERS, NEW_POSES } from './models2.js';
 import { THIRD_WEAPONS, THIRD_BUILDERS } from './models3.js';
 import { FOURTH_WEAPONS, FOURTH_BUILDERS } from './models4.js';
 import { installRemodel } from './weapons2.js';
+import { applySkin } from './skins.js';
 
 // ---------------------------------------------------------------
 // Procedural low-poly hero models. Flat-shaded, faceted, emissive accents.
@@ -912,7 +913,7 @@ function weaponTip(w) {
   w.tip = tip; w.tipBase = base;
 }
 
-export function buildHero(heroDef) {
+export function buildHero(heroDef, skinId = null) {
   const P = (BUILDERS[heroDef.model] || BUILDERS.knight)();
   P.def = heroDef;
   P.poseName = P.spec.pose;
@@ -931,6 +932,7 @@ export function buildHero(heroDef) {
   });
   if (P.isMelee) { weaponTip(P.weaponR); if (P.poseName === 'dual' || P.poseName === 'claws') weaponTip(P.weaponL); }
   applyPose(P);
+  if (skinId) applySkin(P, skinId);
   return P;
 }
 
@@ -938,7 +940,10 @@ export function buildHero(heroDef) {
 export function ownMaterials(P) {
   P.root.traverse(o => {
     if (o.isMesh) {
-      o.material = o.material.clone();
+      const src = o.material;
+      o.material = src.clone();
+      // clone() keeps userData.rim but drops the shader hook, so carry it over
+      if (src.onBeforeCompile) { o.material.onBeforeCompile = src.onBeforeCompile; o.material.customProgramCacheKey = src.customProgramCacheKey; }
       addRim(o.material);
       o.userData.baseOpacity = o.material.opacity;
       o.userData.baseTransparent = o.material.transparent;
