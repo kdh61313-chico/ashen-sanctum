@@ -1242,3 +1242,92 @@ export function triggerAttack(P, slot, combo = 0, kind = '') {
 }
 
 export { G, add, grp, GLOW };
+
+// ---------------- draw-call batching for in-match heroes ----------------
+// Each hero is built from ~100 small meshes. Meshes that never move relative to their bone and
+// share a material are merged into one, cutting draw calls several times over. Anything the
+// game or an animation touches directly (named parts, weapon muzzles, spinning rings...) is
+// found by exercising the model once and left alone.
+export function optimizeHero(P) {
+  const keep = new Set();
+  const visit = (v, d) => {
+    if (!v || typeof v !== 'object' || d > 3) return;
+    if (v.isObject3D) {
+      if (keep.has(v)) return; keep.add(v);
+      for (const k of Object.keys(v)) { if (k === 'parent' || k === 'children') continue; const x = v[k]; if (x && x.isObject3D) visit(x, d + 1); }
+      return;
+    }
+    if (Array.isArray(v)) { for (const x of v) visit(x, d + 1); return; }
+    if (v.constructor === Object) for (const k of Object.keys(v)) visit(v[k], d + 1);
+  };
+  for (const k of Object.keys(P)) if (k !== 'root' && k !== 'body') visit(P[k], 0);
+  const objs = []; P.root.traverse(o => objs.push(o));
+  const meshes = objs.filter(o => o.isMesh);
+  // probe: record every object's pose, run the animations, see which meshes move, then restore
+  const save = objs.map(o => [o.position.clone(), o.quaternion.clone(), o.scale.clone(), o.visible]);
+  const sig = (o) => [o.position.x, o.position.y, o.position.z, o.quaternion.x, o.quaternion.y, o.quaternion.z, o.quaternion.w, o.scale.x, o.scale.y, o.scale.z, o.visible ? 1 : 0];
+  const before = meshes.map(sig);
+  const animSave = JSON.stringify(P.anim || {});
+  const moved = new Set();
+  const check = () => meshes.forEach((o, i) => { if (moved.has(o)) return; const s = sig(o), b = before[i]; for (let k = 0; k < s.length; k++) if (Math.abs(s[k] - b[k]) > 1e-4) { moved.add(o); return; } });
+  try {
+    const st = (o) => ({ speed: 0, fwd: 0, side: 0, onGround: true, vy: 0, alive: true, t: 0, pitch: 0, giant: false, glide: false, aiming: false, stun: false, ...o });
+    const runs = [st({}), st({ speed: 6, fwd: 1 }), st({ speed: 6, side: 1 }), st({ onGround: false, vy: 4 }), st({ aiming: true, pitch: 0.5 }), st({ stun: true }), st({ glide: true, onGround: false })];
+    let t = 0.3;
+    for (const s of runs) for (let i = 0; i < 8; i++) { t += 0.07; animateHero(P, { ...s, t }, 0.07); for (const f of P.update) f(t, s); check(); }
+    for (const slot of ['lmb', 'q', 'e', 'x']) { triggerAttack(P, slot); for (let i = 0; i < 8; i++) { t += 0.06; animateHero(P, st({ t }), 0.06); for (const f of P.update) f(t, {}); check(); } }
+    triggerHurt(P, 1, 0, 40); for (let i = 0; i < 5; i++) { t += 0.06; animateHero(P, st({ t }), 0.06); check(); }
+    triggerCheer(P); for (let i = 0; i < 8; i++) { t += 0.1; animateHero(P, st({ t }), 0.1); check(); }
+    for (let i = 0; i < 8; i++) { t += 0.1; animateHero(P, st({ t, alive: false }), 0.1); check(); }
+  } catch (e) { return P; } // anything unusual: keep the model as built
+  objs.forEach((o, i) => { o.position.copy(save[i][0]); o.quaternion.copy(save[i][1]); o.scale.copy(save[i][2]); o.visible = save[i][3]; });
+  try { const A = JSON.parse(animSave); for (const k of Object.keys(P.anim || {})) delete P.anim[k]; Object.assign(P.anim, A); } catch (e) { }
+  // group the still meshes by bone and material
+  const groups = new Map();
+  for (const o of meshes) {
+    const m = o.material;
+    if (keep.has(o) || moved.has(o) || o.children.length || o.name || !o.parent || Array.isArray(m) || m.map || m.vertexColors || m.transparent || o.renderOrder || o.isInstancedMesh || o.isSkinnedMesh) continue;
+    const g = o.geometry; if (!g?.attributes?.position || g.morphAttributes?.position) continue;
+    // meshes on one bone whose materials differ only in colour share a material with vertex colours
+    const key = o.parent.uuid + '|' + [m.type, Math.round(m.roughness * 4), Math.round(m.metalness * 2), m.emissive?.getHexString(), m.emissiveIntensity, m.side, m.opacity, m.customProgramCacheKey?.() || ''].join(',');
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(o);
+  }
+  for (const list of groups.values()) {
+    if (list.length < 2) continue;
+    const parent = list[0].parent, src = list[0].material;
+    const oneColour = list.every(o => o.material === src);
+    let mat = src;
+    // flat-shaded parts get explicit face normals so they can share a smooth-shaded material
+    const mixedShade = list.some(o => o.material.flatShading !== src.flatShading);
+    const useVC = !oneColour || mixedShade;
+    if (useVC) {
+      mat = src.clone(); mat.color.set('#ffffff'); mat.vertexColors = true; mat.userData = { ...src.userData };
+      mat.roughness = Math.round(src.roughness * 4) / 4; mat.metalness = Math.round(src.metalness * 2) / 2; mat.flatShading = false; mat.needsUpdate = true;
+      if (src.onBeforeCompile) { mat.onBeforeCompile = src.onBeforeCompile; mat.customProgramCacheKey = () => (src.customProgramCacheKey?.() || '') + 'vc'; }
+    }
+    const pos = [], nor = [], col = [];
+    for (const o of list) {
+      o.updateMatrix();
+      let g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+      g.applyMatrix4(o.matrix);
+      if (!g.attributes.normal || (mat.flatShading === false && o.material.flatShading)) g.computeVertexNormals();
+      pos.push(g.attributes.position.array); nor.push(g.attributes.normal.array);
+      if (useVC) { const n = g.attributes.position.count, c = o.material.color, a = new Float32Array(n * 3); for (let i = 0; i < n; i++) { a[i * 3] = c.r; a[i * 3 + 1] = c.g; a[i * 3 + 2] = c.b; } col.push(a); }
+      g.dispose();
+    }
+    const cat = (arrs) => { let n = 0; for (const a of arrs) n += a.length; const out = new Float32Array(n); let off = 0; for (const a of arrs) { out.set(a, off); off += a.length; } return out; };
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(cat(pos), 3));
+    geo.setAttribute('normal', new THREE.BufferAttribute(cat(nor), 3));
+    if (useVC) geo.setAttribute('color', new THREE.BufferAttribute(cat(col), 3));
+    geo.computeBoundingSphere();
+    const merged = new THREE.Mesh(geo, mat);
+    merged.castShadow = list.some(o => o.castShadow); merged.receiveShadow = list.some(o => o.receiveShadow);
+    merged.userData = { ...list[0].userData, baseMat: mat, merged: true };
+    for (const o of list) parent.remove(o);
+    parent.add(merged);
+  }
+  P.meshVer = (P.meshVer || 0) + 1;
+  return P;
+}

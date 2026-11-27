@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { HERO_MAP, SLOTS, SLOT_KEYS, ULT_COST } from './heroes.js';
 import { statusMods, ROUNDS_TO_WIN } from './sim.js';
-import { buildHero, animateHero, triggerAttack, triggerHurt, triggerCheer, triggerSpawn, ownMaterials, setOpacity, attackDur } from './models.js';
+import { buildHero, animateHero, triggerAttack, triggerHurt, triggerCheer, triggerSpawn, ownMaterials, setOpacity, attackDur, optimizeHero } from './models.js';
 import { Trail } from './fx.js';
 import { ViewModel } from './viewmodel.js';
 import { skinFx } from './skins.js';
@@ -99,7 +99,7 @@ export class Game {
       const id = a[0]; seen.add(id);
       let v = this.view.get(id);
       if (!v) { v = { id, pos: [a[1], a[2], a[3]], vel: [0, 0, 0], cds: {}, stats: {} }; this.view.set(id, v); }
-      v.pos = [a[1], a[2], a[3]]; v.yaw = a[4]; v.pitch = a[5]; v.hp = a[6]; v.alive = !!a[7]; v.ult = a[8]; v.shield = a[9];
+      v.pos = [a[1], a[2], a[3]]; v.rt = this.clock; v.yaw = a[4]; v.pitch = a[5]; v.hp = a[6]; v.alive = !!a[7]; v.ult = a[8]; v.shield = a[9];
       const st = {}; for (const k in a[10]) st[k] = { t: a[10][k][0], v: a[10][k][1] }; v.st = st;
       v.cds = { lmb: a[11], q: a[12], e: a[13] }; v.vel = [a[14], 0, a[15]]; v.onGround = !!a[16];
       v.stats = { k: a[17], d: a[18], dmg: a[19], heal: a[20] }; v.maxHp = a[21]; v.ammo = a[22]; v.reloadT = a[23]; v.rs = a[24]; v.fm = a[25]; v.sn = a[26]; v.channel = a[27];
@@ -550,6 +550,19 @@ export class Game {
   }
 
   // ---------- main update ----------
+  // host only, while its page is hidden (browsers pause drawing then): keep the match running for everyone
+  netTick(dt) {
+    if (this.role !== 'host' || !this.sim) return;
+    this.acc += Math.min(dt, 0.5);
+    while (this.acc >= 1 / 60) { this.sim.step(1 / 60); this.acc -= 1 / 60; }
+    const evs = this.sim.drain();
+    const out = evs.filter(e => e.t !== 'roster');
+    if (out.length) this.net.broadcast({ t: 'ev', list: out });
+    if (evs.some(e => e.t === 'roster')) this.net.broadcast({ t: 'roster', list: this.sim.roster() });
+    const snap = this.sim.snapshot(); snap.n = this.snapSeq = (this.snapSeq || 0) + 1;
+    this.net.broadcastFast ? this.net.broadcastFast(snap) : this.net.broadcast(snap);
+  }
+
   update(dt, input) {
     this.clock += dt;
     const me = this.view.get(this.localId);
@@ -620,7 +633,7 @@ export class Game {
         if (out.length) this.net.broadcast({ t: 'ev', list: out });
         if (evs.some(e => e.t === 'roster')) this.net.broadcast({ t: 'roster', list: this.sim.roster() });
         this.snapT += dt;
-        if (this.snapT >= 0.05) { this.snapT = 0; this.net.broadcast(this.sim.snapshot()); }
+        if (this.snapT >= 0.05) { this.snapT = 0; const snap = this.sim.snapshot(); snap.n = this.snapSeq = (this.snapSeq || 0) + 1; this.net.broadcastFast ? this.net.broadcastFast(snap) : this.net.broadcast(snap); }
       }
       this.syncFromSim();
     } else {
@@ -628,7 +641,8 @@ export class Game {
       if (this.sendT >= 1 / 30 && alive) {
         this.sendT = 0;
         const b = this.body;
-        this.net.send('host', { t: 'st', pos: b.pos.map(v => +v.toFixed(3)), vel: b.vel.map(v => +v.toFixed(2)), yaw: +this.yaw.toFixed(3), pitch: +this.pitch.toFixed(3), onGround: b.onGround });
+        const st = { t: 'st', q: this.stSeq = (this.stSeq || 0) + 1, pos: b.pos.map(v => +v.toFixed(3)), vel: b.vel.map(v => +v.toFixed(2)), yaw: +this.yaw.toFixed(3), pitch: +this.pitch.toFixed(3), onGround: b.onGround };
+        if (this.net.sendFast) this.net.sendFast('host', st); else this.net.send('host', st);
       }
       if (this.phase === 'live' || this.phase === 'pre' || this.phase === 'post') this.phaseT -= dt;
       for (const pr of this.projs) { const k = this.clock - pr.t0; pr.pos = [pr.pos0[0] + pr.vel[0] * k, pr.pos0[1] + pr.vel[1] * k, pr.pos0[2] + pr.vel[2] * k]; }
@@ -705,6 +719,7 @@ export class Game {
       let en = this.ents.get(id);
       if (!en) {
         const P = buildHero(HERO_MAP[r.hero] || HERO_MAP.valok, r.skin || null);
+        optimizeHero(P);
         ownMaterials(P);
         this.scene.add(P.root);
         const plate = document.createElement('div');
@@ -719,11 +734,12 @@ export class Game {
       }
       if (en.team !== r.team) { en.team = r.team; en.plate.className = 'plate ' + (r.team === myTeam ? 'plate--ally' : 'plate--enemy'); }
       const isMe = id === this.localId;
-      const tgt = isMe ? this.body.pos : v.pos;
+      let tgt = isMe ? this.body.pos : v.pos;
+      if (!isMe && !this.sim && v.alive && v.vel && v.rt !== undefined) { const ahead = Math.min(0.12, this.clock - v.rt); tgt = [v.pos[0] + v.vel[0] * ahead, v.pos[1], v.pos[2] + v.vel[2] * ahead]; }
       const prev = [...en.rpos];
       if (en.snap || isMe) { en.rpos = [...tgt]; en.snap = false; }
       else {
-        const k = 1 - Math.exp(-dt * (this.sim ? 30 : 14));
+        const k = 1 - Math.exp(-dt * (this.sim ? 30 : 18));
         en.rpos[0] += (tgt[0] - en.rpos[0]) * k; en.rpos[1] += (tgt[1] - en.rpos[1]) * k; en.rpos[2] += (tgt[2] - en.rpos[2]) * k;
         if (Math.hypot(tgt[0] - en.rpos[0], tgt[2] - en.rpos[2]) > 6) en.rpos = [...tgt];
       }
@@ -814,7 +830,12 @@ export class Game {
   // ---------- network (both roles) ----------
   onNet(from, m) {
     if (this.role === 'client') {
-      if (m.t === 's') this.applySnapshot(m);
+      if (m.t === 's') {
+        // the fast channel is unordered: ignore a snapshot older than the one already shown
+        if (m.n && this.lastSnapN && m.n <= this.lastSnapN && this.lastSnapN - m.n < 600) return;
+        if (m.n) this.lastSnapN = m.n;
+        this.applySnapshot(m);
+      }
       else if (m.t === 'ev') for (const e of m.list) this.handleEvent(e);
       else if (m.t === 'roster') this.setRoster(m.list);
     }

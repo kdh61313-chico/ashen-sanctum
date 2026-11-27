@@ -2,7 +2,10 @@ import { COLLIDERS, HALF_X, HALF_Z, MAP, hazardAt, pitAt } from './map.js';
 import { losClear, raycast, groundUnder, yawTo, angDiff, clamp, GRAVITY, EYE, P_RADIUS, rayPlayer } from './physics.js';
 
 // ---------- navigation graph ----------
-let NAV = null, NAV_ID = null;
+let NAV = null, NAV_ID = null, GRID = null;
+const NAV_CACHE = new Map();      // map id -> { nodes, grid } so a map is only analysed once
+const S = 2.0, X0 = -HALF_X + 1.5, Z0 = -HALF_Z + 1.5;
+const cellKey = (ix, iz) => ix * 4096 + iz;
 function blockedAt(x, z, y) {
   for (const b of COLLIDERS) {
     if (b.max[1] <= y + 0.6) continue; // walkable top or below
@@ -12,23 +15,28 @@ function blockedAt(x, z, y) {
   return false;
 }
 function buildNav() {
-  const nodes = [];
-  const S = 2.0;
-  for (let x = -HALF_X + 1.5; x <= HALF_X - 1.5; x += S) {
-    for (let z = -HALF_Z + 1.5; z <= HALF_Z - 1.5; z += S) {
+  const id = MAP.cur?.id;
+  const cached = id && NAV_CACHE.get(id);
+  if (cached) { NAV = cached.nodes; GRID = cached.grid; NAV_ID = id; return; }
+  const nodes = [], grid = new Map();
+  let ix = 0;
+  for (let x = X0; x <= HALF_X - 1.5; x += S, ix++) {
+    let iz = 0;
+    for (let z = Z0; z <= HALF_Z - 1.5; z += S, iz++) {
       const y = groundUnder(x, z, 3.0, 0.3);
       if (blockedAt(x, z, y)) continue;
       if (y < 0.3 && pitAt(x, z)) continue;
-      nodes.push({ x, y, z, n: [] });
+      grid.set(cellKey(ix, iz), nodes.length);
+      nodes.push({ x, y, z, ix, iz, n: [] });
     }
   }
-  for (let i = 0; i < nodes.length; i++) {
-    const a = nodes[i];
-    for (let j = 0; j < nodes.length; j++) {
-      if (i === j) continue;
+  // neighbours: only the 8 surrounding grid cells can be within reach
+  for (const a of nodes) {
+    for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+      if (!dx && !dz) continue;
+      const j = grid.get(cellKey(a.ix + dx, a.iz + dz)); if (j === undefined) continue;
       const b = nodes[j];
       const d = Math.hypot(a.x - b.x, a.z - b.z);
-      if (d > S * 1.5) continue;
       // walkability: sample heights, allow climbing up to 0.55 per sample, or 1.3 with a jump
       let ok = true, jump = false, prevY = a.y;
       const n = Math.ceil(d / 0.35);
@@ -42,10 +50,23 @@ function buildNav() {
       if (ok && Math.abs(prevY - b.y) < 0.2) a.n.push({ j, d, jump });
     }
   }
-  NAV = nodes; NAV_ID = MAP.cur?.id;
+  NAV = nodes; GRID = grid; NAV_ID = id;
+  if (id) NAV_CACHE.set(id, { nodes, grid });
 }
 function nearestNode(pos) {
+  // look in the grid cells around the position first, then fall back to a full scan
+  const cx = Math.round((pos[0] - X0) / S), cz = Math.round((pos[2] - Z0) / S);
   let best = -1, bd = 1e9;
+  for (let r = 0; r <= 3; r++) {
+    for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+      if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+      const i = GRID.get(cellKey(cx + dx, cz + dz)); if (i === undefined) continue;
+      const n = NAV[i]; const d = Math.hypot(n.x - pos[0], n.z - pos[2]) + Math.abs(n.y - pos[1]) * 3;
+      if (d < bd) { bd = d; best = i; }
+    }
+    if (best >= 0 && r >= 1) break;
+  }
+  if (best >= 0) return best;
   for (let i = 0; i < NAV.length; i++) {
     const n = NAV[i];
     const d = Math.hypot(n.x - pos[0], n.z - pos[2]) + Math.abs(n.y - pos[1]) * 3;
@@ -53,29 +74,37 @@ function nearestNode(pos) {
   }
   return best;
 }
+// A* with a binary heap and flat score arrays (reused between searches)
+let gBuf = null, cameBuf = null, stamp = null, curStamp = 0;
 function findPath(from, to) {
   const s = nearestNode(from), g = nearestNode(to);
   if (s < 0 || g < 0) return [];
-  const open = new Set([s]);
-  const gS = new Map([[s, 0]]);
-  const fS = new Map([[s, 0]]);
-  const came = new Map();
-  const H = (i) => Math.hypot(NAV[i].x - NAV[g].x, NAV[i].z - NAV[g].z);
-  let iter = 0;
-  while (open.size && iter++ < 3000) {
-    let cur = -1, cf = 1e9;
-    for (const i of open) { const f = fS.get(i); if (f < cf) { cf = f; cur = i; } }
-    if (cur === g) break;
-    open.delete(cur);
+  const N = NAV.length;
+  if (!gBuf || gBuf.length < N) { gBuf = new Float32Array(N); cameBuf = new Int32Array(N); stamp = new Uint32Array(N); }
+  curStamp++;
+  const gx = NAV[g].x, gz = NAV[g].z;
+  const heap = [], hf = [];
+  const push = (i, f) => { let k = heap.length; heap.push(i); hf.push(f); while (k > 0) { const p = (k - 1) >> 1; if (hf[p] <= f) break; heap[k] = heap[p]; hf[k] = hf[p]; k = p; } heap[k] = i; hf[k] = f; };
+  const pop = () => { const top = heap[0]; const li = heap.pop(), lf = hf.pop(); if (heap.length) { let k = 0; const n = heap.length; for (;;) { let c = 2 * k + 1; if (c >= n) break; if (c + 1 < n && hf[c + 1] < hf[c]) c++; if (hf[c] >= lf) break; heap[k] = heap[c]; hf[k] = hf[c]; k = c; } heap[k] = li; hf[k] = lf; } return top; };
+  stamp[s] = curStamp; gBuf[s] = 0; cameBuf[s] = -1;
+  push(s, 0);
+  let iter = 0, found = s === g;
+  while (heap.length && iter++ < 3000) {
+    const cur = pop();
+    if (cur === g) { found = true; break; }
+    const gc = gBuf[cur];
     for (const e of NAV[cur].n) {
-      const t = gS.get(cur) + e.d + (e.jump ? 1.5 : 0);
-      if (t < (gS.get(e.j) ?? 1e9)) { came.set(e.j, cur); gS.set(e.j, t); fS.set(e.j, t + H(e.j)); open.add(e.j); }
+      const t = gc + e.d + (e.jump ? 1.5 : 0);
+      if (stamp[e.j] !== curStamp || t < gBuf[e.j]) {
+        stamp[e.j] = curStamp; gBuf[e.j] = t; cameBuf[e.j] = cur;
+        const n = NAV[e.j]; push(e.j, t + Math.hypot(n.x - gx, n.z - gz));
+      }
     }
   }
+  if (!found) return [];
   const path = [];
   let c = g;
-  if (!came.has(g) && g !== s) return [];
-  while (c !== undefined && c !== s) { path.unshift(NAV[c]); c = came.get(c); }
+  while (c !== -1 && c !== s) { path.unshift(NAV[c]); c = cameBuf[c]; }
   return path;
 }
 
@@ -301,7 +330,7 @@ export class BotBrain {
 
     if (moveGoal) {
       this.pathT -= dt;
-      if (this.pathT <= 0 || !this.path.length) { this.pathT = 0.8; this.path = findPath(p.pos, moveGoal); }
+      if (this.pathT <= 0 || !this.path.length) { this.pathT = 0.7 + Math.random() * 0.3; this.path = findPath(p.pos, moveGoal); }
       while (this.path.length && Math.hypot(this.path[0].x - p.pos[0], this.path[0].z - p.pos[2]) < 1.1) this.path.shift();
       const nx = this.path.length ? this.path[0] : { x: moveGoal[0], y: moveGoal[1], z: moveGoal[2] };
       const wy = yawTo(nx.x - p.pos[0], nx.z - p.pos[2]);

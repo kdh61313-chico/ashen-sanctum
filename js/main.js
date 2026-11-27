@@ -1263,7 +1263,14 @@ class App {
       case 'hello': if (p) { p.name = String(m.name || '도전자').slice(0, 10); this.assignHero(p, m.hero); this.broadcastLobby(); } break;
       case 'pick': if (p && !L.inGame) { this.assignHero(p, m.hero); if (p.hero === m.hero) p.skin = typeof m.skin === 'string' && /^[a-z]+_[12]$/.test(m.skin) && m.skin.startsWith(p.hero + '_') ? m.skin : null; this.broadcastLobby(); } break;
       case 'team': if (p && !L.inGame) { const other = 1 - p.team; if (L.players.filter(x => x.team === other).length < (L.size || 3)) { p.team = other; this.assignHero(p, p.hero); } this.broadcastLobby(); } break;
-      case 'st': if (this.game?.sim) this.game.sim.clientState(pid, m); break;
+      case 'st': {
+        if (!this.game?.sim) break;
+        // unordered delivery: keep only the newest movement from each client
+        const seen = (this.game.stSeen = this.game.stSeen || new Map()), last = seen.get(pid) || 0;
+        if (m.q && m.q <= last && last - m.q < 600) break;
+        if (m.q) seen.set(pid, m.q);
+        this.game.sim.clientState(pid, m); break;
+      }
       case 'cast': if (this.game?.sim) { const sp = this.game.sim.players.get(pid); if (sp && m.pos && sp.alive) sp.pos = m.pos; this.game.sim.cast(pid, m.slot, m.aim, true); } break;
       case 'reload': if (this.game?.sim) this.game.sim.reload(pid); break;
       case 'bye': this.onPeerLeave(peer); break;
@@ -1312,6 +1319,7 @@ class App {
     const roster = sim.roster();
     this.net.broadcast({ t: 'start', roster, map: mapId });
     this.broadcastLobby();
+    this.startHostClock();
     this.beginGame(new Game(this, { role: 'host', sim, net: this.net, localId: 'h', roster, mapId }));
   }
   backToLobby(broadcast) {
@@ -1370,6 +1378,23 @@ class App {
       qsa('.sigil').forEach(s => s.classList.toggle('is-taken', taken.has(s.dataset.id)));
       if (my.hero && my.hero !== this.selHero && this.profile.owns(my.hero) && this.state === 'select') { const L0 = this.lobby; this.lobby = null; this.setHero(my.hero, false); this.lobby = L0; }
     }
+  }
+
+  // A worker-driven clock keeps an online host's match going while its tab is in the background
+  // (timers on a hidden page are slowed to about once a second; messages from a worker are not).
+  startHostClock() {
+    if (this._hostClock) return;
+    try {
+      const src = 'let t=null;onmessage=(e)=>{clearInterval(t);if(e.data>0)t=setInterval(()=>postMessage(0),e.data);};';
+      const w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+      let last = performance.now();
+      w.onmessage = () => {
+        const now = performance.now(), dt = (now - last) / 1000; last = now;
+        if (document.hidden && this.state === 'game' && this.game?.role === 'host') this.game.netTick(dt);
+      };
+      w.postMessage(50);
+      this._hostClock = w;
+    } catch (e) { /* no workers: the match pauses while hidden, as before */ }
   }
 
   // ---------------- loop ----------------

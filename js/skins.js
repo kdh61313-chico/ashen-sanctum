@@ -249,8 +249,10 @@ export function applySkin(P, skinId) {
     P.update.push((tt) => { cones.forEach((k, i) => { const v = 0.6 + Math.abs(Math.sin(tt * 6 + i * 1.7)) * 0.6; k.scale.set(1, v, 1); k.position.y = 0.12 * sc + v * 0.12 * sc; }); fl.rotation.y = tt * 0.5; });
     if (S.prism) {
       const col = new THREE.Color();
-      P.root.traverse(o => { if (o.isMesh && !o.userData.skinFx && o.material.emissive) { const e = o.material.emissive; if ((e.r + e.g + e.b) * o.material.emissiveIntensity < 0.6) o.userData.prism = true; } });
-      P.update.push((tt) => { col.setHSL((tt * 0.08) % 1, 0.9, 0.5, SRGB); P.root.traverse(o => { if (o.userData.prism && o.material.emissive) { o.material.emissive.copy(col); o.material.emissiveIntensity = 0.07; } }); });
+      let list = [], ver = -1; // meshes to tint; found again if the model is batched (materials may be swapped later, so read o.material each frame)
+      const find = () => { list = []; ver = P.meshVer || 0; P.root.traverse(o => { if (o.isMesh && !o.userData.skinFx && o.material.emissive) { const e = o.material.emissive; if ((e.r + e.g + e.b) * o.material.emissiveIntensity < 0.6) list.push(o); } }); };
+      let lastT = -1;
+      P.update.push((tt) => { if ((P.meshVer || 0) !== ver) find(); if (tt - lastT < 0.05) return; lastT = tt; col.setHSL((tt * 0.08) % 1, 0.9, 0.5, SRGB); for (const o of list) { const m = o.material; if (m.emissive) { m.emissive.copy(col); m.emissiveIntensity = 0.07; } } });
     }
   }
   return P;

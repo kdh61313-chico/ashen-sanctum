@@ -14,6 +14,7 @@ const ICE = {
 };
 const OPTS = { debug: 1, config: ICE, pingInterval: 4000 };
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
+const parse = (d) => { if (typeof d !== 'string') return d && typeof d === 'object' ? d : null; try { return JSON.parse(d); } catch (e) { return null; } };
 
 export function makeCode() { let s = ''; for (let i = 0; i < 5; i++) s += ALPHA[(Math.random() * ALPHA.length) | 0]; return s; }
 // accepts a typed code or a whole invite link
@@ -24,7 +25,7 @@ export function cleanCode(s) {
 }
 
 export class Net {
-  constructor() { this.peer = null; this.conns = new Map(); this.conn = null; this.isHost = false; this.handlers = {}; this.closed = false; }
+  constructor() { this.peer = null; this.conns = new Map(); this.fast = new Map(); this.conn = null; this.fastConn = null; this.isHost = false; this.handlers = {}; this.closed = false; }
 
   on(h) { Object.assign(this.handlers, h); }
 
@@ -67,10 +68,18 @@ export class Net {
         } else this.handlers.error?.(e);
       });
       peer.on('connection', (conn) => {
+        // a second, unordered channel per client carries the per-tick traffic (snapshots, movement)
+        if (conn.metadata?.fast) {
+          conn.on('open', () => this.fast.set(conn.peer, conn));
+          conn.on('data', (d) => { const m = parse(d); if (m) this.handlers.data?.(conn.peer, m); });
+          const drop = () => { if (this.fast.get(conn.peer) === conn) this.fast.delete(conn.peer); };
+          conn.on('close', drop); conn.on('error', drop);
+          return;
+        }
         conn.on('open', () => { this.conns.set(conn.peer, conn); this.handlers.join?.(conn.peer); });
         conn.on('data', (d) => this.handlers.data?.(conn.peer, d));
-        conn.on('close', () => { if (this.conns.delete(conn.peer)) this.handlers.leave?.(conn.peer); });
-        conn.on('error', () => { if (this.conns.delete(conn.peer)) this.handlers.leave?.(conn.peer); });
+        conn.on('close', () => { if (this.conns.delete(conn.peer)) { this.fast.get(conn.peer)?.close(); this.fast.delete(conn.peer); this.handlers.leave?.(conn.peer); } });
+        conn.on('error', () => { if (this.conns.delete(conn.peer)) { this.fast.get(conn.peer)?.close(); this.fast.delete(conn.peer); this.handlers.leave?.(conn.peer); } });
       });
     });
   }
@@ -92,7 +101,7 @@ export class Net {
         phase = 'search'; stage('search');
         const conn = peer.connect(PREFIX + code, { reliable: true, serialization: 'json' });
         this.conn = conn;
-        conn.on('open', () => { if (done) return; done = true; clearTimeout(to); resolve(); });
+        conn.on('open', () => { if (done) return; done = true; clearTimeout(to); this._openFast(peer, code); resolve(); });
         conn.on('data', (d) => this.handlers.data?.('host', d));
         conn.on('close', () => { if (done) this.handlers.leave?.('host'); });
         conn.on('error', () => { if (done) this.handlers.leave?.('host'); });
@@ -124,6 +133,30 @@ export class Net {
     });
   }
 
+  _openFast(peer, code) {
+    try {
+      const f = peer.connect(PREFIX + code, { reliable: false, serialization: 'raw', metadata: { fast: 1 } });
+      f.on('open', () => { this.fastConn = f; });
+      f.on('data', (d) => { const m = parse(d); if (m) this.handlers.data?.('host', m); });
+      const drop = () => { if (this.fastConn === f) this.fastConn = null; };
+      f.on('close', drop); f.on('error', drop);
+    } catch (e) { /* the reliable channel still works on its own */ }
+  }
+  // latency-sensitive messages: sent unordered (no waiting behind a lost packet), stringified once
+  sendFast(to, msg) {
+    if (this.isHost) { const f = this.fast.get(to); if (f && f.open) f.send(JSON.stringify(msg)); else this.send(to, msg); }
+    else if (this.fastConn && this.fastConn.open) this.fastConn.send(JSON.stringify(msg));
+    else this.send('host', msg);
+  }
+  broadcastFast(msg) {
+    let str = null;
+    for (const [id, c] of this.conns) {
+      if (!c.open) continue;
+      const f = this.fast.get(id);
+      if (f && f.open) f.send(str || (str = JSON.stringify(msg)));
+      else c.send(msg);
+    }
+  }
   send(to, msg) {
     if (this.isHost) { const c = this.conns.get(to); if (c && c.open) c.send(msg); }
     else if (this.conn && this.conn.open) this.conn.send(msg);
@@ -134,8 +167,9 @@ export class Net {
     this.closed = true;
     if (this._vis) { document.removeEventListener('visibilitychange', this._vis); window.removeEventListener('online', this._vis); }
     try { for (const c of this.conns.values()) c.close(); } catch (e) { }
-    try { this.conn?.close(); } catch (e) { }
+    try { for (const c of this.fast.values()) c.close(); } catch (e) { }
+    try { this.conn?.close(); this.fastConn?.close(); } catch (e) { }
     try { this.peer?.destroy(); } catch (e) { }
-    this.conns.clear(); this.conn = null; this.peer = null; this.ready = false;
+    this.conns.clear(); this.fast.clear(); this.conn = null; this.fastConn = null; this.peer = null; this.ready = false;
   }
 }
